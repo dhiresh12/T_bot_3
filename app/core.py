@@ -445,7 +445,7 @@ class BotEngine:
         welcome_msg = self.support.translations.get("en", {}).get("messages", {}).get("welcome", "Welcome!")
         return welcome_msg.format(name=profile.name)
 
-    def _handle_menu(self, profile: UserProfile) -> str:
+    def _handle_menu(self, profile: UserProfile) -> Dict[str, Any]:
         return self.build_menu(profile)
 
     def _handle_bonus(self, profile: UserProfile) -> str:

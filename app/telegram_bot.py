@@ -37,22 +37,27 @@ class TelegramBotService:
         """
         if not update:
             return {"text": "No update"}
-
-        message = update.get("message", {})
-        if not message:
-            # This could be a callback_query or other update type, ignore for now.
+        
+        # Determine the source of the command (message or button click)
+        if "callback_query" in update:
+            callback_query = update["callback_query"]
+            message = callback_query.get("message", {})
+            user = callback_query.get("from", {})
+            command = callback_query.get("data")
+        elif "message" in update:
+            message = update.get("message", {})
+            user = message.get("from", {})
+            command = (message.get("text") or "").strip()
+        else:
+            # Ignore other update types for now
             return
 
-        chat = message.get("chat", {})
-        text = (message.get("text") or "").strip()
-        user_id = chat.get("id")
-        first_name = chat.get("first_name", "User")
+        chat_id = message.get("chat", {}).get("id")
+        user_id = user.get("id")
+        first_name = user.get("first_name", "User")
 
         if not user_id:
             return
-
-        user_id = int(user_id)
-        command = text
         inviter_id = None
 
         # Phase 6: Handle referral from /start command
@@ -69,20 +74,15 @@ class TelegramBotService:
         self.engine.register_user(user_id, first_name, inviter_id=inviter_id)
 
         # Let the engine handle the logic
-        response_text = self.engine.handle_command(user_id, command)
+        response = self.engine.handle_command(user_id, command)
 
-        # --- Build the reply markup if needed ---
-        reply_markup = None
-
-        # Phase 6: Add "Mini App" button after successful bonus claim
-        if "Congratulations! You won" in response_text:
-            reply_markup = {
-                "inline_keyboard": [
-                    [
-                        {"text": "🚀 Launch Mini App", "web_app": {"url": self.mini_app_url}}
-                    ]
-                ]
-            }
+        # If the response from the engine is a dict, it includes a reply_markup
+        if isinstance(response, dict):
+            reply_markup = response.get("reply_markup")
+            response_text = response.get("text", "Something went wrong.")
+        else:
+            response_text = response
+            reply_markup = None
         
         # Send the response back to the user
-        self.send_message(user_id, response_text, reply_markup)
+        self.send_message(chat_id, response_text, reply_markup)
