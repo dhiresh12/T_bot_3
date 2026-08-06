@@ -63,6 +63,8 @@ class TelegramBotService:
         # Phase 6: Handle referral from /start command
         if text.startswith("/start"):
             parts = text.split()
+        if command.startswith("/start"):
+            parts = command.split()
             if len(parts) > 1:
                 try:
                     inviter_id = int(parts[1])
