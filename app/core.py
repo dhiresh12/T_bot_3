@@ -190,13 +190,13 @@ class BotEngine:
             return handler(profile)
 
         # Commands with arguments or special prefixes
-        if normalized_cmd in {"help", "/help"}:
+        if normalized_cmd == "help":
             return self.support.translations.get("en", {}).get("messages", {}).get("help_intro", "Help is available.")
-        if normalized_cmd in {"ads", "/ads", "watchads", "/watchads"}:
+        if normalized_cmd in {"ads", "watchads"}:
             return "Watch ads to earn rewards and boost your balance."
         if normalized_cmd.startswith("withdraw"):
             return self.request_withdrawal(user_id, self.min_withdrawal, method="upi", details="demo")
-        if normalized_cmd.startswith("admin") or normalized_cmd.startswith("/admin"):
+        if normalized_cmd.startswith("admin"):
             return self.handle_admin_command(user_id, command)
         return "Unknown command."
 
