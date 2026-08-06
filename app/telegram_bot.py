@@ -13,7 +13,7 @@ class TelegramBotService:
     Phase 6: Upgraded to handle referral links, admin-editable messages, and reply markups.
     """
     def __init__(self, engine: Optional[BotEngine] = None) -> None:
-        self.engine = engine or BotEngine(storage_path="bot_data.json")
+        self.engine = engine or BotEngine(storage_path="bot_data.db")
         self.token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         # The MINI_APP_URL should be the public URL of your Render app
         self.mini_app_url = os.getenv("MINI_APP_URL", "https://your-render-app.onrender.com")

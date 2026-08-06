@@ -16,7 +16,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = load_config().secret_key
 
-    current_engine = engine or BotEngine(storage_path="bot_data.json")
+    current_engine = engine or BotEngine(storage_path="bot_data.db")
     ads_manager = AdsManager(provider=load_config().ads_provider)
 
     app.config["engine"] = current_engine
