@@ -1,0 +1,496 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+import logging
+import random
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from datetime import datetime, time
+import os
+
+from app.admin import AdminPanelService
+from app.engagement import EngagementLayer
+from app.support import SupportService
+from app.security import SecurityManager
+
+
+@dataclass
+class UserProfile:  # Phase 1: Expanded UserProfile
+    user_id: int
+    name: str
+    wallet_bot: float = 0.0  # Renamed from wallet
+    wallet_app: float = 0.0  # New wallet for mini-app
+    coins: int = 0
+    popularity: int = 0
+    bonus_claimed: bool = False
+    completed_tasks: List[str] = field(default_factory=list)
+    total_ads_watched: int = 0
+    invite_count: int = 0
+    invites_list: List[int] = field(default_factory=list)  # Track who was invited
+    withdrawals: List[Dict[str, Any]] = field(default_factory=list)
+    last_bonus_at: Optional[str] = None
+    daily_ads_watch_count: int = 0
+    daily_spin_count: int = 0
+    last_spin_at: Optional[str] = None
+    last_ad_watched_at: Optional[str] = None
+    admin: bool = False
+    # New fields from plan
+    tier: str = "Bronze"
+    activity_log: List[Dict[str, Any]] = field(default_factory=list)
+    last_activity_at: Optional[str] = None
+    is_verified: bool = False
+    registered_at: Optional[str] = None # New field for tracking registration date
+    invited_by: Optional[int] = None
+
+    def log_activity(self, action: str, details: Optional[Dict] = None):
+        """Helper to log user activity."""
+        self.last_activity_at = datetime.utcnow().isoformat()
+        log_entry = {"action": action, "timestamp": self.last_activity_at}
+        if details:
+            log_entry.update(details)
+        self.activity_log.append(log_entry)
+
+
+class BotEngine:
+    def __init__(self, storage_path: Optional[str] = None) -> None:
+        # Use .db extension for SQLite
+        self.db_path = Path(storage_path or "bot_data.db")
+        self.users: Dict[int, UserProfile] = {}
+        # --- Admin configurable values ---
+        self.bonus_value = 0.05
+        self.admin_key = os.getenv("ADMIN_KEY", "admin-xio")
+        self.engagement = EngagementLayer()
+        self.support = SupportService()
+        self.admin_service = AdminPanelService(self)
+        self.security = SecurityManager()  # Phase 2: Integrate SecurityManager
+        self.spin_values = [0.0, 0.10, 0.15, 0.20]
+        self.min_withdrawal = 10.0
+        self.daily_ads_limit = 15
+        self.daily_spin_limit = 1
+        # Phase 1: Task rewards are now configurable
+        # --- New Economic Model ---
+        self.coins_to_rupee_rate = 0.0001  # Admin can change this. 10,000 coins = 1 Rupee
+        self.withdrawal_fee_percent = 5  # 5% processing fee on all withdrawals (Dark Pattern)
+
+        self.tasks = {
+            "join_channel": {"title": "Join Telegram channel", "reward_coins": 150, "reward_money": 0.01},
+            "join_group": {"title": "Join Telegram group", "reward_coins": 100, "reward_money": 0.01},
+            "share_link": {"title": "Share your invite link", "reward_coins": 50, "reward_money": 0.0},
+        }
+        # Phase 1: Withdrawal requirements
+        self.withdrawal_reqs = {
+            "min_invites": 10,
+            "min_tasks": 5,
+            "min_ads": 80,
+        }
+        self.load()
+        
+        # Code Quality: Command handler mapping
+        self.command_handlers = {
+            "start": self._handle_start,
+            "menu": self._handle_menu,
+            "bonus": self._handle_bonus,
+            "wallet": self._handle_wallet,
+            "task": self._handle_task,
+            "tasks": self._handle_task,
+            "spin": self._handle_spin,
+            "profile": self._handle_profile,
+            "leaderboard": self._handle_leaderboard,
+        }
+
+    def _get_utc_now(self) -> datetime:
+        return datetime.utcnow()
+
+    def load(self) -> None:
+        """Loads all user profiles from the SQLite database into memory."""
+        if not self.db_path.exists():
+            return
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users")
+            rows = cursor.fetchall()
+            conn.close()
+
+            for row in rows:
+                user_data = dict(row)
+                # Deserialize JSON strings back into Python objects
+                for key in ['completed_tasks', 'invites_list', 'withdrawals', 'activity_log']:
+                    if user_data.get(key):
+                        user_data[key] = json.loads(user_data[key])
+                
+                profile = UserProfile(**user_data)
+                self.users[profile.user_id] = profile
+        except (sqlite3.Error, json.JSONDecodeError, TypeError) as e:
+            logging.error(f"Error loading data: {e}")
+            self.users = {}
+
+    def save(self) -> None:
+        """Saves all user profiles from memory to the SQLite database."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            for profile in self.users.values():
+                profile_dict = {f.name: getattr(profile, f.name) for f in field(UserProfile) if hasattr(profile, f.name)}
+                
+                # Serialize complex types to JSON strings
+                for key in ['completed_tasks', 'invites_list', 'withdrawals', 'activity_log']:
+                    if profile_dict.get(key):
+                        profile_dict[key] = json.dumps(profile_dict[key])
+
+                columns = ', '.join(profile_dict.keys())
+                placeholders = ', '.join('?' for _ in profile_dict)
+                sql = f"INSERT OR REPLACE INTO users ({columns}) VALUES ({placeholders})"
+                cursor.execute(sql, list(profile_dict.values()))
+
+            conn.commit()
+            conn.close()
+        except sqlite3.Error as e:
+            logging.error(f"Error saving data to SQLite: {e}")
+
+    def register_user(self, user_id: int, name: str, inviter_id: Optional[int] = None) -> UserProfile:
+        if user_id not in self.users:
+            # Set registered_at when the user is first created
+            self.users[user_id] = UserProfile(user_id=user_id, name=name, registered_at=self._get_utc_now().isoformat())
+            if inviter_id and inviter_id in self.users:
+                self.users[user_id].invited_by = inviter_id # Assign inviter
+                self.process_successful_invite(inviter_id, user_id) # Process invite rewards
+            self.save()
+        return self.users[user_id]
+
+    def get_profile(self, user_id: int) -> UserProfile:
+        return self.users.setdefault(user_id, UserProfile(user_id=user_id, name="User"))
+
+    def build_menu(self, profile: UserProfile) -> str:
+        return (
+            f"Welcome {profile.name}\n"
+            "Main menu:\n"
+            "1. Profile\n"
+            "2. Bonus\n"
+            "3. Tasks\n"
+            "4. Spin\n"
+            "5. Wallet\n"
+            "6. Withdrawal\n"
+            "7. Help\n"
+            "8. Leaderboard"
+        )
+
+    def handle_command(self, user_id: int, command: str) -> str:
+        """Handles text-based commands from the Telegram bot chat."""
+        profile = self.get_profile(user_id)
+        normalized_cmd = (command or "").strip().lower().lstrip('/')
+        
+        # Simple commands
+        handler = self.command_handlers.get(normalized_cmd)
+        if handler:
+            return handler(profile)
+
+        # Commands with arguments or special prefixes
+        if normalized in {"help", "/help"}:
+            return self.support.translations.get("en", {}).get("messages", {}).get("help_intro", "Help is available.")
+        if normalized in {"ads", "/ads", "watchads", "/watchads"}:
+            return "Watch ads to earn rewards and boost your balance."
+        if normalized.startswith("withdraw"):
+            return self.request_withdrawal(user_id, self.min_withdrawal, method="upi", details="demo")
+        if normalized.startswith("admin") or normalized.startswith("/admin"):
+            return self.handle_admin_command(user_id, command)
+        return "Unknown command."
+
+    def complete_task(self, user_id: int, task_id: str) -> tuple[bool, str]:
+        profile = self.get_profile(user_id)
+        if task_id in profile.completed_tasks:
+            return False, "Task already completed."
+        if task_id not in self.tasks:
+            return False, "Invalid task ID."
+
+        # Phase 1: Dwell time rule can be implemented here in the future.
+        # For now, we assume verification is instant.
+
+        task_info = self.tasks[task_id]
+        reward_coins = task_info.get("reward_coins", 0)
+        # reward_money = task_info.get("reward_money", 0) # We now primarily give coins
+
+        profile.completed_tasks.append(task_id)
+        profile.coins += reward_coins
+        # profile.wallet_bot += reward_money
+        profile.popularity += 1
+        profile.log_activity("complete_task", {"task_id": task_id, "reward_coins": reward_coins})
+        self.save()
+        return True, f"Task '{task_id}' completed! You earned {reward_coins} coins."
+
+    def watch_ads(self, user_id: int) -> tuple[bool, str]:
+        profile = self.get_profile(user_id)
+
+        # Phase 1: Reset daily ad count at 12 PM UTC
+        now = self._get_utc_now()
+        reset_time = time(12, 0)
+        last_watched_time = datetime.fromisoformat(profile.last_ad_watched_at) if profile.last_ad_watched_at else None
+
+        if last_watched_time:
+            # Check if the last ad was watched on a previous day
+            if last_watched_time.date() < now.date():
+                profile.daily_ads_watch_count = 0
+            # Check if it's past 12 PM today and the last ad was before 12 PM today
+            elif now.time() >= reset_time and last_watched_time.time() < reset_time:
+                profile.daily_ads_watch_count = 0
+
+        if profile.daily_ads_watch_count >= self.daily_ads_limit:
+            return False, "Daily ads limit reached. Come back after 12 PM or tomorrow."
+
+        reward_coins = random.randint(50, 250) # Main reward is coins
+        # reward_money = 0.002 # No direct money, to protect your funds
+
+        profile.daily_ads_watch_count += 1
+        profile.total_ads_watched += 1
+        profile.last_ad_watched_at = now.isoformat()
+        profile.coins += reward_coins
+        # profile.wallet_bot += reward_money
+        profile.log_activity("watch_ad", {"reward_coins": reward_coins})
+        self.save()
+        return True, f"Ad completed. You earned {reward_coins} coins."
+
+    def process_successful_invite(self, inviter_id: int, new_user_id: int):
+        """Called when a new user joins via an invite link."""
+        inviter_profile = self.get_profile(inviter_id)
+        inviter_profile.invite_count += 1
+        inviter_profile.invites_list.append(new_user_id)
+        inviter_profile.popularity += 2  # Higher popularity for successful invites
+        # inviter_profile.wallet_bot += 0.005  # Give a large coin bonus instead
+        inviter_profile.coins += random.randint(500, 1000)
+        inviter_profile.log_activity("user_invited", {"new_user_id": new_user_id})
+        self.save()
+
+    def request_withdrawal(self, user_id: int, amount: float, method: str = "upi", details: str = "") -> str:
+        profile = self.get_profile(user_id)
+        
+        # Recalculate current wallet value based on coins
+        current_wallet_value = round(profile.coins * self.coins_to_rupee_rate, 4)
+
+        # Phase 1: Check withdrawal requirements
+        if profile.invite_count < self.withdrawal_reqs["min_invites"]:
+            return f"Withdrawal failed. You need at least {self.withdrawal_reqs['min_invites']} invites (you have {profile.invite_count})."
+        if len(profile.completed_tasks) < self.withdrawal_reqs["min_tasks"]:
+            return f"Withdrawal failed. You need to complete at least {self.withdrawal_reqs['min_tasks']} tasks (you have {len(profile.completed_tasks)})."
+        if profile.total_ads_watched < self.withdrawal_reqs["min_ads"]:
+            return f"Withdrawal failed. You need to watch at least {self.withdrawal_reqs['min_ads']} ads (you have {profile.total_ads_watched})."
+        if amount < self.min_withdrawal:
+            return "Withdrawal amount is below the minimum."
+        if amount > current_wallet_value:
+            return "Insufficient balance in bot wallet."
+
+        request_id = f"req-{user_id}-{len(profile.withdrawals) + 1}"
+        # Phase 2: Use SecurityManager for code generation
+        unique_code = self.security.generate_unique_code()
+        
+        # Dark Pattern: Calculate and apply processing fee
+        fee = round(amount * (self.withdrawal_fee_percent / 100), 2)
+        final_amount = amount - fee
+        coins_to_deduct = int(amount / self.coins_to_rupee_rate)
+
+        profile.withdrawals.append(
+            {
+                "request_id": request_id,
+                "user_id": user_id,
+                "amount": amount,
+                "method": method,
+                "details": details,
+                "status": "pending",
+                "unique_code": unique_code,
+                "fee_applied": fee,
+                "final_payout": final_amount,
+                "coins_deducted": coins_to_deduct,
+                "timestamp": self._get_utc_now().isoformat(),
+            }
+        )
+        profile.coins -= coins_to_deduct # Deduct coins immediately
+        self.save()
+        return f"Withdrawal request of ₹{amount:.2f} submitted. A {self.withdrawal_fee_percent}% fee (₹{fee:.2f}) is applied. Final Payout: ₹{final_amount:.2f}. Your unique code is: {unique_code}. Keep it safe!"
+
+    def spin_wheel(self, user_id: int) -> tuple[bool, str, float]:
+        """Handles the logic for the spin wheel, including daily limits."""
+        profile = self.get_profile(user_id)
+        now = self._get_utc_now()
+
+        last_spin_time = datetime.fromisoformat(profile.last_spin_at) if profile.last_spin_at else None
+        if last_spin_time and last_spin_time.date() < now.date():
+            profile.daily_spin_count = 0
+
+        if profile.daily_spin_count >= self.daily_spin_limit:
+            return False, "You have already used your daily spin. Come back tomorrow!", 0.0
+
+        profile.daily_spin_count += 1
+        profile.last_spin_at = now.isoformat()
+
+        value = random.choice(self.spin_values)
+        if value == 0.0:
+            self.save()
+            return True, "No luck this time, try again tomorrow.", 0.0
+
+        coins_won = int(value * 10000)
+        profile.coins += coins_won
+        profile.log_activity("spin_win", {"amount": value, "coins_won": coins_won})
+        self.save()
+        return True, f"Congratulations! You won {coins_won} coins (worth ₹{value:.2f}).", value
+
+    def approve_withdrawal(self, admin_id: int, user_id: int, request_id: str, verification_code: str) -> str:
+        """Admin command to approve a withdrawal after verifying the unique code."""
+        admin_profile = self.get_profile(admin_id)
+        if not admin_profile.admin:
+            return "Access Denied: This is an admin-only command."
+
+        target_profile = self.get_profile(user_id)
+        for request in target_profile.withdrawals:
+            if request.get("request_id") == request_id and request.get("status") == "pending":
+                # Phase 2: Verify the code before approving
+                if not self.security.verify_withdrawal_code(request, verification_code):
+                    return f"Verification Failed for {request_id}. The code is incorrect."
+
+                request["status"] = "approved"
+                request["approved_by"] = admin_id
+                request["transaction_id"] = self.security.generate_transaction_id(user_id)
+                # Coins are already deducted, no need to touch wallet_bot
+                target_profile.log_activity("withdrawal_approved", {"request_id": request_id, "amount": request["amount"]})
+                self.save()
+                return f"Withdrawal {request_id} for user {user_id} has been approved. Transaction ID: {request['transaction_id']}"
+        return f"Pending request with ID {request_id} for user {user_id} not found."
+
+    def get_activity_count(self, profile: UserProfile) -> int:
+        return len(profile.completed_tasks) + profile.invite_count
+
+    def get_dashboard(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        snapshot = self.engagement.build_progress_snapshot(profile.wallet_bot, profile.coins)
+        return {
+            "user_id": profile.user_id,
+            "name": profile.name,
+            "wallet_bot": profile.wallet_bot,
+            "wallet_rupee_equivalent": round(profile.coins * self.coins_to_rupee_rate, 4),
+            "coins": profile.coins,
+            "completed_ads": profile.total_ads_watched,
+            "available_tasks": self.tasks,
+            "invites": profile.invite_count,
+            "tasks": profile.completed_tasks,
+            "leaderboard_position": self.get_leaderboard_position(profile.user_id),
+            "withdrawal_reqs": self.withdrawal_reqs,
+            "withdrawal_history": profile.withdrawals,
+            "activity_count": self.get_activity_count(profile),
+            "engagement": snapshot,
+            "trust_feed": self.engagement.build_trust_feed(),
+            # Phase 4: Exposing fake feeds to the API for the mini-app
+            "live_feed": [self.engagement.generate_fake_withdrawal_feed(), self.engagement.get_fake_chat_message()],
+            "support": self.support.get_faq("en"), # Default to English for API
+        }
+
+    def get_help(self, language: str = "en") -> Dict[str, Any]:
+        lang_pack = self.support.translations.get(language, self.support.translations[self.support.default_lang])
+        return {
+            "language": language,
+            "message": lang_pack["messages"]["help_intro"],
+            "buttons": ["tasks", "contact_support", "contact_admin"],
+            "faq": lang_pack["faq"],
+            "support_links": self.support.get_support_links(),
+        }
+
+    def handle_admin_command(self, user_id: int, text: str) -> str:
+        """Handles all admin-related commands."""
+        profile = self.get_profile(user_id)
+        if not profile.admin:
+            return "Access Denied. This area is for admins only."
+
+        parts = text.strip().split()
+        command = parts[1] if len(parts) > 1 else "dashboard"
+
+        if command == "dashboard":
+            dash = self.admin_service.get_admin_dashboard()
+            return json.dumps(dash, indent=2)
+        
+        if command == "users":
+            users = self.admin_service.get_all_users_summary()
+            return json.dumps(users, indent=2)
+
+        if command == "view_user" and len(parts) > 2:
+            try:
+                target_id = int(parts[2])
+                target_profile = self.admin_service.get_user_full_profile(target_id)
+                if not target_profile: return f"User {target_id} not found."
+                # Convert dataclass to dict for JSON serialization
+                profile_dict = {f.name: getattr(target_profile, f.name) for f in field(UserProfile)}
+                return json.dumps(profile_dict, indent=2, default=str) # Use default=str for datetime etc.
+            except (ValueError, IndexError):
+                return "Usage: /admin view_user <user_id>"
+
+        if command == "set" and len(parts) > 3:
+            setting, value = parts[2], parts[3]
+            success, message = self.admin_service.update_bot_config(setting, value)
+            return message
+
+        if command == "backup":
+            return self.admin_service.create_backup()
+
+        if command == "rollback" and len(parts) > 2:
+            filename = parts[2]
+            return "Rollback successful." if self.admin_service.rollback_to_backup(filename) else "Rollback failed. File not found."
+
+        return "Unknown admin command. Try: dashboard, users, view_user, set, backup, rollback"
+        
+    # --- Command Handler Methods ---
+
+    def _handle_start(self, profile: UserProfile) -> str:
+        welcome_msg = self.support.translations.get("en", {}).get("messages", {}).get("welcome", "Welcome!")
+        return welcome_msg.format(name=profile.name)
+
+    def _handle_menu(self, profile: UserProfile) -> str:
+        return self.build_menu(profile)
+
+    def _handle_bonus(self, profile: UserProfile) -> str:
+        if not profile.bonus_claimed:
+            profile.wallet_bot += self.bonus_value
+            profile.coins += 500
+            profile.bonus_claimed = True
+            profile.log_activity("claim_bonus", {"amount": self.bonus_value})
+            self.save()
+            return f"Congratulations! You won {self.bonus_value:.2f} rupees and 500 Coins! Bonus credited.\nYour streak is growing — keep going to unlock the next tier."
+        return "Bonus already claimed."
+
+    def _handle_wallet(self, profile: UserProfile) -> str:
+        profile.wallet_bot = round((profile.coins * self.coins_to_rupee_rate), 4)
+        snapshot = self.engagement.build_progress_snapshot(profile.wallet_bot, profile.coins)
+        trust = "\n".join(self.engagement.build_trust_feed())
+        fake_withdrawal_notice = self.engagement.generate_fake_withdrawal_feed()
+        return f"Bot Wallet: {profile.wallet_bot:.2f} rupees | App Wallet: {profile.wallet_app:.2f} | Coins: {profile.coins}\nTier: {snapshot['tier']}\nNext tier: {snapshot['next_tier']}\n\n{fake_withdrawal_notice}\n\n{trust}"
+
+    def _handle_task(self, profile: UserProfile) -> str:
+        tasks = [f"{task_id} - {details['title']}" for task_id, details in self.tasks.items()]
+        return "Available tasks:\n" + "\n".join(tasks)
+
+    def _handle_spin(self, profile: UserProfile) -> str:
+        success, message, value = self.spin_wheel(profile.user_id)
+        return message
+
+    def _handle_profile(self, profile: UserProfile) -> str:
+        return (f"User ID: {profile.user_id}\n"
+                f"Name: {profile.name}\n"
+                f"Bot Wallet: {profile.wallet_bot:.2f}\n"
+                f"Coins: {profile.coins}\n"
+                f"Invites: {profile.invite_count}")
+
+    def _handle_leaderboard(self, profile: UserProfile) -> str:
+        leaderboard = self.get_leaderboard()
+        if not leaderboard: return "No leaderboard data yet."
+        lines = [f"{i + 1}. {name} - {wallet:.2f}" for i, (name, wallet) in enumerate(leaderboard[:5])]
+        return "Leaderboard:\n" + "\n".join(lines)
+
+    def get_leaderboard_position(self, user_id: int) -> int:
+        ranked = sorted(self.users.values(), key=lambda p: p.wallet_bot, reverse=True)
+        for index, profile in enumerate(ranked, start=1):
+            if profile.user_id == user_id:
+                return index
+        return 0
+
+    def get_leaderboard(self) -> List[tuple[str, float]]:
+        ranked = sorted(self.users.values(), key=lambda p: p.wallet_bot, reverse=True)
+        return [(profile.name, profile.wallet_bot) for profile in ranked if profile.wallet_bot > 0]
