@@ -224,8 +224,8 @@ def admin_view_user(user_id: int) -> tuple[dict, int]:
         return jsonify({"error": f"User {user_id} not found."}), 404
     
     # Convert dataclass to dict for JSON serialization
-    from dataclasses import field as dataclass_field
-    profile_dict = {f.name: getattr(target_profile, f.name) for f in dataclass_field(target_profile) if hasattr(target_profile, f.name)}
+    from dataclasses import asdict
+    profile_dict = asdict(target_profile)
     return jsonify(profile_dict), 200
 
 
@@ -320,6 +320,17 @@ def admin_total_balance_over_time() -> tuple[dict, int]:
     return jsonify(data), 200
 
 
+@bp.get("/api/admin/user_tier_distribution")
+def admin_user_tier_distribution() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+    
+    data = current_engine.admin_service.get_user_tier_distribution()
+    return jsonify(data), 200
+
+
 
 
 
@@ -340,10 +351,8 @@ def admin_edit_user(user_id: int) -> tuple[dict, int]:
     if not payload:
         return jsonify({"error": "Missing update data in request body."}), 400
 
-     #Sanitize payload to only allow specific fields to be edited
+    # Sanitize payload to only allow specific fields to be edited. 'coins' is intentionally left out for now.
     allowed_updates = {
-        "coins": payload.get("coins"),
-        "admin": payload.get("admin"), # This was already there
         "admin": payload.get("admin"),
         "invite_count": payload.get("invite_count"),
         "total_ads_watched": payload.get("total_ads_watched"),
@@ -427,6 +436,11 @@ def admin_ui() -> str:
             <canvas id="totalBalanceChart"></canvas>
           </div>
 
+          <h2>User Tier Distribution</h2>
+          <div class="card">
+            <canvas id="tierDistributionChart"></canvas>
+          </div>
+
           <h2>Bot Settings</h2>
           <div class="card grid">
             <div>
@@ -462,10 +476,10 @@ def admin_ui() -> str:
 
         <script>
           async function api(url, options = {}) {
-            const adminKey = localStorage.getItem('adminKey') || 'admin-xio';       
-        <script>
-          async function api(url, options = {}) {
-            const response = await fetch(url, options);
+            const adminKey = localStorage.getItem('adminKey') || 'admin-xio';
+            const defaultOptions = { headers: { 'X-Admin-Key': adminKey } };
+            const mergedOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+            const response = await fetch(url, mergedOptions);
             if (!response.ok) throw new Error(`API Error: ${"{"}response.status{"}"}`);
             return response.json();
           }
@@ -550,49 +564,24 @@ def admin_ui() -> str:
               alert('Approval failed. Check the code and try again.');
             }
           }
+          
+          async function updateUserField(userId, field, value, type) {
+            let processedValue = value;
+            if (type === 'number') processedValue = parseInt(value, 10);
+            if (type === 'boolean') processedValue = !!value;
 
-       const profile = await api(`/api/admin/view_user/${"{"}userId{"}"}`);
-            document.getElementById('edit-user-id').innerText = userId;
-            document.getElementById('edit-coins').value = profile.coins;
-            document.getElementById('edit-invite-count').value = profile.invite_count;
-            document.getElementById('edit-total-ads-watched').value = profile.total_ads_watched;
-            document.getElementById('edit-daily-spin-count').value = profile.daily_spin_count;
-            document.getElementById('edit-wallet-bot').value = profile.wallet_bot;
-            document.getElementById('edit-wallet-app').value = profile.wallet_app;
-            document.getElementById('edit-admin').checked = profile.admin;
-            document.getElementById('modal-save-btn').onclick = () => saveUserChanges(userId);
-            document.getElementById('userEditModal').style.display = 'block';
+            const statusEl = document.getElementById('edit-status');
+            statusEl.innerText = `Updating user ${"{"}userId{"}"}...`;
 
-
-          function closeUserEditModal() {
-            document.getElementById('userEditModal').style.display = 'none';
-          }
-
-         async function saveUserChanges(userId) {
-            const updates = {
-                coins: parseInt(document.getElementById('edit-coins').value),
-                admin: document.getElementById('edit-admin').checked
-                invite_count: parseInt(document.getElementById('edit-invite-count').value),
-                total_ads_watched: parseInt(document.getElementById('edit-total-ads-watched').value),
-                daily_spin_count: parseInt(document.getElementById('edit-daily-spin-count').value),
-                wallet_bot: parseFloat(document.getElementById('edit-wallet-bot').value),
-                wallet_app: parseFloat(document.getElementById('edit-wallet-app').value),
-                admin: document.getElementById('edit-admin').checked,
-            };
             try {
-                const result = await api(`/api/admin/edit_user/${"{"}userId{"}"}`, {
-
-
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updates)
-                });
-                alert(result.message);
-                closeUserEditModal();
-                loadUsers(); // Refresh user list
+              const result = await api(`/api/admin/edit_user/${"{"}userId{"}"}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: processedValue })
+              });
+              statusEl.innerText = result.message;
             } catch (e) {
-                console.error(e);
-                alert('Failed to save changes.'); 
+              statusEl.innerText = `Error updating user ${"{"}userId{"}"}.`;
             }
           }
 
@@ -631,7 +620,41 @@ def admin_ui() -> str:
               const message = document.getElementById('broadcast-message').value;
               document.getElementById('broadcast-status').innerText = `Broadcast functionality is not yet implemented. Message: "${"{"}message{"}"}"`;
           }
-             }
+
+          async function loadNewUsersChart() {
+            try {
+              const data = await api('/api/admin/user_registrations_over_time');
+              const labels = data.map(item => item.date);
+              const counts = data.map(item => item.count);
+
+              const ctx = document.getElementById('newUsersChart').getContext('2d');
+              new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels: labels,
+                  datasets: [{
+                    label: 'New Users',
+                    data: counts,
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      title: { display: true, text: 'Number of Users' }
+                    }
+                  }
+                }
+              });
+            } catch (error) {
+              console.error("Error loading new users chart:", error);
+            }
           }
 
           async function loadTotalBalanceChart() {
@@ -675,12 +698,53 @@ def admin_ui() -> str:
             }
           }
 
+          async function loadTierDistributionChart() {
+            try {
+              const data = await api('/api/admin/user_tier_distribution');
+              const labels = data.map(item => item.tier);
+              const counts = data.map(item => item.count);
+
+              const ctx = document.getElementById('tierDistributionChart').getContext('2d');
+              new Chart(ctx, {
+                type: 'pie',
+                data: {
+                  labels: labels,
+                  datasets: [{
+                    label: 'Users by Tier',
+                    data: counts,
+                    backgroundColor: [
+                      '#a8a29e', // Bronze (stone)
+                      '#94a3b8', // Silver (slate)
+                      '#fbbf24', // Gold (amber)
+                      '#60a5fa', // Platinum (blue)
+                      '#34d399', // Diamond (emerald)
+                      '#c084fc', // Crown (purple)
+                      '#ef4444'  // Conqueror (red)
+                    ],
+                    hoverOffset: 4
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { position: 'right', labels: { color: 'white' } },
+                    title: { display: true, text: 'User Tier Distribution', color: 'white' }
+                  }
+                }
+              });
+            } catch (error) {
+              console.error("Error loading tier distribution chart:", error);
+            }
+          }
+
           window.onload = () => {
             loadDashboard();
             loadUsers();
             loadBackups();
             loadNewUsersChart();
             loadTotalBalanceChart();
+            loadTierDistributionChart();
           };
         </script>
       </body>
