@@ -165,19 +165,21 @@ class BotEngine:
     def get_profile(self, user_id: int) -> UserProfile:
         return self.users.setdefault(user_id, UserProfile(user_id=user_id, name="User"))
 
-    def build_menu(self, profile: UserProfile) -> str:
-        return (
-            f"Welcome {profile.name}\n"
-            "Main menu:\n"
-            "1. Profile\n"
-            "2. Bonus\n"
-            "3. Tasks\n"
-            "4. Spin\n"
-            "5. Wallet\n"
-            "6. Withdrawal\n"
-            "7. Help\n"
-            "8. Leaderboard"
-        )
+    def build_menu(self, profile: UserProfile) -> Dict[str, Any]:
+        """Builds the main menu with inline keyboard buttons."""
+        text = f"👋 Welcome, {profile.name}!\n\nSelect an option from the menu below."
+        # Add a Mini App button directly in the main menu for easy access
+        mini_app_url = os.getenv("MINI_APP_URL", "https://your-render-app.onrender.com")
+        reply_markup = {
+            "inline_keyboard": [
+                [{"text": "👤 Profile", "callback_data": "profile"}, {"text": "💰 Wallet", "callback_data": "wallet"}],
+                [{"text": "🎁 Daily Bonus", "callback_data": "bonus"}, {"text": "🎡 Spin Wheel", "callback_data": "spin"}],
+                [{"text": "📋 Tasks", "callback_data": "tasks"}, {"text": "🏆 Leaderboard", "callback_data": "leaderboard"}],
+                [{"text": "🚀 Launch Mini App", "web_app": {"url": mini_app_url}}],
+                [{"text": "❓ Help", "callback_data": "help"}]
+            ]
+        }
+        return {"text": text, "reply_markup": reply_markup}
 
     def handle_command(self, user_id: int, command: str) -> str:
         """Handles text-based commands from the Telegram bot chat."""
@@ -479,10 +481,16 @@ class BotEngine:
                 f"Invites: {profile.invite_count}")
 
     def _handle_leaderboard(self, profile: UserProfile) -> str:
+        """Handles the leaderboard command, making it more engaging."""
         leaderboard = self.get_leaderboard()
         if not leaderboard: return "No leaderboard data yet."
-        lines = [f"{i + 1}. {name} - {wallet:.2f}" for i, (name, wallet) in enumerate(leaderboard[:5])]
-        return "Leaderboard:\n" + "\n".join(lines)
+        
+        # Dark Pattern: Social Proof and Competition
+        lines = [f"🏆 {i + 1}. {name} - ₹{wallet:.2f}" for i, (name, wallet) in enumerate(leaderboard[:10])]
+        user_rank = self.get_leaderboard_position(profile.user_id)
+        rank_text = f"\n\nYour Rank: #{user_rank}" if user_rank > 0 else "\n\nYou are not on the leaderboard yet. Keep earning!"
+
+        return "🌟 **Top 10 Earners** 🌟\n\n" + "\n".join(lines) + rank_text
 
     def get_leaderboard_position(self, user_id: int) -> int:
         ranked = sorted(self.users.values(), key=lambda p: p.wallet_bot, reverse=True)

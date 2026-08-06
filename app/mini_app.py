@@ -150,6 +150,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
 
           <!-- Tasks Page -->
           <div id="page-tasks" class="page">
+            <button class="back-button" onclick="showPage('home')">← Back</button>
             <h1 data-translate-key="tasks_title">Tasks</h1>
             <div id="task-list">
               <!-- Tasks will be dynamically inserted here -->
@@ -157,8 +158,9 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <p id="task-status" style="text-align:center; margin-top: 10px;"></p>
           </div>
 
-          <!-- Invite Page (Placeholder) -->
+          <!-- Invite Page -->
           <div id="page-invite" class="page">
+            <button class="back-button" onclick="showPage('home')">← Back</button>
             <h1 data-translate-key="invite_title">Invite Friends</h1>
             <p data-translate-key="invite_link_label">Your personal invite link:</p>
             <input id="invite-link" type="text" readonly style="width: 100%; padding: 10px; border-radius: 8px; background-color: var(--bg-light); border: 1px solid #334155; color: white; text-align: center;">
@@ -167,6 +169,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
 
           <!-- Withdraw Page -->
           <div id="page-wallet" class="page">
+            <button class="back-button" onclick="showPage('home')">← Back</button>
             <h1 data-translate-key="withdraw_title">Withdraw Funds</h1>
             
             <h2 data-translate-key="requirements_title">Requirements</h2>
@@ -385,17 +388,19 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             // You could also save this preference to localStorage
           }
 
-          // Navigation
-          document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-              e.preventDefault();
-              const pageId = `page-${"{"}item.dataset.page{"}"}`;
-              
+          function showPage(pageName) {
+              const pageId = `page-${"{"}pageName{"}"}`;
               document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
               document.getElementById(pageId)?.classList.add('active');
               
               document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-              item.classList.add('active');
+              document.querySelector(`.nav-item[data-page="${"{"}pageName{"}"}"]`)?.classList.add('active');
+          }
+
+          // Navigation
+          document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+              showPage(item.dataset.page);
             });
           });
 
