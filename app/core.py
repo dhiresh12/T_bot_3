@@ -4,7 +4,7 @@ import json
 import sqlite3
 import logging
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, time
@@ -135,7 +135,7 @@ class BotEngine:
             cursor = conn.cursor()
             
             for profile in self.users.values():
-                profile_dict = {f.name: getattr(profile, f.name) for f in field(UserProfile) if hasattr(profile, f.name)}
+                profile_dict = {f.name: getattr(profile, f.name) for f in fields(UserProfile) if hasattr(profile, f.name)}
                 
                 # Serialize complex types to JSON strings
                 for key in ['completed_tasks', 'invites_list', 'withdrawals', 'activity_log']:
@@ -418,7 +418,7 @@ class BotEngine:
                 target_profile = self.admin_service.get_user_full_profile(target_id)
                 if not target_profile: return f"User {target_id} not found."
                 # Convert dataclass to dict for JSON serialization
-                profile_dict = {f.name: getattr(target_profile, f.name) for f in field(UserProfile)}
+                profile_dict = {f.name: getattr(target_profile, f.name) for f in fields(UserProfile)}
                 return json.dumps(profile_dict, indent=2, default=str) # Use default=str for datetime etc.
             except (ValueError, IndexError):
                 return "Usage: /admin view_user <user_id>"
