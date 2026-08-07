@@ -24,17 +24,18 @@ class TelegramBotService:
         payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
         if reply_markup:
             payload["reply_markup"] = reply_markup
-
-        # If it's the start command, also send a persistent keyboard.
-        if is_start:
-            persistent_keyboard = {
-                "keyboard": [
-                    [{"text": "🚀 Launch Mini App", "web_app": {"url": self.mini_app_url}}],
-                    [{"text": "👤 Profile"}, {"text": "💰 Wallet"}, {"text": "🏆 Leaderboard"}]
-                ],
-                "resize_keyboard": True
-            }
-            payload["reply_markup"] = persistent_keyboard
+        # If it's the start command AND there isn't already an inline keyboard,
+        # send the persistent keyboard. This prevents overwriting the main menu.
+        elif is_start:
+             persistent_keyboard = {
+                 "keyboard": [
+                     [{"text": "🚀 Launch Mini App", "web_app": {"url": self.mini_app_url}}],
+                     [{"text": "👤 Profile"}, {"text": "💰 Wallet"}, {"text": "🏆 Leaderboard"}]
+                 ],
+                 "resize_keyboard": True,
+                 "one_time_keyboard": False # Keep it open
+             }
+             payload["reply_markup"] = persistent_keyboard
         
         try:
             requests.post(f"{self.api_url}/sendMessage", json=payload)
