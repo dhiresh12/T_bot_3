@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from pymongo.errors import PyMongoError
 
 if TYPE_CHECKING:
     from app.core import BotEngine, UserProfile
@@ -17,8 +18,6 @@ class AdminPanelService:
     """
     def __init__(self, engine: BotEngine) -> None:
         self.engine = engine
-        self.backup_dir = Path("backups")
-        self.backup_dir.mkdir(exist_ok=True)
 
     def get_admin_dashboard(self) -> Dict[str, object]:
         active_users = len(self.engine.users)
@@ -81,37 +80,28 @@ class AdminPanelService:
             else:
                 setattr(self.engine, setting, value_type(value))
             
-            self.engine.save() # Persist changes if any
+            # No global save needed for MongoDB, changes are per-user
             return True, f"Success: '{setting}' updated to '{value}'."
         except (ValueError, TypeError) as e:
             return False, f"Error updating '{setting}': Invalid value type. {e}"
 
     def create_backup(self) -> str:
-        """Creates a timestamped backup of the main data file."""
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
-        backup_file = self.backup_dir / f"bot_data_{timestamp}.db"
-        shutil.copy(self.engine.db_path, backup_file)
-        return f"Backup created successfully: {backup_file.name}"
+        """Backup functionality is now handled by the MongoDB provider (e.g., Atlas, Render)."""
+        return "Backup functionality is managed by your MongoDB hosting provider (e.g., Atlas snapshots)."
 
     def list_backups(self) -> List[str]:
-        """Lists all available backup files."""
-        return sorted([f.name for f in self.backup_dir.glob("*.db")], reverse=True)
+        """Backup functionality is now handled by the MongoDB provider."""
+        return ["Please check your MongoDB provider for backups."]
 
     def rollback_to_backup(self, filename: str) -> bool:
-        """Restores the bot's state from a backup file."""
-        backup_file = self.backup_dir / filename
-        if not backup_file.exists():
-            return False
-        shutil.copy(backup_file, self.engine.db_path)
-        self.engine.load()  # Reload the engine with the restored data
-        return True
+        """Rollback functionality is now handled by the MongoDB provider."""
+        return False
 
     def edit_user_profile(self, user_id: int, updates: Dict[str, Any]) -> tuple[bool, str]:
         """Edits a user's profile with the given updates."""
         profile = self.get_user_full_profile(user_id)
         if not profile:
             return False, f"User {user_id} not found."
-
         for key, value in updates.items():
             if hasattr(profile, key):
                 try:
@@ -122,7 +112,7 @@ class AdminPanelService:
                     return False, f"Invalid value type for '{key}'."
             else:
                 return False, f"Profile has no attribute '{key}'."
-        self.engine.save()
+        self.engine._save_user(profile)
         return True, f"User {user_id}'s profile updated successfully."
 
     def get_user_registrations_over_time(self) -> List[Dict[str, Any]]:
@@ -130,19 +120,23 @@ class AdminPanelService:
         Retrieves the count of new user registrations grouped by date.
         """
         registrations_data = []
+        pipeline = [
+            {"$match": {"registered_at": {"$ne": None}}},
+            {
+                "$project": {
+                    "registration_date": {
+                        "$dateToString": {"format": "%Y-%m-%d", "date": {"$toDate": "$registered_at"}}
+                    }
+                }
+            },
+            {"$group": {"_id": "$registration_date", "count": {"$sum": 1}}},
+            {"$sort": {"_id": 1}},
+            {"$project": {"date": "$_id", "count": "$count", "_id": 0}}
+        ]
         try:
-            conn = sqlite3.connect(self.engine.db_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT DATE(registered_at) as registration_date, COUNT(user_id) as new_users
-                FROM users WHERE registered_at IS NOT NULL
-                GROUP BY registration_date ORDER BY registration_date;
-            """)
-            for row in cursor.fetchall():
-                registrations_data.append({"date": row[0], "count": row[1]})
-            conn.close()
-        except sqlite3.Error as e:
-            self.engine.logger.error(f"Error fetching user registrations over time: {e}") # Assuming logger is available
+            registrations_data = list(self.engine.users_collection.aggregate(pipeline))
+        except PyMongoError as e:
+            logging.error(f"Error fetching user registrations from MongoDB: {e}")
         return registrations_data
 
     def get_total_coin_balance_over_time(self) -> List[Dict[str, Any]]:
@@ -151,31 +145,36 @@ class AdminPanelService:
         NOTE: This is computationally intensive. For a large number of users,
         this should be replaced with a separate, pre-calculated statistics table.
         """
-        all_events = []
-        for user in self.engine.users.values():
-            for log in user.activity_log:
-                timestamp_str = log.get("timestamp")
-                coin_change = 0
-                if "reward_coins" in log:
-                    coin_change = log["reward_coins"]
-                elif log.get("action") == "spin_win" and "coins_won" in log:
-                    coin_change = log["coins_won"]
-                
-                if coin_change > 0 and timestamp_str:
-                    all_events.append((datetime.fromisoformat(timestamp_str), coin_change))
-
-        all_events.sort(key=lambda x: x[0])
-
-        balance_over_time = {}
-        running_total = 0
-        for dt, change in all_events:
-            running_total += change
-            date_str = dt.strftime('%Y-%m-%d')
-            balance_over_time[date_str] = running_total
-        
-        # Convert to list of dicts for Chart.js
-        chart_data = [{"date": date, "total_coins": total} for date, total in balance_over_time.items()]
-        return sorted(chart_data, key=lambda x: x['date'])
+        pipeline = [
+            {"$unwind": "$activity_log"},
+            {"$match": {"activity_log.action": {"$in": ["complete_task", "watch_ad", "spin_win"]}}},
+            {
+                "$project": {
+                    "date": {"$dateToString": {"format": "%Y-%m-%d", "date": {"$toDate": "$activity_log.timestamp"}}},
+                    "coins_earned": {
+                        "$ifNull": [
+                            "$activity_log.reward_coins",
+                            "$activity_log.coins_won",
+                            0
+                        ]
+                    }
+                }
+            },
+            {"$group": {"_id": "$date", "daily_total": {"$sum": "$coins_earned"}}},
+            {"$sort": {"_id": 1}},
+            {"$project": {"date": "$_id", "total_coins": "$daily_total", "_id": 0}}
+        ]
+        try:
+            daily_earnings = list(self.engine.users_collection.aggregate(pipeline))
+            # Create a cumulative sum
+            cumulative_total = 0
+            for item in daily_earnings:
+                cumulative_total += item["total_coins"]
+                item["total_coins"] = cumulative_total
+            return daily_earnings
+        except PyMongoError as e:
+            logging.error(f"Error fetching total balance from MongoDB: {e}")
+            return []
 
     def get_user_tier_distribution(self) -> List[Dict[str, Any]]:
         """

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import logging
 import random
 from dataclasses import dataclass, field, fields, asdict
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, time
 import os
+from pymongo import MongoClient
 
 from app.admin import AdminPanelService
 from app.engagement import EngagementLayer
@@ -55,14 +55,13 @@ class UserProfile:  # Phase 1: Expanded UserProfile
 
 class BotEngine:
     def __init__(self, storage_path: Optional[str] = None) -> None:
-        # Use .db extension for SQLite
-        self.db_path = Path(storage_path or "bot_data.db")
-
-        # Check for a one-time reset flag from environment variables
-        if os.getenv("FORCE_DB_RESET", "false").lower() == "true":
-            if self.db_path.exists():
-                logging.warning("FORCE_DB_RESET is true. Deleting existing database file to create a new one.")
-                self.db_path.unlink()
+        # --- MongoDB Connection ---
+        mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            raise ValueError("MONGO_URI environment variable not set.")
+        self.client = MongoClient(mongo_uri)
+        self.db = self.client.get_default_database() # The DB name is part of the URI
+        self.users_collection = self.db.users
 
         self.users: Dict[int, UserProfile] = {}
         # --- Admin configurable values ---
@@ -111,53 +110,28 @@ class BotEngine:
         return datetime.utcnow()
 
     def load(self) -> None:
-        """Loads all user profiles from the SQLite database into memory."""
-        if not self.db_path.exists():
-            return
+        """Loads all user profiles from the MongoDB collection into memory."""
         try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users")
-            rows = cursor.fetchall()
-            conn.close()
-
-            for row in rows:
-                user_data = dict(row)
-                # Deserialize JSON strings back into Python objects
-                for key in ['completed_tasks', 'invites_list', 'withdrawals', 'activity_log']:
-                    if user_data.get(key):
-                        user_data[key] = json.loads(user_data[key])
-                
+            all_users_data = self.users_collection.find()
+            for user_data in all_users_data:
+                user_data['user_id'] = user_data.pop('_id') # MongoDB uses _id as primary key
                 profile = UserProfile(**user_data)
                 self.users[profile.user_id] = profile
-        except (sqlite3.Error, json.JSONDecodeError, TypeError) as e:
-            logging.error(f"Error loading data: {e}")
+            logging.info(f"Loaded {len(self.users)} users from MongoDB.")
+        except Exception as e:
+            logging.error(f"Error loading data from MongoDB: {e}")
             self.users = {}
 
     def save(self) -> None:
-        """Saves all user profiles from memory to the SQLite database."""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            for profile in self.users.values():
-                profile_dict = {f.name: getattr(profile, f.name) for f in fields(UserProfile) if hasattr(profile, f.name)}
-                
-                # Serialize complex types to JSON strings
-                for key in ['completed_tasks', 'invites_list', 'withdrawals', 'activity_log']:
-                    if profile_dict.get(key):
-                        profile_dict[key] = json.dumps(profile_dict[key])
+        """Saves a single user profile to MongoDB. Called after any modification."""
+        # In a MongoDB architecture, it's better to save one document at a time
+        # rather than the whole collection. This method will now require a user_id.
+        pass # We will call a new method `_save_user` instead.
 
-                columns = ', '.join(profile_dict.keys())
-                placeholders = ', '.join('?' for _ in profile_dict)
-                sql = f"INSERT OR REPLACE INTO users ({columns}) VALUES ({placeholders})"
-                cursor.execute(sql, list(profile_dict.values()))
-
-            conn.commit()
-            conn.close()
-        except sqlite3.Error as e:
-            logging.error(f"Error saving data to SQLite: {e}")
+    def _save_user(self, profile: UserProfile):
+        """Saves a single user's profile to MongoDB."""
+        profile_dict = asdict(profile)
+        self.users_collection.replace_one({'_id': profile.user_id}, profile_dict, upsert=True)
 
     def register_user(self, user_id: int, name: str, inviter_id: Optional[int] = None) -> UserProfile:
         if user_id not in self.users:
@@ -166,7 +140,7 @@ class BotEngine:
             if inviter_id and inviter_id in self.users:
                 self.users[user_id].invited_by = inviter_id # Assign inviter
                 self.process_successful_invite(inviter_id, user_id) # Process invite rewards
-            self.save()
+            self._save_user(self.users[user_id])
         return self.users[user_id]
 
     def get_profile(self, user_id: int) -> UserProfile:
@@ -269,7 +243,7 @@ class BotEngine:
         # profile.wallet_bot += reward_money
         profile.popularity += 1
         profile.log_activity("complete_task", {"task_id": task_id, "reward_coins": reward_coins})
-        self.save()
+        self._save_user(profile)
         return True, f"Task '{task_id}' completed! You earned {reward_coins} coins."
 
     def watch_ads(self, user_id: int) -> tuple[bool, str]:
@@ -300,7 +274,7 @@ class BotEngine:
         profile.coins += reward_coins
         # profile.wallet_bot += reward_money
         profile.log_activity("watch_ad", {"reward_coins": reward_coins})
-        self.save()
+        self._save_user(profile)
         return True, f"Ad completed. You earned {reward_coins} coins."
 
     def process_successful_invite(self, inviter_id: int, new_user_id: int):
@@ -312,7 +286,7 @@ class BotEngine:
         # inviter_profile.wallet_bot += 0.005  # Give a large coin bonus instead
         inviter_profile.coins += random.randint(500, 1000)
         inviter_profile.log_activity("user_invited", {"new_user_id": new_user_id})
-        self.save()
+        self._save_user(inviter_profile)
 
     def request_withdrawal(self, user_id: int, amount: float, method: str = "upi", details: str = "") -> str:
         profile = self.get_profile(user_id)
@@ -357,7 +331,7 @@ class BotEngine:
             }
         )
         profile.coins -= coins_to_deduct # Deduct coins immediately
-        self.save()
+        self._save_user(profile)
         return f"Withdrawal request of ₹{amount:.2f} submitted. A {self.withdrawal_fee_percent}% fee (₹{fee:.2f}) is applied. Final Payout: ₹{final_amount:.2f}. Your unique code is: {unique_code}. Keep it safe!"
 
     def spin_wheel(self, user_id: int) -> tuple[bool, str, float]:
@@ -377,13 +351,13 @@ class BotEngine:
 
         value = random.choice(self.spin_values)
         if value == 0.0:
-            self.save()
+            self._save_user(profile)
             return True, "No luck this time, try again tomorrow.", 0.0
 
         coins_won = int(value * 10000)
         profile.coins += coins_won
         profile.log_activity("spin_win", {"amount": value, "coins_won": coins_won})
-        self.save()
+        self._save_user(profile)
         return True, f"Congratulations! You won {coins_won} coins (worth ₹{value:.2f}).", value
 
     def approve_withdrawal(self, admin_id: int, user_id: int, request_id: str, verification_code: str) -> str:
@@ -404,7 +378,7 @@ class BotEngine:
                 request["transaction_id"] = self.security.generate_transaction_id(user_id)
                 # Coins are already deducted, no need to touch wallet_bot
                 target_profile.log_activity("withdrawal_approved", {"request_id": request_id, "amount": request["amount"]})
-                self.save()
+                self._save_user(target_profile)
                 return f"Withdrawal {request_id} for user {user_id} has been approved. Transaction ID: {request['transaction_id']}"
         return f"Pending request with ID {request_id} for user {user_id} not found."
 
@@ -505,7 +479,7 @@ class BotEngine:
             profile.coins += 500
             profile.bonus_claimed = True
             profile.log_activity("claim_bonus", {"amount": self.bonus_value})
-            self.save()
+            self._save_user(profile)
             return f"Congratulations! You won {self.bonus_value:.2f} rupees and 500 Coins! Bonus credited.\nYour streak is growing — keep going to unlock the next tier."
         return "Bonus already claimed."
 

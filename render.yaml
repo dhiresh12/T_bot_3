@@ -12,12 +12,7 @@ services:
         generateValue: true
       - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: TELEGRAM_BOT_USERNAME
-        sync: false
       - key: ADMIN_KEY
         sync: false
-      - key: MINI_APP_URL
-        fromService:
-          type: web
-          name: xio-payplus # This must match the 'name' of this service
-          property: url
+      - key: MONGO_URI # Example: mongodb+srv://user:pass@cluster.mongodb.net/yourDbName
+        sync: false
