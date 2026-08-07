@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import requests
 from app.telegram_bot import TelegramBotService
 from flask import Blueprint, current_app, jsonify, request, render_template_string
 
@@ -12,6 +13,31 @@ bp = Blueprint("main", __name__)
 @bp.get("/health")
 def health() -> tuple[dict, int]:
     return jsonify({"status": "ok"}), 200
+
+
+@bp.get("/api/webhook/status")
+def webhook_status() -> tuple[dict, int]:
+    """Reports whether the Telegram webhook is registered and the bot token is set."""
+    from app.telegram_bot import TelegramBotService
+    service = TelegramBotService(engine=current_app.config.get("engine"))
+    if not service.token:
+        return jsonify({
+            "token_set": False,
+            "webhook_url": None,
+            "message": "TELEGRAM_BOT_TOKEN is not set on the server. Add it in Render -> Environment to enable the bot.",
+        }), 200
+    try:
+        info = requests.post(
+            f"{service.api_url}/getWebhookInfo", timeout=15
+        ).json()
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"token_set": True, "error": str(exc)}), 200
+    return jsonify({
+        "token_set": True,
+        "webhook_url": info.get("result", {}).get("url"),
+        "pending_update_count": info.get("result", {}).get("pending_update_count", 0),
+        "message": "Webhook configured." if info.get("result", {}).get("url") else "No webhook URL set yet.",
+    }), 200
 
 
 @bp.get("/api/ads/config")
