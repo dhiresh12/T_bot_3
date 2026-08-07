@@ -19,11 +19,22 @@ class TelegramBotService:
         self.mini_app_url = os.getenv("MINI_APP_URL", "https://your-render-app.onrender.com")
         self.api_url = f"https://api.telegram.org/bot{self.token}"
 
-    def send_message(self, chat_id: int, text: str, reply_markup: Optional[Dict] = None):
+    def send_message(self, chat_id: int, text: str, reply_markup: Optional[Dict] = None, is_start: bool = False):
         """Sends a message to a specific chat ID via the Telegram Bot API."""
         payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
         if reply_markup:
             payload["reply_markup"] = reply_markup
+
+        # If it's the start command, also send a persistent keyboard.
+        if is_start:
+            persistent_keyboard = {
+                "keyboard": [
+                    [{"text": "🚀 Launch Mini App", "web_app": {"url": self.mini_app_url}}],
+                    [{"text": "👤 Profile"}, {"text": "💰 Wallet"}, {"text": "🏆 Leaderboard"}]
+                ],
+                "resize_keyboard": True
+            }
+            payload["reply_markup"] = persistent_keyboard
         
         try:
             requests.post(f"{self.api_url}/sendMessage", json=payload)
@@ -59,16 +70,19 @@ class TelegramBotService:
         if not user_id:
             return
         inviter_id = None
+        is_start_command = False
 
         # Phase 6: Handle referral from /start command
-        if command.startswith("/start"):
-            parts = command.split()
+        # Also handle persistent keyboard commands that don't start with '/'
+        if command.lower().startswith("start"):
+            parts = command.split() # Handles both "/start 123" and "start 123"
             if len(parts) > 1:
                 try:
                     inviter_id = int(parts[1])
                 except ValueError:
                     inviter_id = None # Invalid referral code
-            command = "/start" # Normalize command
+            is_start_command = True
+            command = "start" # Normalize for the engine
 
         # Register user, potentially with an inviter
         self.engine.register_user(user_id, first_name, inviter_id=inviter_id)
@@ -85,4 +99,4 @@ class TelegramBotService:
             reply_markup = None
         
         # Send the response back to the user
-        self.send_message(chat_id, response_text, reply_markup)
+        self.send_message(chat_id, response_text, reply_markup, is_start=is_start_command)

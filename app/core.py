@@ -193,7 +193,8 @@ class BotEngine:
 
         # Commands with arguments or special prefixes
         if normalized_cmd.startswith("help"):
-            return self.handle_help_command(normalized_cmd)
+            # Pass the original command to preserve case and structure
+            return self.handle_help_command(command.strip().lstrip('/'))
         if normalized_cmd in {"ads", "watchads"}:
             return "Watch ads to earn rewards and boost your balance."
         if normalized_cmd.startswith("withdraw"):
@@ -213,6 +214,8 @@ class BotEngine:
             text = "Please select your language:\nकृपया अपनी भाषा चुनें:"
             buttons = [
                 [{"text": "🇬🇧 English", "callback_data": "help:en"}, {"text": "🇮🇳 हिन्दी", "callback_data": "help:hi"}],
+                [{"text": "🇪🇸 Español", "callback_data": "help:es"}, {"text": "🇫🇷 Français", "callback_data": "help:fr"}],
+                [{"text": "🇨🇳 中文", "callback_data": "help:zh"}, {"text": "🇷🇺 Русский", "callback_data": "help:ru"}],
                 [{"text": "🇧🇩 বাংলা", "callback_data": "help:bn"}, {"text": "🇵🇰 اردو", "callback_data": "help:ur"}],
                 [{"text": "🇮🇳 தமிழ்", "callback_data": "help:ta"}, {"text": "🇮🇳 తెలుగు", "callback_data": "help:te"}],
             ]
@@ -471,9 +474,12 @@ class BotEngine:
         
     # --- Command Handler Methods ---
 
-    def _handle_start(self, profile: UserProfile) -> str:
-        welcome_msg = self.support.translations.get("en", {}).get("messages", {}).get("welcome", "Welcome!")
-        return welcome_msg.format(name=profile.name)
+    def _handle_start(self, profile: UserProfile) -> Dict[str, Any]:
+        """Handles the start command by showing a welcome message and the main menu."""
+        welcome_msg = self.support.translations.get("en", {}).get("messages", {}).get("welcome", "Welcome!").format(name=profile.name)
+        menu_data = self.build_menu(profile)
+        menu_data["text"] = f"{welcome_msg}\n\n{menu_data['text']}"
+        return menu_data
 
     def _handle_menu(self, profile: UserProfile) -> Dict[str, Any]:
         return self.build_menu(profile)
