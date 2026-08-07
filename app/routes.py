@@ -248,6 +248,62 @@ def admin_set_config() -> tuple[dict, int]:
     return jsonify({"success": success, "message": message}), 200
 
 
+@bp.post("/api/admin/commands/<command>")
+def admin_command(command: str) -> tuple[dict, int]:
+    """
+    Generic admin command endpoint.
+    Supports commands like 'bonus' to update a bot-level setting.
+    """
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key") or (
+        request.get_json(silent=True) or {}).get("admin_key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    value = payload.get("value")
+
+    # Map simple admin commands to engine config attributes
+    config_map = {
+        "bonus": "bonus_value",
+        "min_withdrawal": "min_withdrawal",
+        "daily_ads_limit": "daily_ads_limit",
+        "daily_spin_limit": "daily_spin_limit",
+        "coins_to_rupee_rate": "coins_to_rupee_rate",
+        "withdrawal_fee_percent": "withdrawal_fee_percent",
+    }
+    setting = config_map.get(command)
+    if setting is None:
+        return jsonify({"error": f"Unknown admin command '{command}'."}), 400
+
+    success, message = current_engine.admin_service.update_bot_config(setting, value)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.post("/api/admin/commands/bonus")
+def admin_command_bonus() -> tuple[dict, int]:
+    """Admin route to update the daily bonus value."""
+    current_engine = current_app.config["engine"]
+    # Security Improvement: Check for a secret header
+    admin_key = request.headers.get("X-Admin-Key")
+    payload = request.get_json(silent=True) or {}
+    # Allow the admin key to be supplied either in the header or in the body.
+    body_key = payload.get("admin_key")
+    if (not admin_key or admin_key != current_engine.admin_key) and body_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+
+    value = payload.get("value")
+    if value is None:
+        return jsonify({"error": "Missing 'value' in request body."}), 400
+
+    try:
+        current_engine.bonus_value = float(value)
+    except (ValueError, TypeError):
+        return jsonify({"error": "'value' must be a number."}), 400
+
+    return jsonify({"success": True, "message": f"Bonus value updated to '{current_engine.bonus_value}'."}), 200
+
+
 @bp.post("/api/admin/backup")
 def admin_backup() -> tuple[dict, int]:
     current_engine = current_app.config["engine"]

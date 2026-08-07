@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 from dataclasses import dataclass, field, fields, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, time
 import os
 from pymongo import MongoClient
+
+try:
+    import mongomock
+except ImportError:  # pragma: no cover
+    mongomock = None
 
 from app.admin import AdminPanelService
 from app.engagement import EngagementLayer
@@ -54,12 +60,21 @@ class UserProfile:  # Phase 1: Expanded UserProfile
 
 class BotEngine:
     def __init__(self, storage_path: Optional[str] = None) -> None:
-        # --- MongoDB Connection ---
+        # --- MongoDB Connection (optional) ---
+        # If MONGO_URI is set, connect to a real MongoDB. Otherwise, fall back to
+        # an in-memory mongomock instance so the app/tests can run locally without
+        # a database server.
         mongo_uri = os.getenv("MONGO_URI")
-        if not mongo_uri:
-            raise ValueError("MONGO_URI environment variable not set.")
-        self.client = MongoClient(mongo_uri)
-        self.db = self.client.get_default_database() # The DB name is part of the URI
+        if mongo_uri:
+            self.client = MongoClient(mongo_uri)
+            # The DB name is part of the URI; fall back to a sensible default if not present.
+            self.db = self.client.get_default_database() or self.client["bot_data"]
+        elif mongomock is not None:
+            # mongomock needs an explicit database name.
+            self.client = mongomock.MongoClient("mongodb://localhost")
+            self.db = self.client["bot_data"]
+        else:  # pragma: no cover
+            raise ValueError("MONGO_URI environment variable not set and mongomock is unavailable.")
         self.users_collection = self.db.users
 
         self.users: Dict[int, UserProfile] = {}
@@ -91,7 +106,7 @@ class BotEngine:
             "min_ads": 80,
         }
         self.load()
-        
+
         # Code Quality: Command handler mapping
         self.command_handlers = {
             "start": self._handle_start,
@@ -168,12 +183,12 @@ class BotEngine:
     def handle_command(self, user_id: int, command: str) -> str:
         """Handles text-based commands from the Telegram bot chat."""
         profile = self.get_profile(user_id)
-        
+
         # Normalize command by removing slashes, converting to lowercase, and stripping emojis/whitespace.
         # This allows "profile", "/profile", and "👤 Profile" to all work.
         cleaned_command = (command or "").strip().lstrip('/')
         normalized_cmd = ''.join(c for c in cleaned_command if c.isalnum() or c == ':').lower()
-        
+
         # Commands with arguments or special prefixes (like help:en)
         if normalized_cmd.startswith("help"):
             # Pass the original command to preserve case and structure
@@ -182,7 +197,7 @@ class BotEngine:
         # Special normalization for the start command
         if normalized_cmd.startswith("start"):
             normalized_cmd = "start"
-        
+
         # Simple commands
         handler = self.command_handlers.get(normalized_cmd)
         if handler:
@@ -217,7 +232,7 @@ class BotEngine:
             # Language selected: show help content in that language
             help_content = self.support.get_faq(lang)
             messages = self.support.translations.get(lang, self.support.translations['en'])['messages']
-            
+
             text = messages.get('help_intro', 'Help is available.') + "\n\n"
             text += "\n".join(f"• {q}: {a}" for q, a in help_content.items())
 
@@ -294,7 +309,7 @@ class BotEngine:
 
     def request_withdrawal(self, user_id: int, amount: float, method: str = "upi", details: str = "") -> str:
         profile = self.get_profile(user_id)
-        
+
         # Recalculate current wallet value based on coins
         current_wallet_value = round(profile.coins * self.coins_to_rupee_rate, 4)
 
@@ -313,7 +328,7 @@ class BotEngine:
         request_id = f"req-{user_id}-{len(profile.withdrawals) + 1}"
         # Phase 2: Use SecurityManager for code generation
         unique_code = self.security.generate_unique_code()
-        
+
         # Dark Pattern: Calculate and apply processing fee
         fee = round(amount * (self.withdrawal_fee_percent / 100), 2)
         final_amount = amount - fee
@@ -435,7 +450,7 @@ class BotEngine:
         if command == "dashboard":
             dash = self.admin_service.get_admin_dashboard()
             return json.dumps(dash, indent=2)
-        
+
         if command == "users":
             users = self.admin_service.get_all_users_summary()
             return json.dumps(users, indent=2)
@@ -464,7 +479,7 @@ class BotEngine:
             return "Rollback successful." if self.admin_service.rollback_to_backup(filename) else "Rollback failed. File not found."
 
         return "Unknown admin command. Try: dashboard, users, view_user, set, backup, rollback"
-        
+
     # --- Command Handler Methods ---
 
     def _handle_start(self, profile: UserProfile) -> Dict[str, Any]:
@@ -513,7 +528,7 @@ class BotEngine:
         """Handles the leaderboard command, making it more engaging."""
         leaderboard = self.get_leaderboard()
         if not leaderboard: return "No leaderboard data yet."
-        
+
         # Dark Pattern: Social Proof and Competition
         lines = [f"🏆 {i + 1}. {name} - ₹{wallet:.2f}" for i, (name, wallet) in enumerate(leaderboard[:10])]
         user_rank = self.get_leaderboard_position(profile.user_id)

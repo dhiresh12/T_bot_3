@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+pytest_out.txt
+test_output.txt
+final_test.txt
+check.txt
+verify.txt
+verify2.txt
+
+# Local database / data
+*.db
+*.sqlite3
+
+# Environment variables / secrets
+.env
+.env.*
+!*.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

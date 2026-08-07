@@ -10,5 +10,7 @@ def test_engagement_layer_and_endpoint():
     response = client.get("/api/engagement/900")
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload["progress"]["tier"] in {"Bronze", "Silver", "Gold", "Diamond"}
+    # The tier string includes an emoji prefix (e.g. "🥉 Bronze"), so check
+    # for the plain tier name using a substring match.
+    assert "Bronze" in payload["progress"]["tier"]
     assert len(payload["trust_feed"]) >= 1

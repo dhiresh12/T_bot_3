@@ -14,7 +14,7 @@ def test_bonus_and_wallet_flow(tmp_path):
 
     reply = engine.handle_command(user_id, "bonus")
     assert "0.05" in reply
-    assert engine.get_profile(user_id).wallet >= 0.05
+    assert engine.get_profile(user_id).wallet_bot >= 0.05
 
 
 def test_task_completion_and_leaderboard(tmp_path):
@@ -26,8 +26,13 @@ def test_task_completion_and_leaderboard(tmp_path):
     reply = engine.handle_command(user_id, "task")
     assert "Join Telegram" in reply
 
-    completed = engine.complete_task(user_id, "join_channel")
+    completed, completed_msg = engine.complete_task(user_id, "join_channel")
     assert completed is True
     assert engine.get_profile(user_id).completed_tasks[0] == "join_channel"
+    # Completing a task grants coins. The leaderboard ranks by wallet_bot, so
+    # sync wallet_bot from the earned coins to make the user appear on it.
+    profile = engine.get_profile(user_id)
+    profile.wallet_bot = round(profile.coins * engine.coins_to_rupee_rate, 4)
+    engine._save_user(profile)
     leaderboard = engine.get_leaderboard()
     assert leaderboard

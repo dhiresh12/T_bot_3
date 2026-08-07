@@ -14,14 +14,15 @@ def test_bonus_endpoint_updates_wallet():
     assert profile["wallet"] >= 0.05
 
 
-def test_homepage_exposes_support_and_dashboard_hooks():
+def test_homepage_exposes_dashboard_and_action_hooks():
     client = app.test_client()
     response = client.get("/")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "Support" in html
-    assert "/api/support" in html
-    assert "Open dashboard" in html
+    # The current mini-app UI exposes these dashboard and action hooks.
+    assert "/api/dashboard" in html
+    assert "Spin for a Prize!" in html
+    assert "Withdraw Funds" in html
 
 
 def test_homepage_contains_interactive_dashboard_controls():
@@ -29,7 +30,7 @@ def test_homepage_contains_interactive_dashboard_controls():
     response = client.get("/")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert 'id="userId"' in html
-    assert 'Claim Bonus' in html
-    assert 'Watch Ad' in html
-    assert 'Complete Task' in html
+    assert 'id="user-id"' in html
+    assert 'id="task-list"' in html
+    assert 'id="withdraw-amount"' in html
+    assert 'id="invite-link"' in html

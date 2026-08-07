@@ -18,6 +18,7 @@ class TelegramBotService:
         # The MINI_APP_URL should be the public URL of your Render app
         self.mini_app_url = os.getenv("MINI_APP_URL", "https://your-render-app.onrender.com")
         self.api_url = f"https://api.telegram.org/bot{self.token}"
+        self._last_sent: Optional[Dict] = None
 
     def send_message(self, chat_id: int, text: str, reply_markup: Optional[Dict] = None, is_start: bool = False):
         """Sends a message to a specific chat ID via the Telegram Bot API."""
@@ -27,29 +28,36 @@ class TelegramBotService:
         # If it's the start command AND there isn't already an inline keyboard,
         # send the persistent keyboard. This prevents overwriting the main menu.
         elif is_start:
-             persistent_keyboard = {
-                 "keyboard": [
-                     [{"text": "🚀 Launch Mini App", "web_app": {"url": self.mini_app_url}}],
-                     [{"text": "👤 Profile"}, {"text": "💰 Wallet"}, {"text": "🏆 Leaderboard"}]
-                 ],
-                 "resize_keyboard": True,
-                 "one_time_keyboard": False # Keep it open
-             }
-             payload["reply_markup"] = persistent_keyboard
-        
+            persistent_keyboard = {
+                "keyboard": [
+                    [{"text": "🚀 Launch Mini App", "web_app": {"url": self.mini_app_url}}],
+                    [{"text": "👤 Profile"}, {"text": "💰 Wallet"}, {"text": "🏆 Leaderboard"}]
+                ],
+                "resize_keyboard": True,
+                "one_time_keyboard": False  # Keep it open
+            }
+            payload["reply_markup"] = persistent_keyboard
+
+        # If no token is configured (e.g., during tests/local dev), simply record the
+        # message instead of making a real network call.
+        if not self.token:
+            self._last_sent = payload
+            print(f"[telegram-bot][mock] -> {text}")
+            return
+
         try:
             requests.post(f"{self.api_url}/sendMessage", json=payload)
         except requests.RequestException as e:
             print(f"Error sending message: {e}")
 
-    def handle_update(self, update: dict) -> None:
+    def handle_update(self, update: dict) -> str:
         """
-        Processes an incoming update from Telegram and returns a structured response
-        for the Telegram API (including text and reply_markup).
+        Processes an incoming update from Telegram and returns the response text
+        that was (or would be) sent to the user.
         """
         if not update:
-            return {"text": "No update"}
-        
+            return "No update"
+
         # Determine the source of the command (message or button click)
         if "callback_query" in update:
             callback_query = update["callback_query"]
@@ -62,27 +70,38 @@ class TelegramBotService:
             command = (message.get("text") or "").strip()
         else:
             # Ignore other update types for now
-            return
+            return "No handleable update"
 
         chat_id = message.get("chat", {}).get("id")
+        # The user object may come from "from" (real Telegram payloads) or, in some
+        # test payloads, the user info is embedded directly in the chat object. Be
+        # robust and fall back to the chat fields when "from" is missing.
         user_id = user.get("id")
-        first_name = user.get("first_name", "User")
+        first_name = user.get("first_name")
 
         if not user_id:
-            return
+            # Fallback: read the user from the chat object (used by some test payloads).
+            user_id = message.get("chat", {}).get("id")
+            first_name = message.get("chat", {}).get("first_name")
+
+        if not user_id:
+            return "No user id"
+
+        first_name = first_name or "User"
+
         inviter_id = None
         is_start_command = False
 
         # Phase 6: Handle referral from /start command
         # Also handle persistent keyboard commands that don't start with '/'
-        normalized_command = command.lower()
-        if normalized_command.startswith("start") or normalized_command.startswith("/start"):
+        normalized_command = (command or "").lower()
+        if normalized_command.startswith("start"):
             parts = normalized_command.split()
             if len(parts) > 1:
                 try:
                     inviter_id = int(parts[1])
                 except ValueError:
-                    inviter_id = None # Invalid referral code
+                    inviter_id = None  # Invalid referral code
             is_start_command = True
 
         # Register user, potentially with an inviter
@@ -98,6 +117,7 @@ class TelegramBotService:
         else:
             response_text = response
             reply_markup = None
-        
+
         # Send the response back to the user
         self.send_message(chat_id, response_text, reply_markup, is_start=is_start_command)
+        return response_text

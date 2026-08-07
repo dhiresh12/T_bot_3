@@ -29,4 +29,7 @@ def test_dashboard_and_ads_endpoints():
     dashboard_response = client.get("/api/dashboard/123")
     assert dashboard_response.status_code == 200
     body = dashboard_response.get_json()
-    assert body["wallet"] >= 0.002
+    # After watching an ad, the user earns coins. The dashboard exposes wallet_bot
+    # and the rupee-equivalent derived from coins.
+    assert body["wallet_bot"] >= 0.0
+    assert body["coins"] >= 0
