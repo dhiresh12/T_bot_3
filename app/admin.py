@@ -176,3 +176,20 @@ class AdminPanelService:
         # Convert to list of dicts for Chart.js
         chart_data = [{"date": date, "total_coins": total} for date, total in balance_over_time.items()]
         return sorted(chart_data, key=lambda x: x['date'])
+
+    def get_user_tier_distribution(self) -> List[Dict[str, Any]]:
+        """
+        Calculates the distribution of users across different tiers.
+        """
+        tier_counts: Dict[str, int] = {}
+        for user in self.engine.users.values():
+            tier = user.tier if user.tier else "Unknown" # Handle cases where tier might be missing
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+        
+        # Convert to list of dicts for Chart.js
+        # Sort by a predefined tier order if available, otherwise alphabetically
+        tier_order = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Crown", "Conqueror"]
+        sorted_tiers = sorted(tier_counts.items(), key=lambda item: tier_order.index(item[0]) if item[0] in tier_order else len(tier_order))
+
+        chart_data = [{"tier": tier, "count": count} for tier, count in sorted_tiers]
+        return chart_data
