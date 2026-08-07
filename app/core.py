@@ -143,7 +143,11 @@ class BotEngine:
         return self.users[user_id]
 
     def get_profile(self, user_id: int) -> UserProfile:
-        return self.users.setdefault(user_id, UserProfile(user_id=user_id, name="User"))
+        """Gets a user profile. If the user doesn't exist, it creates and saves them."""
+        if user_id not in self.users:
+            # If a user is accessed for the first time (e.g., via API), create and save them.
+            return self.register_user(user_id, "Guest")
+        return self.users[user_id]
 
     def build_menu(self, profile: UserProfile) -> Dict[str, Any]:
         """Builds the main menu with inline keyboard buttons."""
