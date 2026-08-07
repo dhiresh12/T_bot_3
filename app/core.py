@@ -184,17 +184,21 @@ class BotEngine:
     def handle_command(self, user_id: int, command: str) -> str:
         """Handles text-based commands from the Telegram bot chat."""
         profile = self.get_profile(user_id)
-        normalized_cmd = (command or "").strip().lower().lstrip('/')
+        
+        # Normalize command by removing slashes, converting to lowercase, and stripping emojis/whitespace.
+        # This allows "profile", "/profile", and "👤 Profile" to all work.
+        cleaned_command = (command or "").strip().lstrip('/')
+        normalized_cmd = ''.join(c for c in cleaned_command if c.isalnum() or c == ':').lower()
         
         # Simple commands
         handler = self.command_handlers.get(normalized_cmd)
         if handler:
             return handler(profile)
 
-        # Commands with arguments or special prefixes
+        # Commands with arguments or special prefixes (like help:en)
         if normalized_cmd.startswith("help"):
             # Pass the original command to preserve case and structure
-            return self.handle_help_command(command.strip().lstrip('/'))
+            return self.handle_help_command(cleaned_command)
         if normalized_cmd in {"ads", "watchads"}:
             return "Watch ads to earn rewards and boost your balance."
         if normalized_cmd.startswith("withdraw"):
