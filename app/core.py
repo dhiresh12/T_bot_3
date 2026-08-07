@@ -68,7 +68,11 @@ class BotEngine:
         if mongo_uri:
             self.client = MongoClient(mongo_uri)
             # The DB name is part of the URI; fall back to a sensible default if not present.
-            self.db = self.client.get_default_database() or self.client["bot_data"]
+            # NOTE: Do NOT use `get_default_database() or ...` because pymongo Database
+            # objects do not support truth-value testing (raises in pymongo 4.x).
+            self.db = self.client.get_default_database()
+            if self.db is None:
+                self.db = self.client["bot_data"]
         elif mongomock is not None:
             # mongomock needs an explicit database name.
             self.client = mongomock.MongoClient("mongodb://localhost")
