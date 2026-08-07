@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 import os
+import sys
 import requests
 from typing import Any, Dict, Optional
 
 from app.core import BotEngine
+
+
+def _safe_print(*args, **kwargs) -> None:
+    """Print that won't crash on emojis/multibyte chars (e.g. Windows cp1252 console)."""
+    try:
+        print(*args, **kwargs)
+    except UnicodeEncodeError:
+        safe = " ".join(str(a).encode("ascii", "replace").decode("ascii") for a in args)
+        sys.stderr.write(safe + "\n")
 
 
 class TelegramBotService:
@@ -26,10 +36,10 @@ class TelegramBotService:
         delivered to the /webhook endpoint. Safe to call on every startup.
         """
         if not self.token:
-            print("[telegram-bot][warn] TELEGRAM_BOT_TOKEN not set; webhook not registered.")
+            _safe_print("[telegram-bot][warn] TELEGRAM_BOT_TOKEN not set; webhook not registered.")
             return {"ok": False, "description": "Missing TELEGRAM_BOT_TOKEN"}
         if not url:
-            print("[telegram-bot][warn] WEBHOOK_URL not set; webhook not registered.")
+            _safe_print("[telegram-bot][warn] WEBHOOK_URL not set; webhook not registered.")
             return {"ok": False, "description": "Missing WEBHOOK_URL"}
         try:
             response = requests.post(
@@ -38,15 +48,22 @@ class TelegramBotService:
                 timeout=15,
             )
             result = response.json()
-            print(f"[telegram-bot][webhook] setWebhook -> {result}")
+            _safe_print(f"[telegram-bot][webhook] setWebhook -> {result}")
             return result
         except requests.RequestException as e:
-            print(f"[telegram-bot][error] setWebhook failed: {e}")
+            _safe_print(f"[telegram-bot][error] setWebhook failed: {e}")
             return {"ok": False, "description": str(e)}
 
-    def send_message(self, chat_id: int, text: str, reply_markup: Optional[Dict] = None, is_start: bool = False):
-        """Sends a message to a specific chat ID via the Telegram Bot API."""
-        payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    def send_message(self, chat_id: int, text: str, reply_markup: Optional[Dict] = None, is_start: bool = False) -> Optional[Dict]:
+        """
+        Sends a message to a specific chat ID via the Telegram Bot API.
+
+        Returns the Telegram API response dict (or None when mocked). The send
+        is retried without ``parse_mode`` if Telegram rejects the Markdown
+        payload, so messages with characters like `*`, `_`, or `|` never get
+        swallowed silently.
+        """
+        payload = {"chat_id": chat_id, "text": text}
         if reply_markup:
             payload["reply_markup"] = reply_markup
         # If it's the start command AND there isn't already an inline keyboard,
@@ -66,13 +83,38 @@ class TelegramBotService:
         # message instead of making a real network call.
         if not self.token:
             self._last_sent = payload
-            print(f"[telegram-bot][mock] -> {text}")
-            return
+            try:
+                sys.stderr.write(f"[telegram-bot][mock] -> {text}\n")
+            except UnicodeEncodeError:
+                encoded = text.encode("ascii", "replace").decode("ascii")
+                sys.stderr.write(f"[telegram-bot][mock] -> {encoded}\n")
+            return None
 
-        try:
-            requests.post(f"{self.api_url}/sendMessage", json=payload)
-        except requests.RequestException as e:
-            print(f"Error sending message: {e}")
+        # Try Markdown first, then fall back to plain text if Telegram rejects it.
+        for parse_mode in ("Markdown", None):
+            candidate = dict(payload)
+            if parse_mode:
+                candidate["parse_mode"] = parse_mode
+            try:
+                resp = requests.post(f"{self.api_url}/sendMessage", json=candidate, timeout=15)
+                result = resp.json()
+            except requests.RequestException as e:
+                _safe_print(f"[telegram-bot][error] sendMessage request error: {e}")
+                return {"ok": False, "description": str(e)}
+
+            if result.get("ok"):
+                return result
+
+            description = (result.get("description") or "").lower()
+            # If Markdown failed to parse, retry once without parse_mode.
+            if parse_mode and result.get("error_code") == 400 and "parse" in description:
+                _safe_print(f"[telegram-bot][warn] Markdown parse failed, retrying as plain text: {description}")
+                continue
+
+            _safe_print(f"[telegram-bot][error] sendMessage API error: {result}")
+            return result
+
+        return {"ok": False, "description": "Could not send message"}
 
     def handle_update(self, update: dict) -> str:
         """
@@ -145,3 +187,4 @@ class TelegramBotService:
         # Send the response back to the user
         self.send_message(chat_id, response_text, reply_markup, is_start=is_start_command)
         return response_text
+
