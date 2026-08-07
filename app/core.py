@@ -57,6 +57,13 @@ class BotEngine:
     def __init__(self, storage_path: Optional[str] = None) -> None:
         # Use .db extension for SQLite
         self.db_path = Path(storage_path or "bot_data.db")
+
+        # Check for a one-time reset flag from environment variables
+        if os.getenv("FORCE_DB_RESET", "false").lower() == "true":
+            if self.db_path.exists():
+                logging.warning("FORCE_DB_RESET is true. Deleting existing database file to create a new one.")
+                self.db_path.unlink()
+
         self.users: Dict[int, UserProfile] = {}
         # --- Admin configurable values ---
         self.bonus_value = 0.05
