@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import os
 import sys
-import requests
 from typing import Any, Dict, Optional
 
-from app.core import BotEngine
+try:
+    import requests
+except ImportError:  # pragma: no cover - requests unavailable
+    requests = None  # Degrade to mock mode instead of crashing on import.
+
+from app.core import BotEngine, _resolve_mini_app_url
 
 
 def _safe_print(*args, **kwargs) -> None:
@@ -22,11 +26,12 @@ class TelegramBotService:
     Handles the interaction between the Telegram API and the BotEngine.
     Phase 6: Upgraded to handle referral links, admin-editable messages, and reply markups.
     """
+
     def __init__(self, engine: Optional[BotEngine] = None) -> None:
         self.engine = engine or BotEngine(storage_path="bot_data.db")
         self.token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         # The MINI_APP_URL should be the public URL of your Render app
-        self.mini_app_url = os.getenv("MINI_APP_URL", "https://t-bot-3.onrender.com")
+        self.mini_app_url = os.getenv("MINI_APP_URL") or _resolve_mini_app_url()
         self.api_url = f"https://api.telegram.org/bot{self.token}"
         self._last_sent: Optional[Dict] = None
 
@@ -41,6 +46,9 @@ class TelegramBotService:
         if not url:
             _safe_print("[telegram-bot][warn] WEBHOOK_URL not set; webhook not registered.")
             return {"ok": False, "description": "Missing WEBHOOK_URL"}
+        if requests is None:
+            _safe_print("[telegram-bot][warn] 'requests' module not installed; skipping webhook registration.")
+            return {"ok": False, "description": "requests module not available"}
         try:
             response = requests.post(
                 f"{self.api_url}/setWebhook",
@@ -89,6 +97,11 @@ class TelegramBotService:
                 encoded = text.encode("ascii", "replace").decode("ascii")
                 sys.stderr.write(f"[telegram-bot][mock] -> {encoded}\n")
             return None
+
+        if requests is None:
+            self._last_sent = payload
+            _safe_print("[telegram-bot][warn] 'requests' module not installed; message not sent.")
+            return {"ok": False, "description": "requests module not available"}
 
         # Try Markdown first, then fall back to plain text if Telegram rejects it.
         for parse_mode in ("Markdown", None):
@@ -187,4 +200,3 @@ class TelegramBotService:
         # Send the response back to the user
         self.send_message(chat_id, response_text, reply_markup, is_start=is_start_command)
         return response_text
-

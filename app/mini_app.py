@@ -24,9 +24,6 @@ def create_app(engine: BotEngine | None = None) -> Flask:
     app.register_blueprint(routes_bp)
 
     # --- Auto-register Telegram webhook on startup ---
-    # Render automatically provides RENDER_EXTERNAL_URL (e.g. https://t-bot-3.onrender.com).
-    # Registering the webhook ensures Telegram delivers /start and other updates
-    # to our /webhook endpoint without any manual setup.
     try:
         from app.telegram_bot import TelegramBotService
         bot_service = TelegramBotService(engine=current_engine)
@@ -39,15 +36,13 @@ def create_app(engine: BotEngine | None = None) -> Flask:
     except Exception as exc:  # noqa: BLE001
         print(f"[mini-app][warn] Webhook registration skipped: {exc}")
 
-    # Phase 7: Complete UI Overhaul for the Mini App
-    # This is a single-file template to keep it simple as requested.
     HTML = """
     <!doctype html>
     <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{app_name}</title>
+        <title>{{app_name}}</title>
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
           :root {
@@ -80,23 +75,21 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           .page { display: none; }
           .page.active { display: block; }
           .button { background-color: var(--primary); color: white; border: none; padding: 12px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: 600; margin-top: 16px; }
+          .back-button { background: none; border: none; color: var(--primary); font-size: 16px; cursor: pointer; margin-bottom: 8px; padding: 0; }
           .lang-switcher { font-size: 14px; color: var(--text-muted); }
           .lang-switcher button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: bold; padding: 4px; }
           .lang-switcher button.active { color: var(--primary); }
-          /* Task List Styles */
           .task-item { background-color: var(--bg-light); padding: 16px; border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
           .task-item.completed { opacity: 0.6; }
           .task-info h3 { margin: 0 0 4px; font-size: 16px; }
           .task-info p { margin: 0; font-size: 12px; color: var(--text-muted); }
           .task-item .completed-badge { color: var(--accent); font-weight: bold; }
-          /* Withdraw Page Styles */
           .req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
           .req-item { background-color: var(--bg-light); padding: 12px; border-radius: 8px; font-size: 13px; }
           .req-item .progress { font-weight: bold; font-size: 16px; }
           .withdraw-form input { width: calc(100% - 24px); padding: 12px; margin-bottom: 12px; background-color: var(--bg-light); border: 1px solid #334155; color: white; border-radius: 8px; }
           .history-item { background-color: var(--bg-light); padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; display: flex; justify-content: space-between; }
           .history-item .status { font-weight: bold; text-transform: capitalize; }
-          /* Spin Wheel Styles */
           .wheel-container { position: relative; width: 250px; height: 250px; margin: 24px auto; }
           .wheel { width: 100%; height: 100%; border-radius: 50%; background-image: conic-gradient( #ef4444 0deg 90deg, #f97316 90deg 180deg, #84cc16 180deg 270deg, #3b82f6 270deg 360deg ); transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1); }
           .wheel-pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-top: 30px solid #facc15; }
@@ -107,6 +100,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           .wheel-segment:nth-child(2) { transform: rotate(112.5deg); }
           .wheel-segment:nth-child(3) { transform: rotate(202.5deg); }
           .wheel-segment:nth-child(4) { transform: rotate(292.5deg); }
+          .status-msg { text-align: center; margin-top: 10px; color: var(--accent); }
         </style>
       </head>
       <body>
@@ -114,9 +108,9 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           <!-- Dashboard Page -->
           <div id="page-home" class="page active">
             <div class="header">
-              <div id="avatar" class="avatar"></div>
+              <div id="avatar" class="avatar">?</div>
               <div class="user-info">
-                <h1 id="user-name">...</h1>
+                <h1 id="user-name">Guest</h1>
                 <p id="user-id">ID: ...</p>
               </div>
               <div class="lang-switcher">
@@ -157,7 +151,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               </div>
             </div>
             <button id="spin-button" class="button spin-button" onclick="spinWheel()">Spin for a Prize!</button>
-            <p id="spin-status" style="text-align:center; margin-top: 10px;"></p>
+            <p id="spin-status" class="status-msg"></p>
 
             <div class="live-feed" id="live-feed">
               <p data-translate-key="connecting_feed">Connecting to live feed...</p>
@@ -169,9 +163,9 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <button class="back-button" onclick="showPage('home')">← Back</button>
             <h1 data-translate-key="tasks_title">Tasks</h1>
             <div id="task-list">
-              <!-- Tasks will be dynamically inserted here -->
+              <p>Loading tasks...</p>
             </div>
-            <p id="task-status" style="text-align:center; margin-top: 10px;"></p>
+            <p id="task-status" class="status-msg"></p>
           </div>
 
           <!-- Invite Page -->
@@ -187,10 +181,10 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           <div id="page-wallet" class="page">
             <button class="back-button" onclick="showPage('home')">← Back</button>
             <h1 data-translate-key="withdraw_title">Withdraw Funds</h1>
-            
+
             <h2 data-translate-key="requirements_title">Requirements</h2>
             <div id="req-grid" class="req-grid">
-              <!-- Requirements will be dynamically inserted here -->
+              <div class="req-item">Loading...</div>
             </div>
 
             <h2 data-translate-key="withdraw_form_title">Request Payout</h2>
@@ -198,7 +192,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <input id="withdraw-amount" type="number" placeholder="Amount">
               <input id="withdraw-details" type="text" placeholder="UPI ID">
               <button class="button" onclick="requestWithdrawal()" data-translate-key="withdraw_button">Request Withdrawal</button>
-              <p id="withdraw-status" style="text-align:center; margin-top: 10px;"></p>
+              <p id="withdraw-status" class="status-msg"></p>
             </div>
 
             <h2 data-translate-key="history_title" style="margin-top: 24px;">History</h2>
@@ -212,219 +206,230 @@ def create_app(engine: BotEngine | None = None) -> Flask:
         </div>
 
         <div class="nav">
-          <button class="nav-item active" data-page="home" data-translate-key="nav_home"><div>🏠</div>Home</button>
-          <button class="nav-item" data-page="tasks" data-translate-key="nav_tasks"><div>📋</div>Tasks</button>
-          <button class="nav-item" data-page="invite" data-translate-key="nav_invite"><div>👥</div>Invite</button>
-          <button class="nav-item" data-page="wallet" data-translate-key="nav_wallet"><div>💰</div>Wallet</button>
+          <button class="nav-item active" data-page="home" onclick="showPage('home')"><div>🏠</div><span data-translate-key="nav_home">Home</span></button>
+          <button class="nav-item" data-page="tasks" onclick="showPage('tasks')"><div>📋</div><span data-translate-key="nav_tasks">Tasks</span></button>
+          <button class="nav-item" data-page="invite" onclick="showPage('invite')"><div>👥</div><span data-translate-key="nav_invite">Invite</span></button>
+          <button class="nav-item" data-page="wallet" onclick="showPage('wallet')"><div>💰</div><span data-translate-key="nav_wallet">Wallet</span></button>
         </div>
 
         <script>
-          const tg = window.Telegram.WebApp;
-          tg.expand(); // Expand the mini app to full height
+          // Telegram WebApp is optional so the mini app also works in a normal browser.
+          function getTelegram() {
+            try {
+              if (window.Telegram && window.Telegram.WebApp) {
+                return window.Telegram.WebApp;
+              }
+            } catch (e) {}
+            return null;
+          }
 
-          const user = tg.initDataUnsafe?.user;
-          const userId = user?.id || '777'; // Fallback for local testing
-          const userName = user?.first_name || 'Guest';
+          const tg = getTelegram();
+          if (tg) { try { tg.expand(); } catch (e) {} }
+
+          // Read the user id (from Telegram if available, else a demo id for testing).
+          const userId = (function(){
+            try {
+              const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+              if (u && u.id) return u.id;
+            } catch (e) {}
+            return '777';
+          })();
+          const userName = (function(){
+            try {
+              const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+              if (u && u.first_name) return u.first_name;
+            } catch (e) {}
+            return 'Guest';
+          })();
 
           const translations = {translations_json};
-          let currentLang = 'en';
+          let currentLang = localStorage.getItem('lang') || 'en';
 
           const liveFeedEl = document.getElementById('live-feed');
 
-          async function fetchData() {
-            const response = await fetch(`/api/dashboard/${"{"}userId{"}"}`);
-            const data = await response.json();
-            updateUI(data);
+          function t(key) {
+            try { return translations[currentLang]?.ui[key] || translations['en'].ui[key] || key; } catch(e) { return key; }
           }
 
           function translateUI() {
             document.querySelectorAll('[data-translate-key]').forEach(el => {
               const key = el.dataset.translateKey;
-              if (translations[currentLang]?.ui[key]) {
-                // For nav items, only translate the text part, not the emoji
-                if (el.classList.contains('nav-item')) {
-                    el.childNodes[1].nodeValue = ` ${"{"}translations[currentLang].ui[key]{"}"}`;
-                } else {
-                    el.innerText = translations[currentLang].ui[key];
-                }
-              }
+              el.innerText = t(key);
             });
+            document.querySelectorAll('.lang-switcher button').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById('lang-' + currentLang);
+            if (activeBtn) activeBtn.classList.add('active');
+          }
+
+          async function fetchData() {
+            try {
+              const response = await fetch('/api/dashboard/' + userId);
+              if (!response.ok) throw new Error('Dashboard API error');
+              const data = await response.json();
+              updateUI(data);
+            } catch (e) {
+              document.getElementById('user-id').innerText = 'ID: ' + userId;
+            }
           }
 
           function updateUI(data) {
-            document.getElementById('avatar').innerText = data.name.charAt(0);
+            document.getElementById('avatar').innerText = (data.name || 'G').charAt(0).toUpperCase();
             document.getElementById('user-name').innerText = data.name;
-            document.getElementById('user-id').innerText = `ID: ${"{"}data.user_id{"}"}`;
-            document.getElementById('balance-amount').innerText = `₹${"{"}data.wallet_rupee_equivalent.toFixed(4){"}"}`;
-            document.getElementById('balance-coins').innerHTML = `${"{"}data.coins.toLocaleString(){"}"} <span data-translate-key="coins">${"{"}(translations[currentLang]?.ui?.coins || 'Coins'){"}"}</span>`;
-            document.getElementById('current-tier').innerText = data.engagement.tier;
-            document.getElementById('next-tier').innerText = `${"{"}translations[currentLang].ui.next_tier_prefix{"}"} ${"{"}data.engagement.next_tier{"}"}`;
-            document.getElementById('invites-count').innerText = data.invites;
-            document.getElementById('tasks-count').innerText = data.tasks?.length || 0;
-            document.getElementById('invite-link').value = `https://t.me/{{ bot_username }}?start=${"{"}data.user_id{"}"}`;
-            
-            // Update live feed (Dark Pattern)
-            const feedItem = document.createElement('p');
-            feedItem.innerText = data.live_feed[Math.floor(Math.random() * data.live_feed.length)];
-            liveFeedEl.prepend(feedItem);
-            if (liveFeedEl.children.length > 10) {
-              liveFeedEl.lastChild.remove();
+            document.getElementById('user-id').innerText = 'ID: ' + data.user_id;
+            document.getElementById('balance-amount').innerText = '₹' + Number(data.wallet_rupee_equivalent || 0).toFixed(2);
+            document.getElementById('balance-coins').innerHTML = Number(data.coins || 0).toLocaleString() + ' <span data-translate-key="coins">' + t('coins') + '</span>';
+            document.getElementById('current-tier').innerText = (data.engagement && data.engagement.tier) || 'Bronze';
+            document.getElementById('next-tier').innerText = (data.engagement && data.engagement.next_tier) ? (t('next_tier_prefix') + ' ' + data.engagement.next_tier) : '';
+            document.getElementById('invites-count').innerText = data.invites || 0;
+            document.getElementById('tasks-count').innerText = (data.tasks && data.tasks.length) || 0;
+            document.getElementById('invite-link').value = 'https://t.me/' + 'xio_liis_bot' + '?start=' + data.user_id;
+
+            // Live feed (Dark Pattern)
+            if (data.live_feed && data.live_feed.length) {
+              const feedItem = document.createElement('p');
+              feedItem.innerText = data.live_feed[Math.floor(Math.random() * data.live_feed.length)];
+              liveFeedEl.prepend(feedItem);
+              while (liveFeedEl.children.length > 10) {
+                liveFeedEl.lastChild.remove();
+              }
             }
 
-            // --- New: Update Tasks Page ---
+            // Tasks
             const taskListEl = document.getElementById('task-list');
-            taskListEl.innerHTML = ''; // Clear previous list
-
-            for (const taskId in data.available_tasks) {
-                const task = data.available_tasks[taskId];
-                const isCompleted = data.tasks.includes(taskId);
-
-                const taskItem = document.createElement('div');
-                taskItem.className = `task-item ${"{"}isCompleted ? 'completed' : ''{"}"}`;
-                
-                let actionHtml = isCompleted
-                    ? `<span class="completed-badge" data-translate-key="task_completed_badge">Completed</span>`
-                    : `<button class="button" onclick="completeTask('${"{"}taskId{"}"}')" data-translate-key="task_complete_button">Complete</button>`;
-
-                taskItem.innerHTML = `
-                  <div class="task-info">
-                    <h3>${"{"}task.title{"}"}</h3>
-                    <p><span data-translate-key="task_reward">Reward</span>: ${"{"}task.reward_coins{"}"} <span data-translate-key="coins">Coins</span></p>
-                  </div>
-                  ${"{"}actionHtml{"}"}
-                `;
-                taskListEl.appendChild(taskItem);
+            taskListEl.innerHTML = '';
+            const available = data.available_tasks || {};
+            const done = data.tasks || [];
+            let hasTask = false;
+            for (const taskId in available) {
+              hasTask = true;
+              const task = available[taskId];
+              const isCompleted = done.indexOf(taskId) !== -1;
+              const item = document.createElement('div');
+              item.className = 'task-item' + (isCompleted ? ' completed' : '');
+              const reward = (task.reward_coins || 0) + ' ' + t('coins');
+              const badge = isCompleted
+                ? '<span class="completed-badge" data-translate-key="task_completed_badge">' + t('task_completed_badge') + '</span>'
+                : '<button class="button" style="margin-top:0;width:auto;padding:8px 12px;" onclick="completeTask(\'' + taskId + '\')">' + t('task_complete_button') + '</button>';
+              item.innerHTML = '<div class="task-info"><h3>' + (task.title || taskId) + '</h3><p>' + t('task_reward') + ': ' + reward + '</p></div>' + badge;
+              taskListEl.appendChild(item);
+            }
+            if (!hasTask) {
+              taskListEl.innerHTML = '<div class="task-item"><span>No tasks available.</span></div>';
             }
 
-            // --- New: Update Withdraw Page ---
+            // Withdraw requirements
             const reqGridEl = document.getElementById('req-grid');
-            const reqs = data.withdrawal_reqs;
-            reqGridEl.innerHTML = `
-                <div class="req-item">
-                    <span data-translate-key="min_invites">Min Invites</span><br>
-                    <span class="progress ${"{"}data.invites >= reqs.min_invites ? 'text-green-400' : ''{"}"}">${"{"}data.invites{"}"} / ${"{"}reqs.min_invites{"}"}</span>
-                </div>
-                <div class="req-item">
-                    <span data-translate-key="min_tasks">Min Tasks</span><br>
-                    <span class="progress ${"{"}data.tasks.length >= reqs.min_tasks ? 'text-green-400' : ''{"}"}">${"{"}data.tasks.length{"}"} / ${"{"}reqs.min_tasks{"}"}</span>
-                </div>
-                <div class="req-item">
-                    <span data-translate-key="min_ads">Min Ads</span><br>
-                    <span class="progress ${"{"}data.completed_ads >= reqs.min_ads ? 'text-green-400' : ''{"}"}">${"{"}data.completed_ads{"}"} / ${"{"}reqs.min_ads{"}"}</span>
-                </div>
-            `;
+            const reqs = data.withdrawal_reqs || {};
+            reqGridEl.innerHTML =
+              '<div class="req-item"><span data-translate-key="min_invites">' + t('min_invites') + '</span><br><span class="progress">' + (data.invites||0) + ' / ' + (reqs.min_invites||0) + '</span></div>' +
+              '<div class="req-item"><span data-translate-key="min_tasks">' + t('min_tasks') + '</span><br><span class="progress">' + (done.length) + ' / ' + (reqs.min_tasks||0) + '</span></div>' +
+              '<div class="req-item"><span data-translate-key="min_ads">' + t('min_ads') + '</span><br><span class="progress">' + (data.completed_ads||0) + ' / ' + (reqs.min_ads||0) + '</span></div>';
 
+            // Withdraw history
             const historyListEl = document.getElementById('history-list');
             if (data.withdrawal_history && data.withdrawal_history.length > 0) {
-                historyListEl.innerHTML = data.withdrawal_history.reverse().map(item => `
-                    <div class="history-item">
-                        <div>
-                            <b>₹${"{"}item.amount.toFixed(2){"}"}</b><br>
-                            <small>${"{"}new Date(item.timestamp).toLocaleString(){"}"}</small>
-                        </div>
-                        <div class="status" style="color: ${"{"}item.status === 'approved' ? 'var(--accent)' : (item.status === 'pending' ? '#f59e0b' : '#ef4444'){"}"}">${"{"}item.status{"}"}</div>
-                    </div>
-                `).join('');
+              historyListEl.innerHTML = data.withdrawal_history.slice().reverse().map(function(item){
+                var color = item.status === 'approved' ? 'var(--accent)' : (item.status === 'pending' ? '#f59e0b' : '#ef4444');
+                var ts = '';
+                if (item.timestamp) { try { ts = new Date(item.timestamp).toLocaleString(); } catch(e){} }
+                return '<div class="history-item"><div><b>₹' + Number(item.amount||0).toFixed(2) + '</b><br><small>' + ts + '</small></div><div class="status" style="color:' + color + '">' + item.status + '</div></div>';
+              }).join('');
             } else {
-                historyListEl.innerHTML = `<div class="history-item"><span data-translate-key="no_history">No withdrawal history yet.</span></div>`;
+              historyListEl.innerHTML = '<div class="history-item"><span data-translate-key="no_history">' + t('no_history') + '</span></div>';
             }
 
-            // Set placeholders
-            document.getElementById('withdraw-amount').placeholder = translations[currentLang].ui.amount_placeholder;
-            document.getElementById('withdraw-details').placeholder = translations[currentLang].ui.upi_placeholder;
+            document.getElementById('withdraw-amount').placeholder = t('amount_placeholder');
+            document.getElementById('withdraw-details').placeholder = t('upi_placeholder');
 
-            translateUI(); // Ensure UI is translated after data update
+            translateUI();
           }
-          
+
           async function completeTask(taskId) {
-              const response = await fetch(`/api/tasks/complete/${"{"}userId{"}"}/${"{"}taskId{"}"}`, { method: 'POST' });
+            try {
+              const response = await fetch('/api/tasks/complete/' + userId + '/' + taskId, { method: 'POST' });
               const data = await response.json();
-              document.getElementById('task-status').innerText = data.message;
-              fetchData(); // Refresh data after action
+              document.getElementById('task-status').innerText = data.message || '';
+              fetchData();
+            } catch (e) {
+              document.getElementById('task-status').innerText = 'Error completing task.';
+            }
           }
 
           function shareInvite() {
-              tg.openTelegramLink(`https://t.me/share/url?url=${"{"}encodeURIComponent(document.getElementById('invite-link').value){"}"}&text=Join and earn money!`);
+            const link = document.getElementById('invite-link').value;
+            const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=Join and earn money!';
+            if (tg) { try { tg.openTelegramLink(shareUrl); return; } catch(e){} }
+            window.open(shareUrl, '_blank');
           }
 
           async function requestWithdrawal() {
-              const amount = document.getElementById('withdraw-amount').value;
-              const details = document.getElementById('withdraw-details').value;
-              const statusEl = document.getElementById('withdraw-status');
-
-              if (!amount || !details) {
-                  statusEl.innerText = 'Please fill in both amount and UPI ID.';
-                  return;
-              }
-
-              const response = await fetch(`/api/withdraw/${"{"}userId{"}"}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: parseFloat(amount), details: details }) });
+            const amount = document.getElementById('withdraw-amount').value;
+            const details = document.getElementById('withdraw-details').value;
+            const statusEl = document.getElementById('withdraw-status');
+            if (!amount || !details) {
+              statusEl.innerText = 'Please fill in both amount and UPI ID.';
+              return;
+            }
+            try {
+              const response = await fetch('/api/withdraw/' + userId, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: parseFloat(amount), details: details }) });
               const data = await response.json();
-              statusEl.innerText = data.message;
-              fetchData(); // Refresh data
+              statusEl.innerText = data.message || '';
+              fetchData();
+            } catch (e) {
+              statusEl.innerText = 'Withdrawal error.';
+            }
           }
 
           async function spinWheel() {
-              const spinButton = document.getElementById('spin-button');
-              const wheel = document.getElementById('wheel');
-              const spinStatus = document.getElementById('spin-status');
-
-              spinButton.disabled = true;
-              spinStatus.innerText = 'Spinning...';
-
-              const response = await fetch(`/api/spin/${"{"}userId{"}"}`, { method: 'POST' });
+            const spinButton = document.getElementById('spin-button');
+            const wheel = document.getElementById('wheel');
+            const spinStatus = document.getElementById('spin-status');
+            spinButton.disabled = true;
+            spinStatus.innerText = 'Spinning...';
+            try {
+              const response = await fetch('/api/spin/' + userId, { method: 'POST' });
               const data = await response.json();
-
               if (!data.success) {
-                  spinStatus.innerText = data.message;
-                  spinButton.disabled = false;
-                  return;
+                spinStatus.innerText = data.message || '';
+                spinButton.disabled = false;
+                return;
               }
-
-              // Calculate rotation
-              const spinValues = [0.10, 0.15, 0.20, 0.00]; // Must match CSS
+              const spinValues = [0.10, 0.15, 0.20, 0.00];
               const segmentIndex = spinValues.indexOf(data.value);
-              const segmentAngle = 90; // 360 / 4 segments
-              const randomOffset = Math.random() * (segmentAngle - 20) + 10;
-              const finalAngle = (segmentIndex * segmentAngle) + randomOffset + 360 * 5; // 5 full rotations
-
-              wheel.style.transform = `rotate(${'${'}finalAngle}deg)`;
-
-              setTimeout(() => {
-                  spinStatus.innerText = data.message;
-                  spinButton.disabled = false;
-                  fetchData(); // Refresh balance
-              }, 4500); // Match CSS transition time + buffer
+              const finalAngle = (segmentIndex * 90) + (Math.random() * 60) + (360 * 5);
+              wheel.style.transform = 'rotate(' + finalAngle + 'deg)';
+              setTimeout(function(){
+                spinStatus.innerText = data.message || '';
+                spinButton.disabled = false;
+                fetchData();
+              }, 4500);
+            } catch (e) {
+              spinStatus.innerText = 'Spin error.';
+              spinButton.disabled = false;
+            }
           }
 
           function setLanguage(lang) {
             currentLang = lang;
-            document.querySelectorAll('.lang-switcher button').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`lang-${"{"}lang{"}"}`).classList.add('active');
+            localStorage.setItem('lang', lang);
             translateUI();
-            // You could also save this preference to localStorage
           }
 
           function showPage(pageName) {
-              const pageId = `page-${"{"}pageName{"}"}`;
-              document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-              document.getElementById(pageId)?.classList.add('active');
-              
-              document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-              document.querySelector(`.nav-item[data-page="${"{"}pageName{"}"}"]`)?.classList.add('active');
+            const pageId = 'page-' + pageName;
+            document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+            const target = document.getElementById(pageId);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(function(i){ i.classList.remove('active'); });
+            const navBtn = document.querySelector('.nav-item[data-page="' + pageName + '"]');
+            if (navBtn) navBtn.classList.add('active');
           }
 
-          // Navigation
-          document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-              showPage(item.dataset.page);
-            });
-          });
-
           // Initial Load
-          window.addEventListener('load', () => {
+          window.addEventListener('load', function(){
             fetchData();
             translateUI();
-            setInterval(fetchData, 7000); // Refresh data and feed every 7 seconds
+            setInterval(fetchData, 7000);
           });
         </script>
       </body>

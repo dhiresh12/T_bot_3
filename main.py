@@ -9,7 +9,11 @@ def main() -> None:
     print("Commands: bonus, wallet, tasks, ads, spin, profile, leaderboard, withdraw, exit")
     print("Type 'exit' to quit.")
     while True:
-        command = input("> ").strip().lower()
+        try:
+            command = input("> ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nGoodbye!")
+            break
         if command in {"exit", "quit"}:
             break
         if not command:
@@ -27,3 +31,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

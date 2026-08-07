@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, time
 import os
-from pymongo import MongoClient
+
+try:
+    from pymongo import MongoClient
+except ImportError:  # pragma: no cover - pymongo unavailable
+    MongoClient = None
 
 try:
     import mongomock
@@ -19,6 +23,49 @@ from app.admin import AdminPanelService
 from app.engagement import EngagementLayer
 from app.support import SupportService
 from app.security import SecurityManager
+
+
+def _resolve_mini_app_url() -> str:
+    """
+    Resolves the public Mini App URL used in Telegram web_app buttons.
+
+    Priority:
+      1. MINI_APP_URL env var (explicit override)
+      2. RENDER_EXTERNAL_URL / WEBHOOK_URL (set automatically by Render)
+      3. Default to the deployed app URL
+    """
+    explicit = os.getenv("MINI_APP_URL")
+    if explicit:
+        return explicit.rstrip("/")
+    external = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("WEBHOOK_URL")
+    if external:
+        return external.rstrip("/")
+    return "https://t-bot-3.onrender.com"
+
+
+class _InMemoryCollection:
+    """Minimal in-memory fallback so BotEngine runs even without pymongo/mongomock."""
+
+    def __init__(self) -> None:
+        self._docs: Dict[Any, Any] = {}
+
+    def find(self) -> List[Any]:
+        return list(self._docs.values())
+
+    def replace_one(self, filter_: Dict[Any, Any], doc: Any, upsert: bool = True) -> None:
+        key = filter_.get("_id")
+        if key is not None:
+            self._docs[key] = doc
+        elif upsert:
+            # No key: just store under the doc's own id if available.
+            self._docs[doc.get("_id", len(self._docs))] = doc
+
+
+class _InMemoryDB:
+    """Minimal in-memory database fallback."""
+
+    def __init__(self) -> None:
+        self.users = _InMemoryCollection()
 
 
 @dataclass
@@ -65,7 +112,7 @@ class BotEngine:
         # an in-memory mongomock instance so the app/tests can run locally without
         # a database server.
         mongo_uri = os.getenv("MONGO_URI")
-        if mongo_uri:
+        if mongo_uri and MongoClient is not None:
             self.client = MongoClient(mongo_uri)
             # The DB name is part of the URI; fall back to a sensible default if not present.
             # NOTE: Do NOT use `get_default_database() or ...` because pymongo Database
@@ -77,8 +124,11 @@ class BotEngine:
             # mongomock needs an explicit database name.
             self.client = mongomock.MongoClient("mongodb://localhost")
             self.db = self.client["bot_data"]
-        else:  # pragma: no cover
-            raise ValueError("MONGO_URI environment variable not set and mongomock is unavailable.")
+        else:
+            # No pymongo, no mongomock: use a pure-Python in-memory fallback so the
+            # app still boots and every feature works for local development/testing.
+            self.client = None
+            self.db = _InMemoryDB()
         self.users_collection = self.db.users
 
         self.users: Dict[int, UserProfile] = {}
@@ -102,6 +152,8 @@ class BotEngine:
             "join_channel": {"title": "Join Telegram channel", "reward_coins": 150, "reward_money": 0.01},
             "join_group": {"title": "Join Telegram group", "reward_coins": 100, "reward_money": 0.01},
             "share_link": {"title": "Share your invite link", "reward_coins": 50, "reward_money": 0.0},
+            "follow_social": {"title": "Follow us on social media", "reward_coins": 120, "reward_money": 0.01},
+            "watch_tutorial": {"title": "Watch a tutorial video", "reward_coins": 130, "reward_money": 0.01},
         }
         # Phase 1: Withdrawal requirements
         self.withdrawal_reqs = {
@@ -172,7 +224,7 @@ class BotEngine:
         """Builds the main menu with inline keyboard buttons."""
         text = f"👋 Welcome, {profile.name}!\n\nSelect an option from the menu below."
         # Add a Mini App button directly in the main menu for easy access
-        mini_app_url = os.getenv("MINI_APP_URL", "https://your-render-app.onrender.com")
+        mini_app_url = _resolve_mini_app_url()
         reply_markup = {
             "inline_keyboard": [
                 [{"text": "👤 Profile", "callback_data": "profile"}, {"text": "💰 Wallet", "callback_data": "wallet"}],

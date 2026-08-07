@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import requests
+try:
+    import requests
+except ImportError:  # pragma: no cover - requests unavailable
+    requests = None
+
 from app.telegram_bot import TelegramBotService
 from flask import Blueprint, current_app, jsonify, request, render_template_string
 
@@ -26,6 +30,8 @@ def webhook_status() -> tuple[dict, int]:
             "webhook_url": None,
             "message": "TELEGRAM_BOT_TOKEN is not set on the server. Add it in Render -> Environment to enable the bot.",
         }), 200
+    if requests is None:
+        return jsonify({"token_set": True, "error": "requests module not installed"}), 200
     try:
         info = requests.post(
             f"{service.api_url}/getWebhookInfo", timeout=15

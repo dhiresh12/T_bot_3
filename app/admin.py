@@ -4,7 +4,10 @@ from datetime import datetime
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from pymongo.errors import PyMongoError
+try:
+    from pymongo.errors import PyMongoError
+except ImportError:  # pragma: no cover - pymongo unavailable
+    PyMongoError = Exception
 
 if TYPE_CHECKING:
     from app.core import BotEngine, UserProfile
