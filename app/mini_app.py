@@ -23,6 +23,22 @@ def create_app(engine: BotEngine | None = None) -> Flask:
     app.config["ads_manager"] = ads_manager
     app.register_blueprint(routes_bp)
 
+    # --- Auto-register Telegram webhook on startup ---
+    # Render automatically provides RENDER_EXTERNAL_URL (e.g. https://t-bot-3.onrender.com).
+    # Registering the webhook ensures Telegram delivers /start and other updates
+    # to our /webhook endpoint without any manual setup.
+    try:
+        from app.telegram_bot import TelegramBotService
+        bot_service = TelegramBotService(engine=current_engine)
+        external_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("WEBHOOK_URL")
+        if external_url:
+            webhook_url = external_url.rstrip("/") + "/webhook"
+            bot_service.set_webhook(webhook_url)
+        else:
+            print("[mini-app][info] RENDER_EXTERNAL_URL/WEBHOOK_URL not set; skipping webhook registration.")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mini-app][warn] Webhook registration skipped: {exc}")
+
     # Phase 7: Complete UI Overhaul for the Mini App
     # This is a single-file template to keep it simple as requested.
     HTML = """

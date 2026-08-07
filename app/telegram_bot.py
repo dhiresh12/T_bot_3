@@ -16,9 +16,33 @@ class TelegramBotService:
         self.engine = engine or BotEngine(storage_path="bot_data.db")
         self.token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         # The MINI_APP_URL should be the public URL of your Render app
-        self.mini_app_url = os.getenv("MINI_APP_URL", "https://your-render-app.onrender.com")
+        self.mini_app_url = os.getenv("MINI_APP_URL", "https://t-bot-3.onrender.com")
         self.api_url = f"https://api.telegram.org/bot{self.token}"
         self._last_sent: Optional[Dict] = None
+
+    def set_webhook(self, url: str) -> Dict[str, Any]:
+        """
+        Registers this service's public URL with Telegram so that updates are
+        delivered to the /webhook endpoint. Safe to call on every startup.
+        """
+        if not self.token:
+            print("[telegram-bot][warn] TELEGRAM_BOT_TOKEN not set; webhook not registered.")
+            return {"ok": False, "description": "Missing TELEGRAM_BOT_TOKEN"}
+        if not url:
+            print("[telegram-bot][warn] WEBHOOK_URL not set; webhook not registered.")
+            return {"ok": False, "description": "Missing WEBHOOK_URL"}
+        try:
+            response = requests.post(
+                f"{self.api_url}/setWebhook",
+                json={"url": url},
+                timeout=15,
+            )
+            result = response.json()
+            print(f"[telegram-bot][webhook] setWebhook -> {result}")
+            return result
+        except requests.RequestException as e:
+            print(f"[telegram-bot][error] setWebhook failed: {e}")
+            return {"ok": False, "description": str(e)}
 
     def send_message(self, chat_id: int, text: str, reply_markup: Optional[Dict] = None, is_start: bool = False):
         """Sends a message to a specific chat ID via the Telegram Bot API."""
