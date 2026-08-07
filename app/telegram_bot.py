@@ -74,15 +74,15 @@ class TelegramBotService:
 
         # Phase 6: Handle referral from /start command
         # Also handle persistent keyboard commands that don't start with '/'
-        if command.lower().startswith("start"):
-            parts = command.split() # Handles both "/start 123" and "start 123"
+        normalized_command = command.lower()
+        if normalized_command.startswith("start") or normalized_command.startswith("/start"):
+            parts = normalized_command.split()
             if len(parts) > 1:
                 try:
                     inviter_id = int(parts[1])
                 except ValueError:
                     inviter_id = None # Invalid referral code
             is_start_command = True
-            command = "start" # Normalize for the engine
 
         # Register user, potentially with an inviter
         self.engine.register_user(user_id, first_name, inviter_id=inviter_id)

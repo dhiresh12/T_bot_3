@@ -4,7 +4,7 @@ from app.core import BotEngine
 
 
 def main() -> None:
-    engine = BotEngine(storage_path="bot_data.json")
+    engine = BotEngine(storage_path="bot_data.db")
     print("Xio PayPlus starter bot is ready.")
     print("Commands: bonus, wallet, tasks, ads, spin, profile, leaderboard, withdraw, exit")
     print("Type 'exit' to quit.")

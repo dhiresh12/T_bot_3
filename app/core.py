@@ -196,6 +196,10 @@ class BotEngine:
         # This allows "profile", "/profile", and "👤 Profile" to all work.
         cleaned_command = (command or "").strip().lstrip('/')
         normalized_cmd = ''.join(c for c in cleaned_command if c.isalnum() or c == ':').lower()
+
+        # Special normalization for the start command
+        if normalized_cmd.startswith("start"):
+            normalized_cmd = "start"
         
         # Simple commands
         handler = self.command_handlers.get(normalized_cmd)
