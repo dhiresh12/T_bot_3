@@ -192,8 +192,8 @@ class BotEngine:
             return handler(profile)
 
         # Commands with arguments or special prefixes
-        if normalized_cmd == "help":
-            return self.support.translations.get("en", {}).get("messages", {}).get("help_intro", "Help is available.")
+        if normalized_cmd.startswith("help"):
+            return self.handle_help_command(normalized_cmd)
         if normalized_cmd in {"ads", "watchads"}:
             return "Watch ads to earn rewards and boost your balance."
         if normalized_cmd.startswith("withdraw"):
@@ -201,6 +201,36 @@ class BotEngine:
         if normalized_cmd.startswith("admin"):
             return self.handle_admin_command(user_id, command)
         return "Unknown command."
+
+    def handle_help_command(self, command: str) -> Dict[str, Any]:
+        """Handles the interactive help command with language selection."""
+        parts = command.split(':')
+        action = parts[0]
+        lang = parts[1] if len(parts) > 1 else None
+
+        if not lang:
+            # Initial state: show language selection
+            text = "Please select your language:\nकृपया अपनी भाषा चुनें:"
+            buttons = [
+                [{"text": "🇬🇧 English", "callback_data": "help:en"}, {"text": "🇮🇳 हिन्दी", "callback_data": "help:hi"}],
+                [{"text": "🇧🇩 বাংলা", "callback_data": "help:bn"}, {"text": "🇵🇰 اردو", "callback_data": "help:ur"}],
+                [{"text": "🇮🇳 தமிழ்", "callback_data": "help:ta"}, {"text": "🇮🇳 తెలుగు", "callback_data": "help:te"}],
+            ]
+            return {"text": text, "reply_markup": {"inline_keyboard": buttons}}
+        else:
+            # Language selected: show help content in that language
+            help_content = self.support.get_faq(lang)
+            messages = self.support.translations.get(lang, self.support.translations['en'])['messages']
+            
+            text = messages.get('help_intro', 'Help is available.') + "\n\n"
+            text += "\n".join(f"• {q}: {a}" for q, a in help_content.items())
+
+            support_links = self.support.get_support_links()
+            buttons = [
+                [{"text": messages.get('customer_support_button', 'Customer Support'), "url": support_links['support_group']}],
+                [{"text": messages.get('contact_admin_button', 'Contact Admin'), "url": support_links['admin_channel']}]
+            ]
+            return {"text": text, "reply_markup": {"inline_keyboard": buttons}}
 
     def complete_task(self, user_id: int, task_id: str) -> tuple[bool, str]:
         profile = self.get_profile(user_id)

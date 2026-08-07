@@ -17,4 +17,7 @@ services:
       - key: ADMIN_KEY
         sync: false
       - key: MINI_APP_URL
-        value: "https://t-bot-3.onrender.com"
+        fromService:
+          type: web
+          name: xio-payplus # This must match the 'name' of this service
+          property: url
