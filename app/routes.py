@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 try:
@@ -22,28 +23,38 @@ def health() -> tuple[dict, int]:
 @bp.get("/api/webhook/status")
 def webhook_status() -> tuple[dict, int]:
     """Reports whether the Telegram webhook is registered and the bot token is set."""
+    from app.core import _resolve_mini_app_url
     from app.telegram_bot import TelegramBotService
     service = TelegramBotService(engine=current_app.config.get("engine"))
+    result: dict[str, Any] = {
+        "mini_app_url": _resolve_mini_app_url(),
+        "mini_app_url_env": os.getenv("MINI_APP_URL"),
+        "render_external_url": os.getenv("RENDER_EXTERNAL_URL"),
+    }
     if not service.token:
-        return jsonify({
+        result.update({
             "token_set": False,
             "webhook_url": None,
             "message": "TELEGRAM_BOT_TOKEN is not set on the server. Add it in Render -> Environment to enable the bot.",
-        }), 200
+        })
+        return jsonify(result), 200
     if requests is None:
-        return jsonify({"token_set": True, "error": "requests module not installed"}), 200
+        result.update({"token_set": True, "error": "requests module not installed"})
+        return jsonify(result), 200
     try:
         info = requests.post(
             f"{service.api_url}/getWebhookInfo", timeout=15
         ).json()
     except Exception as exc:  # noqa: BLE001
-        return jsonify({"token_set": True, "error": str(exc)}), 200
-    return jsonify({
+        result.update({"token_set": True, "error": str(exc)})
+        return jsonify(result), 200
+    result.update({
         "token_set": True,
         "webhook_url": info.get("result", {}).get("url"),
         "pending_update_count": info.get("result", {}).get("pending_update_count", 0),
         "message": "Webhook configured." if info.get("result", {}).get("url") else "No webhook URL set yet.",
-    }), 200
+    })
+    return jsonify(result), 200
 
 
 @bp.get("/api/ads/config")

@@ -30,8 +30,10 @@ class TelegramBotService:
     def __init__(self, engine: Optional[BotEngine] = None) -> None:
         self.engine = engine or BotEngine(storage_path="bot_data.db")
         self.token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-        # The MINI_APP_URL should be the public URL of your Render app
-        self.mini_app_url = os.getenv("MINI_APP_URL") or _resolve_mini_app_url()
+        # The MINI_APP_URL should be the public URL of your Render app.
+        # _resolve_mini_app_url() ignores placeholder/obviously-wrong values
+        # (e.g. 'your-render-app.onrender.com') so the button never points at a dead URL.
+        self.mini_app_url = _resolve_mini_app_url()
         self.api_url = f"https://api.telegram.org/bot{self.token}"
         self._last_sent: Optional[Dict] = None
 
@@ -200,3 +202,4 @@ class TelegramBotService:
         # Send the response back to the user
         self.send_message(chat_id, response_text, reply_markup, is_start=is_start_command)
         return response_text
+

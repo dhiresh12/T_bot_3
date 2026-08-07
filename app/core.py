@@ -33,13 +33,29 @@ def _resolve_mini_app_url() -> str:
       1. MINI_APP_URL env var (explicit override)
       2. RENDER_EXTERNAL_URL / WEBHOOK_URL (set automatically by Render)
       3. Default to the deployed app URL
+
+    Placeholder / obviously-wrong values (e.g. 'your-render-app.onrender.com',
+    'localhost', 'http://') are ignored so the button never points at a dead URL.
     """
-    explicit = os.getenv("MINI_APP_URL")
+    placeholders = ("your-render-app", "http://localhost", "http://127.0.0.1")
+
+    def _clean(candidate: str) -> str | None:
+        if not candidate:
+            return None
+        candidate = candidate.rstrip("/")
+        lowered = candidate.lower()
+        if any(p in lowered for p in placeholders):
+            return None
+        if lowered.startswith("http://") or lowered.startswith("https://"):
+            return candidate
+        return None
+
+    explicit = _clean(os.getenv("MINI_APP_URL"))
     if explicit:
-        return explicit.rstrip("/")
-    external = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("WEBHOOK_URL")
+        return explicit
+    external = _clean(os.getenv("RENDER_EXTERNAL_URL") or os.getenv("WEBHOOK_URL"))
     if external:
-        return external.rstrip("/")
+        return external
     return "https://t-bot-3.onrender.com"
 
 
