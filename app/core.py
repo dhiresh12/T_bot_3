@@ -3,10 +3,9 @@ from __future__ import annotations
 import json
 import logging
 import random
-from dataclasses import dataclass, field, fields, asdict
-from pathlib import Path
+from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 import os
 
 try:
@@ -64,17 +63,21 @@ class _InMemoryCollection:
 
     def __init__(self) -> None:
         self._docs: Dict[Any, Any] = {}
+        self._auto_id = 0
 
     def find(self) -> List[Any]:
         return list(self._docs.values())
+
+    def aggregate(self, pipeline: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return []
 
     def replace_one(self, filter_: Dict[Any, Any], doc: Any, upsert: bool = True) -> None:
         key = filter_.get("_id")
         if key is not None:
             self._docs[key] = doc
         elif upsert:
-            # No key: just store under the doc's own id if available.
-            self._docs[doc.get("_id", len(self._docs))] = doc
+            self._docs[doc.get("_id", self._auto_id)] = doc
+            self._auto_id += 1
 
 
 class _InMemoryDB:
@@ -109,12 +112,12 @@ class UserProfile:  # Phase 1: Expanded UserProfile
     activity_log: List[Dict[str, Any]] = field(default_factory=list)
     last_activity_at: Optional[str] = None
     is_verified: bool = False
-    registered_at: Optional[str] = None # New field for tracking registration date
+    registered_at: Optional[str] = None  # New field for tracking registration date
     invited_by: Optional[int] = None
 
     def log_activity(self, action: str, details: Optional[Dict] = None):
         """Helper to log user activity."""
-        self.last_activity_at = datetime.utcnow().isoformat()
+        self.last_activity_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         log_entry = {"action": action, "timestamp": self.last_activity_at}
         if details:
             log_entry.update(details)
@@ -124,25 +127,16 @@ class UserProfile:  # Phase 1: Expanded UserProfile
 class BotEngine:
     def __init__(self, storage_path: Optional[str] = None) -> None:
         # --- MongoDB Connection (optional) ---
-        # If MONGO_URI is set, connect to a real MongoDB. Otherwise, fall back to
-        # an in-memory mongomock instance so the app/tests can run locally without
-        # a database server.
         mongo_uri = os.getenv("MONGO_URI")
         if mongo_uri and MongoClient is not None:
             self.client = MongoClient(mongo_uri)
-            # The DB name is part of the URI; fall back to a sensible default if not present.
-            # NOTE: Do NOT use `get_default_database() or ...` because pymongo Database
-            # objects do not support truth-value testing (raises in pymongo 4.x).
             self.db = self.client.get_default_database()
             if self.db is None:
                 self.db = self.client["bot_data"]
         elif mongomock is not None:
-            # mongomock needs an explicit database name.
             self.client = mongomock.MongoClient("mongodb://localhost")
             self.db = self.client["bot_data"]
         else:
-            # No pymongo, no mongomock: use a pure-Python in-memory fallback so the
-            # app still boots and every feature works for local development/testing.
             self.client = None
             self.db = _InMemoryDB()
         self.users_collection = self.db.users
@@ -159,18 +153,65 @@ class BotEngine:
         self.min_withdrawal = 10.0
         self.daily_ads_limit = 15
         self.daily_spin_limit = 1
-        # Phase 1: Task rewards are now configurable
         # --- New Economic Model ---
-        self.coins_to_rupee_rate = 0.0001  # Admin can change this. 10,000 coins = 1 Rupee
-        self.withdrawal_fee_percent = 5  # 5% processing fee on all withdrawals (Dark Pattern)
+        self.coins_to_rupee_rate = 0.0001  # 10,000 coins = 1 Rupee
+        self.withdrawal_fee_percent = 5  # 5% processing fee on all withdrawals
+        # --- Ads economics (spec: ₹0.002 + 50-500 coins per ad; possible revenue share) ---
+        self.ads_reward_per_ad = 0.002          # ₹0.002 per completed ad
+        self.ads_reward_coins_min = 50
+        self.ads_reward_coins_max = 500
+        self.ads_user_share_percent = 50        # % of ad revenue shared with the user
+        self.bonus_ads_per_code = 10            # bonus ads granted by each more-ads code
+        # --- Referral economics (spec: $0.005 per REAL successful invite) ---
+        self.invite_referral_reward = 0.005     # ₹0.005 credited to the inviter's bot wallet
 
+        # --- Admin editable tasks (1000 coin reward + real links) ---
         self.tasks = {
-            "join_channel": {"title": "Join Telegram channel", "reward_coins": 150, "reward_money": 0.01},
-            "join_group": {"title": "Join Telegram group", "reward_coins": 100, "reward_money": 0.01},
-            "share_link": {"title": "Share your invite link", "reward_coins": 50, "reward_money": 0.0},
-            "follow_social": {"title": "Follow us on social media", "reward_coins": 120, "reward_money": 0.01},
-            "watch_tutorial": {"title": "Watch a tutorial video", "reward_coins": 130, "reward_money": 0.01},
+            "join_channel": {
+                "title": "Join Telegram channel",
+                "reward_coins": 1000,
+                "reward_money": 0.01,
+                "url": "https://t.me/xio_liis_watch_Ads_earning",
+                "verify": "join",
+            },
+            "join_group": {
+                "title": "Join Telegram group",
+                "reward_coins": 1000,
+                "reward_money": 0.01,
+                "url": "https://t.me/+QserNlqLSqZjN2U9",
+                "verify": "join",
+            },
+            "subscribe_youtube": {
+                "title": "Subscribe on YouTube",
+                "reward_coins": 1000,
+                "reward_money": 0.01,
+                "url": "https://www.youtube.com/@xio_liis-y3g",
+                "verify": "join",
+            },
+            "join_whatsapp": {
+                "title": "Join WhatsApp channel",
+                "reward_coins": 1000,
+                "reward_money": 0.01,
+                "url": "https://whatsapp.com/channel/0029Vb7o3InDzgTKpSBx4640",
+                "verify": "join",
+            },
+            "follow_facebook": {
+                "title": "Follow on Facebook",
+                "reward_coins": 1000,
+                "reward_money": 0.01,
+                "url": "https://www.facebook.com/profile.php?id=61591087755430",
+                "verify": "join",
+            },
+            "share_link": {
+                "title": "Share your invite link",
+                "reward_coins": 1000,
+                "reward_money": 0.02,
+                "url": "",
+                "verify": "share",
+            },
         }
+        # --- More-ads code store (admin can add codes). Each valid code grants 10 bonus ads. ---
+        self.more_ads_codes = {"GET10ADS", "BONUS10", "MOREADS"}
         # Phase 1: Withdrawal requirements
         self.withdrawal_reqs = {
             "min_invites": 10,
@@ -193,53 +234,53 @@ class BotEngine:
         }
 
     def _get_utc_now(self) -> datetime:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
     def load(self) -> None:
-        """Loads all user profiles from the MongoDB collection into memory."""
+        """Loads all user profiles from the backing store into memory."""
         try:
             all_users_data = self.users_collection.find()
             for user_data in all_users_data:
-                user_data['user_id'] = user_data.pop('_id') # MongoDB uses _id as primary key
+                user_data['user_id'] = user_data.pop('_id')  # Mongo uses _id as primary key
                 profile = UserProfile(**user_data)
                 self.users[profile.user_id] = profile
-            logging.info(f"Loaded {len(self.users)} users from MongoDB.")
+            logging.info(f"Loaded {len(self.users)} users.")
         except Exception as e:
-            logging.error(f"Error loading data from MongoDB: {e}")
+            logging.error(f"Error loading data: {e}")
             self.users = {}
 
     def save(self) -> None:
-        """Saves a single user profile to MongoDB. Called after any modification."""
-        # In a MongoDB architecture, it's better to save one document at a time
-        # rather than the whole collection. This method will now require a user_id.
-        pass # We will call a new method `_save_user` instead.
+        """Saves all user profiles (used for compatibility)."""
+        for profile in self.users.values():
+            self._save_user(profile)
 
     def _save_user(self, profile: UserProfile):
-        """Saves a single user's profile to MongoDB."""
+        """Saves a single user's profile."""
         profile_dict = asdict(profile)
         self.users_collection.replace_one({'_id': profile.user_id}, profile_dict, upsert=True)
 
     def register_user(self, user_id: int, name: str, inviter_id: Optional[int] = None) -> UserProfile:
         if user_id not in self.users:
-            # Set registered_at when the user is first created
-            self.users[user_id] = UserProfile(user_id=user_id, name=name, registered_at=self._get_utc_now().isoformat())
+            self.users[user_id] = UserProfile(
+                user_id=user_id,
+                name=name,
+                registered_at=self._get_utc_now().isoformat(),
+            )
             if inviter_id and inviter_id in self.users:
-                self.users[user_id].invited_by = inviter_id # Assign inviter
-                self.process_successful_invite(inviter_id, user_id) # Process invite rewards
+                self.users[user_id].invited_by = inviter_id
+                self.process_successful_invite(inviter_id, user_id)
             self._save_user(self.users[user_id])
         return self.users[user_id]
 
     def get_profile(self, user_id: int) -> UserProfile:
         """Gets a user profile. If the user doesn't exist, it creates and saves them."""
         if user_id not in self.users:
-            # If a user is accessed for the first time (e.g., via API), create and save them.
             return self.register_user(user_id, "Guest")
         return self.users[user_id]
 
     def build_menu(self, profile: UserProfile) -> Dict[str, Any]:
         """Builds the main menu with inline keyboard buttons."""
         text = f"👋 Welcome, {profile.name}!\n\nSelect an option from the menu below."
-        # Add a Mini App button directly in the main menu for easy access
         mini_app_url = _resolve_mini_app_url()
         reply_markup = {
             "inline_keyboard": [
@@ -247,7 +288,7 @@ class BotEngine:
                 [{"text": "🎁 Daily Bonus", "callback_data": "bonus"}, {"text": "🎡 Spin Wheel", "callback_data": "spin"}],
                 [{"text": "📋 Tasks", "callback_data": "tasks"}, {"text": "🏆 Leaderboard", "callback_data": "leaderboard"}],
                 [{"text": "🚀 Launch Mini App", "web_app": {"url": mini_app_url}}],
-                [{"text": "❓ Help", "callback_data": "help"}]
+                [{"text": "❓ Help", "callback_data": "help"}],
             ]
         }
         return {"text": text, "reply_markup": reply_markup}
@@ -256,21 +297,15 @@ class BotEngine:
         """Handles text-based commands from the Telegram bot chat."""
         profile = self.get_profile(user_id)
 
-        # Normalize command by removing slashes, converting to lowercase, and stripping emojis/whitespace.
-        # This allows "profile", "/profile", and "👤 Profile" to all work.
         cleaned_command = (command or "").strip().lstrip('/')
         normalized_cmd = ''.join(c for c in cleaned_command if c.isalnum() or c == ':').lower()
 
-        # Commands with arguments or special prefixes (like help:en)
         if normalized_cmd.startswith("help"):
-            # Pass the original command to preserve case and structure
             return self.handle_help_command(cleaned_command)
 
-        # Special normalization for the start command
         if normalized_cmd.startswith("start"):
             normalized_cmd = "start"
 
-        # Simple commands
         handler = self.command_handlers.get(normalized_cmd)
         if handler:
             return handler(profile)
@@ -278,7 +313,7 @@ class BotEngine:
         if normalized_cmd in {"ads", "watchads"}:
             return "Watch ads to earn rewards and boost your balance."
         if normalized_cmd.startswith("withdraw"):
-            return self.request_withdrawal(user_id, self.min_withdrawal, method="upi", details="demo")
+            return self.request_withdrawal(user_id, self.min_withdrawal, method="upi")
         if normalized_cmd.startswith("admin"):
             return self.handle_admin_command(user_id, command)
         return "Unknown command."
@@ -286,11 +321,9 @@ class BotEngine:
     def handle_help_command(self, command: str) -> Dict[str, Any]:
         """Handles the interactive help command with language selection."""
         parts = command.split(':')
-        action = parts[0]
         lang = parts[1] if len(parts) > 1 else None
 
         if not lang:
-            # Initial state: show language selection
             text = "Please select your language:\nकृपया अपनी भाषा चुनें:"
             buttons = [
                 [{"text": "🇬🇧 English", "callback_data": "help:en"}, {"text": "🇮🇳 हिन्दी", "callback_data": "help:hi"}],
@@ -300,20 +333,19 @@ class BotEngine:
                 [{"text": "🇮🇳 தமிழ்", "callback_data": "help:ta"}, {"text": "🇮🇳 తెలుగు", "callback_data": "help:te"}],
             ]
             return {"text": text, "reply_markup": {"inline_keyboard": buttons}}
-        else:
-            # Language selected: show help content in that language
-            help_content = self.support.get_faq(lang)
-            messages = self.support.translations.get(lang, self.support.translations['en'])['messages']
 
-            text = messages.get('help_intro', 'Help is available.') + "\n\n"
-            text += "\n".join(f"• {q}: {a}" for q, a in help_content.items())
+        help_content = self.support.get_faq(lang)
+        messages = self.support.translations.get(lang, self.support.translations['en'])['messages']
 
-            support_links = self.support.get_support_links()
-            buttons = [
-                [{"text": messages.get('customer_support_button', 'Customer Support'), "url": support_links['support_group']}],
-                [{"text": messages.get('contact_admin_button', 'Contact Admin'), "url": support_links['admin_channel']}]
-            ]
-            return {"text": text, "reply_markup": {"inline_keyboard": buttons}}
+        text = messages.get('help_intro', 'Help is available.') + "\n\n"
+        text += "\n".join(f"• {q}: {a}" for q, a in help_content.items())
+
+        support_links = self.support.get_support_links()
+        buttons = [
+            [{"text": messages.get('customer_support_button', 'Customer Support'), "url": support_links['support_group']}],
+            [{"text": messages.get('contact_admin_button', 'Contact Admin'), "url": support_links['admin_channel']}],
+        ]
+        return {"text": text, "reply_markup": {"inline_keyboard": buttons}}
 
     def complete_task(self, user_id: int, task_id: str) -> tuple[bool, str]:
         profile = self.get_profile(user_id)
@@ -322,70 +354,78 @@ class BotEngine:
         if task_id not in self.tasks:
             return False, "Invalid task ID."
 
-        # Phase 1: Dwell time rule can be implemented here in the future.
-        # For now, we assume verification is instant.
-
         task_info = self.tasks[task_id]
         reward_coins = task_info.get("reward_coins", 0)
-        # reward_money = task_info.get("reward_money", 0) # We now primarily give coins
+        reward_money = task_info.get("reward_money", 0.0)
 
         profile.completed_tasks.append(task_id)
         profile.coins += reward_coins
-        # profile.wallet_bot += reward_money
+        profile.wallet_bot += reward_money
         profile.popularity += 1
-        profile.log_activity("complete_task", {"task_id": task_id, "reward_coins": reward_coins})
+        profile.log_activity("complete_task", {"task_id": task_id, "reward_coins": reward_coins, "reward_money": reward_money})
         self._save_user(profile)
-        return True, f"Task '{task_id}' completed! You earned {reward_coins} coins."
+        return True, f"Task '{task_id}' completed! You earned {reward_coins} coins + ₹{reward_money:.2f}."
+
+    def redeem_more_ads(self, user_id: int, code: str) -> tuple[bool, str]:
+        """Validates a more-ads code and grants 10 bonus ads."""
+        profile = self.get_profile(user_id)
+        normalized = (code or "").strip().upper()
+        if not normalized:
+            return False, "Please enter a code."
+        if normalized not in self.more_ads_codes:
+            return False, "Invalid code. Please use a valid more-ads code from the group."
+        if any(e.get("action") == "more_ads" and e.get("code") == normalized for e in profile.activity_log):
+            return False, "This code has already been redeemed."
+        bonus = self.bonus_ads_per_code
+        profile.daily_ads_watch_count += bonus
+        profile.log_activity("more_ads", {"code": normalized, "bonus_ads": bonus})
+        self._save_user(profile)
+        return True, f"Code accepted! {bonus} bonus ads added to your daily limit."
 
     def watch_ads(self, user_id: int) -> tuple[bool, str]:
         profile = self.get_profile(user_id)
 
-        # Phase 1: Reset daily ad count at 12 PM UTC
         now = self._get_utc_now()
         reset_time = time(12, 0)
         last_watched_time = datetime.fromisoformat(profile.last_ad_watched_at) if profile.last_ad_watched_at else None
 
         if last_watched_time:
-            # Check if the last ad was watched on a previous day
             if last_watched_time.date() < now.date():
                 profile.daily_ads_watch_count = 0
-            # Check if it's past 12 PM today and the last ad was before 12 PM today
             elif now.time() >= reset_time and last_watched_time.time() < reset_time:
                 profile.daily_ads_watch_count = 0
 
         if profile.daily_ads_watch_count >= self.daily_ads_limit:
             return False, "Daily ads limit reached. Come back after 12 PM or tomorrow."
 
-        reward_coins = random.randint(50, 250) # Main reward is coins
-        # reward_money = 0.002 # No direct money, to protect your funds
+        reward_coins = random.randint(self.ads_reward_coins_min, self.ads_reward_coins_max)
+        reward_money = self.ads_reward_per_ad  # ₹0.002 per completed ad
 
         profile.daily_ads_watch_count += 1
         profile.total_ads_watched += 1
         profile.last_ad_watched_at = now.isoformat()
         profile.coins += reward_coins
-        # profile.wallet_bot += reward_money
-        profile.log_activity("watch_ad", {"reward_coins": reward_coins})
+        profile.wallet_bot += reward_money
+        profile.log_activity("watch_ad", {"reward_coins": reward_coins, "reward_money": reward_money})
         self._save_user(profile)
-        return True, f"Ad completed. You earned {reward_coins} coins."
+        return True, f"Ad completed! You earned ₹{reward_money:.3f} + {reward_coins} coins."
 
     def process_successful_invite(self, inviter_id: int, new_user_id: int):
-        """Called when a new user joins via an invite link."""
+        """Called when a new user joins via an invite link (real successful referral)."""
         inviter_profile = self.get_profile(inviter_id)
         inviter_profile.invite_count += 1
         inviter_profile.invites_list.append(new_user_id)
-        inviter_profile.popularity += 2  # Higher popularity for successful invites
-        # inviter_profile.wallet_bot += 0.005  # Give a large coin bonus instead
-        inviter_profile.coins += random.randint(500, 1000)
-        inviter_profile.log_activity("user_invited", {"new_user_id": new_user_id})
+        inviter_profile.popularity += 2
+        inviter_profile.wallet_bot += self.invite_referral_reward  # ₹0.005
+        inviter_profile.coins += random.randint(100, 200)
+        inviter_profile.log_activity("user_invited", {"new_user_id": new_user_id, "reward": self.invite_referral_reward})
         self._save_user(inviter_profile)
 
     def request_withdrawal(self, user_id: int, amount: float, method: str = "upi", details: str = "") -> str:
         profile = self.get_profile(user_id)
 
-        # Recalculate current wallet value based on coins
         current_wallet_value = round(profile.coins * self.coins_to_rupee_rate, 4)
 
-        # Phase 1: Check withdrawal requirements
         if profile.invite_count < self.withdrawal_reqs["min_invites"]:
             return f"Withdrawal failed. You need at least {self.withdrawal_reqs['min_invites']} invites (you have {profile.invite_count})."
         if len(profile.completed_tasks) < self.withdrawal_reqs["min_tasks"]:
@@ -396,12 +436,27 @@ class BotEngine:
             return "Withdrawal amount is below the minimum."
         if amount > current_wallet_value:
             return "Insufficient balance in bot wallet."
+        # --- Payment detail validation (spec: UPI / bank / mobile) ---
+        # Only validate when payment details were actually provided. Some callers
+        # (e.g. the demo CLI / API) request a payout without entering details yet.
+        method = (method or "upi").lower()
+        if details.strip():
+            if method == "upi":
+                if "@" not in details or len(details) < 6:
+                    return "Invalid UPI ID. Please enter a valid UPI ID like name@okhdfcbank."
+            elif method == "bank":
+                if len(details.replace(" ", "")) < 9:
+                    return "Invalid bank account number. Please enter a valid account number."
+            elif method == "mobile":
+                digits = "".join(ch for ch in details if ch.isdigit())
+                if len(digits) != 10:
+                    return "Invalid mobile number. Please enter a valid 10-digit mobile number."
+            else:
+                return "Invalid withdrawal method. Use upi, bank, or mobile."
 
         request_id = f"req-{user_id}-{len(profile.withdrawals) + 1}"
-        # Phase 2: Use SecurityManager for code generation
         unique_code = self.security.generate_unique_code()
 
-        # Dark Pattern: Calculate and apply processing fee
         fee = round(amount * (self.withdrawal_fee_percent / 100), 2)
         final_amount = amount - fee
         coins_to_deduct = int(amount / self.coins_to_rupee_rate)
@@ -421,7 +476,7 @@ class BotEngine:
                 "timestamp": self._get_utc_now().isoformat(),
             }
         )
-        profile.coins -= coins_to_deduct # Deduct coins immediately
+        profile.coins -= coins_to_deduct
         self._save_user(profile)
         return f"Withdrawal request of ₹{amount:.2f} submitted. A {self.withdrawal_fee_percent}% fee (₹{fee:.2f}) is applied. Final Payout: ₹{final_amount:.2f}. Your unique code is: {unique_code}. Keep it safe!"
 
@@ -460,14 +515,12 @@ class BotEngine:
         target_profile = self.get_profile(user_id)
         for request in target_profile.withdrawals:
             if request.get("request_id") == request_id and request.get("status") == "pending":
-                # Phase 2: Verify the code before approving
                 if not self.security.verify_withdrawal_code(request, verification_code):
                     return f"Verification Failed for {request_id}. The code is incorrect."
 
                 request["status"] = "approved"
                 request["approved_by"] = admin_id
                 request["transaction_id"] = self.security.generate_transaction_id(user_id)
-                # Coins are already deducted, no need to touch wallet_bot
                 target_profile.log_activity("withdrawal_approved", {"request_id": request_id, "amount": request["amount"]})
                 self._save_user(target_profile)
                 return f"Withdrawal {request_id} for user {user_id} has been approved. Transaction ID: {request['transaction_id']}"
@@ -495,9 +548,8 @@ class BotEngine:
             "activity_count": self.get_activity_count(profile),
             "engagement": snapshot,
             "trust_feed": self.engagement.build_trust_feed(),
-            # Phase 4: Exposing fake feeds to the API for the mini-app
             "live_feed": [self.engagement.generate_fake_withdrawal_feed(), self.engagement.get_fake_chat_message()],
-            "support": self.support.get_faq("en"), # Default to English for API
+            "support": self.support.get_faq("en"),
         }
 
     def get_help(self, language: str = "en") -> Dict[str, Any]:
@@ -520,21 +572,18 @@ class BotEngine:
         command = parts[1] if len(parts) > 1 else "dashboard"
 
         if command == "dashboard":
-            dash = self.admin_service.get_admin_dashboard()
-            return json.dumps(dash, indent=2)
+            return json.dumps(self.admin_service.get_admin_dashboard(), indent=2)
 
         if command == "users":
-            users = self.admin_service.get_all_users_summary()
-            return json.dumps(users, indent=2)
+            return json.dumps(self.admin_service.get_all_users_summary(), indent=2)
 
         if command == "view_user" and len(parts) > 2:
             try:
                 target_id = int(parts[2])
                 target_profile = self.admin_service.get_user_full_profile(target_id)
-                if not target_profile: return f"User {target_id} not found."
-                # Convert dataclass to dict for JSON serialization
-                profile_dict = asdict(target_profile)
-                return json.dumps(profile_dict, indent=2, default=str) # Use default=str for datetime etc.
+                if not target_profile:
+                    return f"User {target_id} not found."
+                return json.dumps(asdict(target_profile), indent=2, default=str)
             except (ValueError, IndexError):
                 return "Usage: /admin view_user <user_id>"
 
@@ -555,7 +604,6 @@ class BotEngine:
     # --- Command Handler Methods ---
 
     def _handle_start(self, profile: UserProfile) -> Dict[str, Any]:
-        """Handles the start command by showing a welcome message and the main menu."""
         welcome_msg = self.support.translations.get("en", {}).get("messages", {}).get("welcome", "Welcome!").format(name=profile.name)
         menu_data = self.build_menu(profile)
         menu_data["text"] = f"{welcome_msg}\n\n{menu_data['text']}"
@@ -597,11 +645,10 @@ class BotEngine:
                 f"Invites: {profile.invite_count}")
 
     def _handle_leaderboard(self, profile: UserProfile) -> str:
-        """Handles the leaderboard command, making it more engaging."""
         leaderboard = self.get_leaderboard()
-        if not leaderboard: return "No leaderboard data yet."
+        if not leaderboard:
+            return "No leaderboard data yet."
 
-        # Dark Pattern: Social Proof and Competition
         lines = [f"🏆 {i + 1}. {name} - ₹{wallet:.2f}" for i, (name, wallet) in enumerate(leaderboard[:10])]
         user_rank = self.get_leaderboard_position(profile.user_id)
         rank_text = f"\n\nYour Rank: #{user_rank}" if user_rank > 0 else "\n\nYou are not on the leaderboard yet. Keep earning!"
@@ -618,3 +665,4 @@ class BotEngine:
     def get_leaderboard(self) -> List[tuple[str, float]]:
         ranked = sorted(self.users.values(), key=lambda p: p.wallet_bot, reverse=True)
         return [(profile.name, profile.wallet_bot) for profile in ranked if profile.wallet_bot > 0]
+

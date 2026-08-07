@@ -201,8 +201,8 @@ def create_app(engine: BotEngine | None = None) -> Flask:
                 <div class="chat-msg"><span class="who">Rahul:</span> Just withdrew ₹120! Thank you Xio 🙏</div>
               </div>
               <div class="chat-input">
-                <input id="chat-input" placeholder="Type a message...">
-                <button onclick="sendChat()">➤</button>
+<input id="chat-input" placeholder="Type a message...">
+                <button id="send-chat-btn" onclick="sendChat()">➤</button>
               </div>
             </div>
           </div>
@@ -222,7 +222,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Hit your daily limit? Get 10 more ads!</p>
               <div class="invite-link-box">
                 <input id="more-ads-code" placeholder="Enter more-ads code" style="flex:1;">
-                <button class="btn-sm" onclick="redeemMoreAds()">Redeem</button>
+<button id="redeem-more-ads-btn" class="btn-sm" onclick="redeemMoreAds()">Redeem</button>
               </div>
               <p id="more-ads-status" style="font-size:12px;margin-top:8px;color:var(--gold);"></p>
             </div>
@@ -251,9 +251,9 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <p data-translate-key="invite_link_label" style="font-size:13px;margin:14px 0 6px;">Your personal invite link:</p>
             <div class="invite-link-box">
               <input id="invite-link" type="text" readonly>
-              <button onclick="copyInvite()">📋</button>
+<button id="copy-invite-btn" onclick="copyInvite()">📋</button>
             </div>
-            <button class="btn btn-gold" onclick="shareInvite()" data-translate-key="share_invite_button">🚀 Share Invite Link</button>
+            <button id="share-invite-btn" class="btn btn-gold" onclick="shareInvite()" data-translate-key="share_invite_button">🚀 Share Invite Link</button>
             <div class="invite-stats">
               <div class="card"><div class="v" id="invite-count-box">0</div><div style="font-size:12px;color:var(--text-muted);">Invites</div></div>
               <div class="card"><div class="v" id="invite-earned-box">₹0.000</div><div style="font-size:12px;color:var(--text-muted);">Referral Earnings</div></div>
@@ -280,7 +280,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <div class="method-form" id="bank-form"><input id="withdraw-bank" type="text" placeholder="Account Number"><input id="withdraw-ifsc" type="text" placeholder="IFSC Code"></div>
               <div class="method-form" id="mobile-form"><input id="withdraw-mobile" type="text" placeholder="10-digit Mobile Number"></div>
               <input id="withdraw-amount" type="number" placeholder="Amount (min ₹10)">
-              <button class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
+<button id="withdraw-btn" class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
               <p id="withdraw-status" class="status-msg"></p>
             </div>
             <div class="section-title" data-translate-key="history_title">History</div>
@@ -296,7 +296,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <div id="faq-list" style="margin-top:12px;"></div>
             <div class="support-box">
               <textarea id="support-message" placeholder="Type your problem here..."></textarea>
-              <button class="btn" onclick="sendSupport()">📨 Send & Join Support Group</button>
+<button id="send-support-btn" class="btn" onclick="sendSupport()">📨 Send & Join Support Group</button>
               <p id="support-status" class="status-msg"></p>
             </div>
           </div>
@@ -345,9 +345,10 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             return 'Guest';
           })();
 
-          const translations = {{translations_json | safe}};
+const translations = {{translations_json | safe}};
           const botUsername = '{{bot_username}}';
-          let currentLang = localStorage.getItem('xio_lang') || 'en';
+          let currentLang = 'en';
+          try { currentLang = localStorage.getItem('xio_lang') || 'en'; } catch (e) {}
 
           let selectedMethod = 'upi';
           let adTimer = null;
@@ -478,9 +479,9 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               const isDone = done.indexOf(id) !== -1;
               const div = document.createElement('div');
               div.className = 'task-item' + (isDone ? ' completed' : '');
-              const badge = isDone
+const badge = isDone
                 ? '<span class="completed-badge">✔ ' + t('task_completed_badge') + '</span>'
-                : '<button class="btn btn-sm btn-green" onclick="completeTask(\'' + id + '\')">' + t('task_complete_button') + '</button>';
+                : '<button class="btn btn-sm btn-green" data-task="' + id + '">' + t('task_complete_button') + '</button>';
               div.innerHTML = '<div class="task-info"><h3>' + (task.title || id) + '</h3><p>' + t('task_reward') + ': ' + (task.reward_coins||0) + ' ' + t('coins') + '</p></div>' + badge;
               listEl.appendChild(div);
             }
@@ -691,7 +692,57 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             }, 9000);
           }
 
+          // Robust event delegation: works even if inline onclick attributes
+          // are blocked by a strict Content Security Policy in the Telegram WebView.
+          document.addEventListener('click', function(e) {
+            var target = e.target;
+            // nav-item / any element with data-page
+            var pageEl = target.closest('[data-page]');
+            if (pageEl) { showPage(pageEl.getAttribute('data-page')); return; }
+            // Buttons by id
+            if (target.closest('#support-btn')) { openSupport(); return; }
+            if (target.closest('#lang-btn')) { cycleLang(); return; }
+            if (target.closest('#spin-button')) { spinWheel(); return; }
+            if (target.closest('#watch-ad-btn')) { watchAdStart(); return; }
+            if (target.closest('#withdraw-amount')) { return; }
+            if (target.closest('#task-status')) { return; }
+if (target.closest('.method[data-method]')) {
+              selectMethod(target.closest('.method').getAttribute('data-method')); return;
+            }
+            // Task complete buttons (dynamically created, carry data-task attribute)
+            var taskBtn = target.closest('[data-task]');
+            if (taskBtn) { completeTask(taskBtn.getAttribute('data-task')); return; }
+            // Action buttons by id/class
+            if (target.closest('#withdraw-btn')) { requestWithdrawal(); return; }
+            if (target.closest('#share-invite-btn')) { shareInvite(); return; }
+            if (target.closest('#copy-invite-btn')) { copyInvite(); return; }
+            if (target.closest('#send-chat-btn')) { sendChat(); return; }
+            if (target.closest('#send-support-btn')) { sendSupport(); return; }
+            if (target.closest('#redeem-more-ads-btn')) { redeemMoreAds(); return; }
+          }, true);
+
+          // Fallback: bind static controls directly once the DOM is ready.
+          function bindControls() {
+            document.querySelectorAll('.nav-item[data-page]').forEach(function(el){
+              el.addEventListener('click', function(){ showPage(el.getAttribute('data-page')); });
+            });
+            document.querySelectorAll('.back-btn').forEach(function(el){
+              el.addEventListener('click', function(){ showPage('home'); });
+            });
+            var bind = function(sel, fn){
+              var els = document.querySelectorAll(sel);
+              for (var i = 0; i < els.length; i++) { els[i].addEventListener('click', fn); }
+            };
+            bind('[data-page]', function(e){ showPage(this.getAttribute('data-page')); });
+            bind('#support-btn', function(){ openSupport(); });
+            bind('#lang-btn', function(){ cycleLang(); });
+            bind('#spin-button', function(){ spinWheel(); });
+            bind('#watch-ad-btn', function(){ watchAdStart(); });
+            bind('.method', function(){ selectMethod(this.getAttribute('data-method')); });
+          }
+
           window.addEventListener('load', function(){
+            bindControls();
             fetchData();
             translateUI();
             initChatRotation();
