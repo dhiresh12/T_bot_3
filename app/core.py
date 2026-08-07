@@ -169,6 +169,11 @@ class BotEngine:
         # This allows "profile", "/profile", and "👤 Profile" to all work.
         cleaned_command = (command or "").strip().lstrip('/')
         normalized_cmd = ''.join(c for c in cleaned_command if c.isalnum() or c == ':').lower()
+        
+        # Commands with arguments or special prefixes (like help:en)
+        if normalized_cmd.startswith("help"):
+            # Pass the original command to preserve case and structure
+            return self.handle_help_command(cleaned_command)
 
         # Special normalization for the start command
         if normalized_cmd.startswith("start"):
@@ -179,10 +184,6 @@ class BotEngine:
         if handler:
             return handler(profile)
 
-        # Commands with arguments or special prefixes (like help:en)
-        if normalized_cmd.startswith("help"):
-            # Pass the original command to preserve case and structure
-            return self.handle_help_command(cleaned_command)
         if normalized_cmd in {"ads", "watchads"}:
             return "Watch ads to earn rewards and boost your balance."
         if normalized_cmd.startswith("withdraw"):
