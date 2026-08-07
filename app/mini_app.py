@@ -240,7 +240,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             document.getElementById('user-name').innerText = data.name;
             document.getElementById('user-id').innerText = `ID: ${"{"}data.user_id{"}"}`;
             document.getElementById('balance-amount').innerText = `₹${"{"}data.wallet_rupee_equivalent.toFixed(4){"}"}`;
-            document.getElementById('balance-coins').innerHTML = `${"{"}data.coins.toLocaleString(){"}"} <span data-translate-key="coins">${"{"}translations[currentLang].ui.coins{"}"}</span>`;
+            document.getElementById('balance-coins').innerHTML = `${"{"}data.coins.toLocaleString(){"}"} <span data-translate-key="coins">${"{"}(translations[currentLang]?.ui?.coins || 'Coins'){"}"}</span>`;
             document.getElementById('current-tier').innerText = data.engagement.tier;
             document.getElementById('next-tier').innerText = `${"{"}translations[currentLang].ui.next_tier_prefix{"}"} ${"{"}data.engagement.next_tier{"}"}`;
             document.getElementById('invites-count').innerText = data.invites;
