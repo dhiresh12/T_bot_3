@@ -244,7 +244,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             document.getElementById('current-tier').innerText = data.engagement.tier;
             document.getElementById('next-tier').innerText = `${"{"}translations[currentLang].ui.next_tier_prefix{"}"} ${"{"}data.engagement.next_tier{"}"}`;
             document.getElementById('invites-count').innerText = data.invites;
-            document.getElementById('tasks-count').innerText = data.tasks.length;
+            document.getElementById('tasks-count').innerText = data.tasks?.length || 0;
             document.getElementById('invite-link').value = `https://t.me/{bot_username}?start=${"{"}data.user_id{"}"}`;
             
             // Update live feed (Dark Pattern)
