@@ -66,3 +66,38 @@ def test_nav_ads_translation_keys_exist():
     assert "nav_ads" in support.translations["hi"]["ui"]
     assert support.translations["en"]["ui"]["nav_ads"] == "Ads"
     assert support.translations["hi"]["ui"]["nav_ads"] == "विज्ञापन"
+
+
+def test_spin_wheel_returns_gift_dictionary(tmp_path):
+    """The gift spin must return a gift dict (not a float) and bump the snap streak."""
+    storage_path = tmp_path / "bot3-spin-gift.json"
+    engine = BotEngine(storage_path=str(storage_path))
+    user_id = 4001
+    engine.register_user(user_id, "Spinner")
+
+    success, message, gift = engine.spin_wheel(user_id)
+    assert success is True
+    assert isinstance(gift, dict), "gift should be a dict"
+    assert "name" in gift and "coins" in gift
+    # The selected gift must be a valid spin_gifts entry
+    assert any(g["name"] == gift["name"] for g in engine.spin_gifts)
+    # Coins must be credited if the gift pays out
+    profile = engine.get_profile(user_id)
+    if gift["coins"] > 0:
+        assert profile.coins >= gift["coins"]
+    # Snap-style streak bumps on every daily spin
+    assert profile.snap_streak == 1
+
+
+def test_spin_wheel_daily_limit(tmp_path):
+    """Only one daily spin is allowed; the second call is blocked."""
+    storage_path = tmp_path / "bot3-spin-limit.json"
+    engine = BotEngine(storage_path=str(storage_path))
+    user_id = 4002
+    engine.register_user(user_id, "Spinner2")
+
+    first_ok, _, _ = engine.spin_wheel(user_id)
+    assert first_ok is True
+    second_ok, message, _ = engine.spin_wheel(user_id)
+    assert second_ok is False
+    assert "daily spin" in message.lower()

@@ -226,8 +226,8 @@ def withdraw(user_id: int) -> tuple[dict, int]:
 def spin(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
     current_engine.register_user(user_id, "Guest")
-    success, message, value = current_engine.spin_wheel(user_id)
-    return jsonify({"success": success, "message": message, "value": value}), 200
+    success, message, gift = current_engine.spin_wheel(user_id)
+    return jsonify({"success": success, "message": message, "gift": gift, "value": gift.get("coins", 0) if gift else 0}), 200
 
 
 # --- Admin API Endpoints (New/Moved) ---

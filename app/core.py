@@ -496,8 +496,13 @@ class BotEngine:
         self._save_user(profile)
         return f"Withdrawal request of ₹{amount:.2f} submitted. A {self.withdrawal_fee_percent}% fee (₹{fee:.2f}) is applied. Final Payout: ₹{final_amount:.2f}. Your unique code is: {unique_code}. Keep it safe!"
 
-    def spin_wheel(self, user_id: int) -> tuple[bool, str, float]:
-        """Handles the logic for the spin wheel, including daily limits."""
+    def spin_wheel(self, user_id: int) -> tuple[bool, str, Dict[str, Any]]:
+        """Handles the daily gift spin (spec: gift boxes, golden glow, 'open' reveal).
+
+        A random gift is drawn from ``self.spin_gifts``. If the gift grants coins,
+        they are credited immediately (the "open" reveal just celebrates it), and
+        the user's Snap-style streak is bumped. Daily limit logic is preserved.
+        """
         profile = self.get_profile(user_id)
         now = self._get_utc_now()
 
@@ -506,21 +511,28 @@ class BotEngine:
             profile.daily_spin_count = 0
 
         if profile.daily_spin_count >= self.daily_spin_limit:
-            return False, "You have already used your daily spin. Come back tomorrow!", 0.0
+            return False, "You have already used your daily spin. Come back tomorrow!", {}
 
         profile.daily_spin_count += 1
         profile.last_spin_at = now.isoformat()
 
-        value = random.choice(self.spin_values)
-        if value == 0.0:
-            self._save_user(profile)
-            return True, "No luck this time, try again tomorrow.", 0.0
+        gift = random.choice(self.spin_gifts)
+        coins_won = gift.get("coins", 0)
 
-        coins_won = int(value * 10000)
-        profile.coins += coins_won
-        profile.log_activity("spin_win", {"amount": value, "coins_won": coins_won})
+        # Snap-style streak: 1 spin per day bumps the streak.
+        profile.snap_streak += 1
+        profile.last_streak_at = now.isoformat()
+
+        if coins_won > 0:
+            profile.coins += coins_won
+            profile.log_activity("spin_win", {"gift": gift["name"], "coins_won": coins_won, "snap_streak": profile.snap_streak})
+        else:
+            profile.log_activity("spin_lose", {"gift": gift["name"], "snap_streak": profile.snap_streak})
+
         self._save_user(profile)
-        return True, f"Congratulations! You won {coins_won} coins (worth ₹{value:.2f}).", value
+        if coins_won > 0:
+            return True, f"🎁 You won a {gift['name']}! Open it to reveal {coins_won} coins (streak: {profile.snap_streak} 🔥).", gift
+        return True, f"💥 You won a {gift['name']}. Better luck next time! (streak: {profile.snap_streak} 🔥)", gift
 
     def approve_withdrawal(self, admin_id: int, user_id: int, request_id: str, verification_code: str) -> str:
         """Admin command to approve a withdrawal after verifying the unique code."""

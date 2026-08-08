@@ -21,7 +21,7 @@ def test_homepage_exposes_dashboard_and_action_hooks():
     html = response.get_data(as_text=True)
     # The current mini-app UI exposes these dashboard and action hooks.
     assert "/api/dashboard" in html
-    assert "Spin for a Prize!" in html
+    assert "Spin for a Gift!" in html
     assert "Withdraw Funds" in html
 
 
