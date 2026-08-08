@@ -237,7 +237,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
                 <div class="gift-stars" id="gift-stars"></div>
               </div>
               <div class="surprise-msg" id="surprise-msg">Tap the gift to open it!</div>
-              <div class="surprise-sub">Your reward is waiting 💰</div>
+              <div class="surprise-sub" id="surprise-sub">Your reward is waiting 💰</div>
               <div class="open-result" id="open-result">
                 <div style="font-size:60px;margin-top:10px;" id="open-gift-emoji">🎉</div>
                 <div class="surprise-msg" id="open-msg">You won!</div>
