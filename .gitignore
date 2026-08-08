@@ -42,3 +42,9 @@ Thumbs.db
 # Logs
 *.log
 server_log.txt
+
+# Dev helper scripts
+_extract.py
+_extracted.js
+_check_ids.py
+_verify.py

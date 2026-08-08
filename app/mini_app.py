@@ -508,7 +508,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               const c = document.createElement('div');
               c.className = 'lang-chip' + (code === currentLang ? ' active' : '');
               c.innerText = cfg.flag + ' ' + cfg.label;
-              c.onclick = function(){ currentLang = code; try{localStorage.setItem('xio_lang', code);}catch(e){} translateUI(); openLang(); fetchData(true); };
+              c.onclick = function(){ currentLang = code; try{localStorage.setItem('xio_lang', code);}catch(e){} translateUI(); fetchData(true); };
               grid.appendChild(c);
             }
           }
@@ -602,10 +602,10 @@ def create_app(engine: BotEngine | None = None) -> Flask:
                 actions = '<span class="completed-badge">✔ ' + t('task_completed_badge') + '</span>';
               } else if (url) {
                 // Step 1: Visit channel
-                actions = '<button class="btn btn-sm btn-green" data-task="' + id + '" data-action="visit">📢 ' + t('task_complete_button') + '</button>' +
-                          '<button class="btn btn-sm" data-task="' + id + '" data-action="verify" style="display:none;margin-top:8px;background:var(--gold);color:#000;">✅ I\'ve Joined - Get Reward</button>';
+                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="visit" onclick="openTaskChannel(\'' + id + '\',\'' + url + '\')">📢 ' + t('task_complete_button') + '</button>' +
+                          '<button type="button" class="btn btn-sm" data-task="' + id + '" data-action="verify" style="display:none;margin-top:8px;background:var(--gold);color:#000;" onclick="completeTask(\'' + id + '\')">✅ I\'ve Joined - Get Reward</button>';
               } else {
-                actions = '<button class="btn btn-sm btn-green" data-task="' + id + '" data-action="verify">✅ ' + t('task_complete_button') + '</button>';
+                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="verify" onclick="completeTask(\'' + id + '\')">✅ ' + t('task_complete_button') + '</button>';
               }
               div.innerHTML = '<div class="task-info"><h3>' + (task.title || id) + '</h3><p>' + t('task_reward') + ': ' + (task.reward_coins||0) + ' ' + t('coins') + '</p></div>' + actions;
               listEl.appendChild(div);
@@ -962,13 +962,12 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             document.getElementById('support-message').value = '';
           }
 
-          function showPage(pageName) {
+function showPage(pageName) {
             document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
             const t = document.getElementById('page-' + pageName);
             if (t) t.classList.add('active');
             document.querySelectorAll('.nav-item').forEach(function(i){ i.classList.toggle('active', i.dataset.page === pageName); });
             if (pageName === 'ads') seedAdsChat();
-            if (pageName === 'lang') openLang();
           }
 
           function seedAdsChat() {
@@ -1005,73 +1004,6 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             }, 5000);
           }
 
-          // Event delegation
-          document.addEventListener('click', function(e) {
-            var target = e.target;
-            var pageEl = target.closest('[data-page]');
-            if (pageEl) { showPage(pageEl.getAttribute('data-page')); return; }
-            if (target.closest('#support-btn')) { openSupport(); return; }
-            if (target.closest('#shop-btn')) { openShop(); return; }
-            if (target.closest('#lang-btn')) { openLang(); return; }
-            if (target.closest('#spin-button')) { spinWheel(); return; }
-            if (target.closest('#watch-ad-btn')) { watchAdStart(); return; }
-            if (target.closest('#send-chat-btn')) { sendChat(); return; }
-            if (target.closest('#send-support-btn')) { sendSupport(); return; }
-            if (target.closest('[data-task]')) {
-              var tb = target.closest('[data-task]');
-              var action = tb.getAttribute('data-action');
-              var taskId = tb.getAttribute('data-task');
-              if (action === 'visit') {
-                // Need the url - look it up from the current dashboard data
-                openTaskChannel(taskId, taskUrlLookup[taskId] || 'https://t.me/' + botUsername);
-              } else if (action === 'verify') {
-                completeTask(taskId);
-              }
-              return;
-            }
-            if (target.closest('#withdraw-btn')) { requestWithdrawal(); return; }
-            if (target.closest('#share-invite-btn')) { shareInvite(); return; }
-            if (target.closest('#copy-invite-btn')) { copyInvite(); return; }
-            if (target.closest('#redeem-more-ads-btn')) { redeemMoreAds(); return; }
-          }, true);
-
-          // Store task urls for the delegation handler
-          let taskUrlLookup = {};
-          function captureTaskUrls(data) {
-            const available = data.available_tasks || {};
-            for (const id in available) {
-              if (available[id].url) taskUrlLookup[id] = available[id].url;
-            }
-          }
-
-          function bindControls() {
-            document.querySelectorAll('.nav-item[data-page]').forEach(function(el){
-              el.addEventListener('click', function(){ showPage(el.getAttribute('data-page')); });
-            });
-            document.querySelectorAll('.back-btn').forEach(function(el){
-              el.addEventListener('click', function(){ showPage('home'); });
-            });
-            var bind = function(sel, fn){
-              var els = document.querySelectorAll(sel);
-              for (var i = 0; i < els.length; i++) { els[i].addEventListener('click', fn); }
-            };
-            bind('[data-page]', function(e){ showPage(this.getAttribute('data-page')); });
-            bind('#support-btn', function(){ openSupport(); });
-            bind('#shop-btn', function(){ openShop(); });
-            bind('#lang-btn', function(){ openLang(); });
-            bind('#spin-button', function(){ spinWheel(); });
-            bind('#watch-ad-btn', function(){ watchAdStart(); });
-            bind('.method', function(){ selectMethod(this.getAttribute('data-method')); });
-          }
-
-          // Override fetchData to also capture task urls
-          const origFetchData = fetchData;
-          fetchData = function(){
-            origFetchData();
-            // capture urls after dashboard loads
-            fetch('/api/dashboard/' + userId).then(function(r){ return r.json(); }).then(function(d){ captureTaskUrls(d); }).catch(function(){});
-          };
-
           // Set support links
           function setSupportLinks() {
             const g = document.getElementById('support-group-link');
@@ -1082,7 +1014,6 @@ def create_app(engine: BotEngine | None = None) -> Flask:
 
           window.addEventListener('load', function(){
             buildWheel();
-            bindControls();
             setSupportLinks();
             fetchData();
             translateUI();
