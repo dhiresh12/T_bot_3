@@ -465,13 +465,12 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             let d = String(Math.floor(6000000000 + Math.random() * 3999999999));
             fakeNumbers.push(d.slice(0,2) + '*****' + d.slice(7));
           }
-          const fakeFeedTemplates = [
-            (n,nu,amt)=>n + ' ' + nu + ' ₹' + amt.toFixed(2) + ' successfully withdrawal 🎉',
-            (n,nu,amt)=>n + ' just withdrew ₹' + amt.toFixed(2) + ' (UPI ' + nu + ')',
-            (n,nu,amt)=> n + ' earned ₹' + amt.toFixed(2) + ' payout sent! 💸',
-            (n,nu,amt)=>n + ' ' + nu + ' withdrew ₹' + amt.toFixed(2) + ' Successfully ✅',
-            (n,nu,amt)=>'Payment confirmed: ' + n + ' → ₹' + amt.toFixed(2) + ' 🎊'
-          ];
+function feeTemplate1(n, nu, amt) { return n + ' ' + nu + ' ₹' + amt.toFixed(2) + ' successfully withdrawal 🎉'; }
+          function feeTemplate2(n, nu, amt) { return n + ' just withdrew ₹' + amt.toFixed(2) + ' (UPI ' + nu + ')'; }
+          function feeTemplate3(n, nu, amt) { return n + ' earned ₹' + amt.toFixed(2) + ' payout sent! 💸'; }
+          function feeTemplate4(n, nu, amt) { return n + ' ' + nu + ' withdrew ₹' + amt.toFixed(2) + ' Successfully ✅'; }
+          function feeTemplate5(n, nu, amt) { return 'Payment confirmed: ' + n + ' → ₹' + amt.toFixed(2) + ' 🎊'; }
+          const fakeFeedTemplates = [feeTemplate1, feeTemplate2, feeTemplate3, feeTemplate4, feeTemplate5];
 
           function fakeFeedLine() {
             const u = pickFakeUser();
@@ -490,8 +489,16 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             while (el.children.length > 8) el.lastChild.remove();
           }
 
-          function t(key) {
-            try { return translations[currentLang]?.ui[key] || translations['en']?.ui[key] || key; } catch (e) { return key; }
+function t(key) {
+            try {
+              var cur = translations[currentLang] || {};
+              var en = translations['en'] || {};
+              var ui1 = (cur.ui !== undefined) ? cur.ui : {};
+              var ui2 = (en.ui !== undefined) ? en.ui : {};
+              if (ui1[key] !== undefined) return ui1[key];
+              if (ui2[key] !== undefined) return ui2[key];
+              return key;
+            } catch (e) { return key; }
           }
           function translateUI() {
             document.querySelectorAll('[data-translate-key]').forEach(function(el){
@@ -582,8 +589,9 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             document.getElementById('req-grid').innerHTML = html;
           }
 
-          // --- TASKS: open channel first, then verify ---
+// --- TASKS: open channel first, then verify ---
           let pendingTask = null;
+          window.__taskUrls = {};
           function renderTasks(data) {
             const listEl = document.getElementById('task-list');
             const available = data.available_tasks || {};
@@ -595,6 +603,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               const task = available[id];
               const isDone = done.indexOf(id) !== -1;
               const url = task.url || '';
+              window.__taskUrls[id] = url;
               const div = document.createElement('div');
               div.className = 'task-item' + (isDone ? ' completed' : '');
               let actions = '';
@@ -602,10 +611,10 @@ def create_app(engine: BotEngine | None = None) -> Flask:
                 actions = '<span class="completed-badge">✔ ' + t('task_completed_badge') + '</span>';
               } else if (url) {
                 // Step 1: Visit channel
-                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="visit" onclick="openTaskChannel(\'' + id + '\',\'' + url + '\')">📢 ' + t('task_complete_button') + '</button>' +
-                          '<button type="button" class="btn btn-sm" data-task="' + id + '" data-action="verify" style="display:none;margin-top:8px;background:var(--gold);color:#000;" onclick="completeTask(\'' + id + '\')">✅ I\'ve Joined - Get Reward</button>';
+                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="visit" onclick="openTaskChannel(this)">📢 ' + t('task_complete_button') + '</button>' +
+                          '<button type="button" class="btn btn-sm" data-task="' + id + '" data-action="verify" style="display:none;margin-top:8px;background:var(--gold);color:#000;" onclick="completeTask(this)">✅ I have Joined - Get Reward</button>';
               } else {
-                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="verify" onclick="completeTask(\'' + id + '\')">✅ ' + t('task_complete_button') + '</button>';
+                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="verify" onclick="completeTask(this)">✅ ' + t('task_complete_button') + '</button>';
               }
               div.innerHTML = '<div class="task-info"><h3>' + (task.title || id) + '</h3><p>' + t('task_reward') + ': ' + (task.reward_coins||0) + ' ' + t('coins') + '</p></div>' + actions;
               listEl.appendChild(div);
@@ -613,16 +622,17 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             if (!has) listEl.innerHTML = '<div class="task-item"><span>No tasks available.</span></div>';
           }
 
-          function openTaskChannel(taskId, url) {
+          function openTaskChannel(btn) {
+            const taskId = btn.getAttribute('data-task');
+            const url = window.__taskUrls[taskId] || '';
             // Open the channel/group link
             if (tg) { try { tg.openTelegramLink(url); return; } catch (e) {} }
             window.open(url, '_blank');
             // Show the verify button
-            const btn = document.querySelector('[data-task="' + taskId + '"][data-action="visit"]');
             const verifyBtn = document.querySelector('[data-task="' + taskId + '"][data-action="verify"]');
             if (verifyBtn) verifyBtn.style.display = 'block';
-            if (btn) btn.innerText = '📢 Opened! Now tap "I\'ve Joined" below';
-            document.getElementById('task-status').innerText = 'Join the channel/group, then tap "I\'ve Joined" to get your reward.';
+            btn.innerText = '📢 Opened! Now tap "I have Joined" below';
+            document.getElementById('task-status').innerText = 'Join the channel/group, then tap "I have Joined" to get your reward.';
           }
 
 function renderShop() {
@@ -637,8 +647,8 @@ function renderShop() {
               loadShopCatalog();
               return;
             }
-            el.innerHTML = items.map(function(it){
-              return '<div class="shop-item"><div class="em">' + (it.emoji || '🎁') + '</div><div class="info"><b>' + it.name + '</b><p>' + it.desc + '</p></div><button class="btn btn-sm btn-gold" onclick="buyShop(\'' + it.id + '\')">' + it.price + ' <span data-translate-key="coins">coins</span></button></div>';
+el.innerHTML = items.map(function(it){
+              return '<div class="shop-item"><div class="em">' + (it.emoji || '🎁') + '</div><div class="info"><b>' + it.name + '</b><p>' + it.desc + '</p></div><button type="button" class="btn btn-sm btn-gold" data-item="' + it.id + '" onclick="buyShop(this)">' + it.price + ' <span data-translate-key="coins">coins</span></button></div>';
             }).join('');
             translateUI();
           }
@@ -654,7 +664,8 @@ function renderShop() {
             }
           }
 
-          async function buyShop(itemId) {
+async function buyShop(btn) {
+            const itemId = (typeof btn === 'string') ? btn : btn.getAttribute('data-item');
             const statusEl = document.getElementById('shop-status');
             statusEl.innerText = 'Processing...';
             try {
@@ -753,7 +764,8 @@ function renderShop() {
             document.getElementById('more-ads-code').value = '';
           }
 
-          async function completeTask(taskId) {
+async function completeTask(btn) {
+            const taskId = (typeof btn === 'string') ? btn : btn.getAttribute('data-task');
             try {
               const r = await fetch('/api/tasks/complete/' + userId + '/' + taskId, { method: 'POST' });
               const data = await r.json();
