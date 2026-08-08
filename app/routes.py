@@ -430,6 +430,18 @@ def admin_user_tier_distribution() -> tuple[dict, int]:
     return jsonify(data), 200
 
 
+@bp.get("/api/admin/user_registrations_over_time")
+def admin_user_registrations_over_time() -> tuple[dict, int]:
+    """Returns the number of new user registrations grouped by date."""
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+    
+    data = current_engine.admin_service.get_user_registrations_over_time()
+    return jsonify(data), 200
+
+
 
 
 

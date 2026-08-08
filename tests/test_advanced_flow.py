@@ -40,3 +40,40 @@ def test_telegram_bot_handles_ads_command():
 
     response = service.handle_update(update)
     assert "ads" in response.lower() or "watch" in response.lower()
+
+
+def test_admin_bonus_command_endpoint():
+    """Bug #1: /api/admin/commands/bonus endpoint must exist and work."""
+    engine = BotEngine(storage_path="/tmp/bot3-admin-bonus.json")
+    app = create_app(engine)
+    client = app.test_client()
+
+    # Call the admin bonus command endpoint to update the bonus value
+    response = client.post(
+        "/api/admin/commands/bonus",
+        json={"value": 0.10},
+        headers={"X-Admin-Key": engine.admin_key},
+    )
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body.get("success") is True
+    assert engine.bonus_value == 0.10
+    assert "bonus" in body.get("message", "").lower()
+
+
+def test_admin_user_registrations_over_time_endpoint():
+    """Bug #2: /api/admin/user_registrations_over_time endpoint must exist."""
+    engine = BotEngine(storage_path="/tmp/bot3-admin-registrations.json")
+    app = create_app(engine)
+    client = app.test_client()
+
+    # Register a user so there's data
+    client.post("/api/bonus/888", json={"name": "RegTest"})
+
+    response = client.get(
+        "/api/admin/user_registrations_over_time",
+        headers={"X-Admin-Key": engine.admin_key},
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert isinstance(payload, list)

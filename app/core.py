@@ -112,8 +112,13 @@ class UserProfile:  # Phase 1: Expanded UserProfile
     activity_log: List[Dict[str, Any]] = field(default_factory=list)
     last_activity_at: Optional[str] = None
     is_verified: bool = False
-    registered_at: Optional[str] = None  # New field for tracking registration date
+    registered_at: Optional[str] = None
     invited_by: Optional[int] = None
+    # Snap-style streak system (dark pattern: keeps users returning daily)
+    snap_streak: int = 0
+    last_streak_at: Optional[str] = None
+    # Shop / gift inventory (future upgradeable)
+    inventory: List[Dict[str, Any]] = field(default_factory=list)
 
     def log_activity(self, action: str, details: Optional[Dict] = None):
         """Helper to log user activity."""
@@ -151,8 +156,19 @@ class BotEngine:
         self.security = SecurityManager()  # Phase 2: Integrate SecurityManager
         self.spin_values = [0.0, 0.10, 0.15, 0.20]
         self.min_withdrawal = 10.0
-        self.daily_ads_limit = 15
+        self.daily_ads_limit = 20  # 2 ads = 1 count, so this is 40 ad-plays per day
         self.daily_spin_limit = 1
+        # Gift-based spin economy (spec: gifts with a "open" reveal + golden glow)
+        self.spin_gifts = [
+            {"name": "🎁 Mystery Gift", "coins": 500, "emoji": "🎁"},
+            {"name": "💎 Diamond Box", "coins": 2000, "emoji": "💎"},
+            {"name": "⭐ Golden Star", "coins": 1000, "emoji": "⭐"},
+            {"name": "🔥 Fire Combo", "coins": 1500, "emoji": "🔥"},
+            {"name": "🏆 Royal Trophy", "coins": 3000, "emoji": "🏆"},
+            {"name": "💥 Try Again", "coins": 0, "emoji": "💥"},
+        ]
+        # Snap-style streak ladder (dark pattern: daily returns kick in at 3+ days)
+        self.snap_streak_rewards = [0, 50, 150, 300, 500, 800, 1200, 1750, 2400, 3200, 4200]
         # --- New Economic Model ---
         self.coins_to_rupee_rate = 0.0001  # 10,000 coins = 1 Rupee
         self.withdrawal_fee_percent = 5  # 5% processing fee on all withdrawals
@@ -550,6 +566,11 @@ class BotEngine:
             "trust_feed": self.engagement.build_trust_feed(),
             "live_feed": [self.engagement.generate_fake_withdrawal_feed(), self.engagement.get_fake_chat_message()],
             "support": self.support.get_faq("en"),
+            "snap_streak": profile.snap_streak,
+            "inventory": profile.inventory,
+            "daily_ads_limit": self.daily_ads_limit,
+            "ads_per_reward": 2,
+            "spin_gifts": self.spin_gifts,
         }
 
     def get_help(self, language: str = "en") -> Dict[str, Any]:
@@ -624,6 +645,7 @@ class BotEngine:
 
     def _handle_wallet(self, profile: UserProfile) -> str:
         profile.wallet_bot = round((profile.coins * self.coins_to_rupee_rate), 4)
+        self._save_user(profile)
         snapshot = self.engagement.build_progress_snapshot(profile.wallet_bot, profile.coins)
         trust = "\n".join(self.engagement.build_trust_feed())
         fake_withdrawal_notice = self.engagement.generate_fake_withdrawal_feed()
