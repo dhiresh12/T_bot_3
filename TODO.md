@@ -18,5 +18,5 @@
 - [ ] Dark Patterns - urgency, scarcity, fake online counts
 
 ## Tests
-- [ ] टेस्ट फिर से चलाएं (सभी pass)
-- [ ] Git push
+- [x] टेस्ट फिर से चलाएं (सभी pass) — **30 passed**
+- [x] Git push — **pushed to origin/main**
