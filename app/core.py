@@ -226,8 +226,53 @@ class BotEngine:
                 "verify": "share",
             },
         }
-        # --- More-ads code store (admin can add codes). Each valid code grants 10 bonus ads. ---
+# --- More-ads code store (admin can add codes). Each valid code grants 10 bonus ads. ---
         self.more_ads_codes = {"GET10ADS", "BONUS10", "MOREADS"}
+        # --- Shop catalog (Phase: redeemable boosters/gifts with coins) ---
+        # Each item: id, name, emoji, desc, price (coins), and an effect key.
+        # The effect is applied server-side so the user cannot cheat by editing the UI.
+        self.shop_items = [
+            {
+                "id": "mystery_box",
+                "name": "Mystery Gift Box",
+                "emoji": "🎁",
+                "desc": "Open a random surprise worth 200-1000 coins!",
+                "price": 500,
+                "effect": "mystery_coins",
+            },
+            {
+                "id": "diamond_boost",
+                "name": "Diamond Boost",
+                "emoji": "💎",
+                "desc": "Earn 2x coins from the next 5 ads.",
+                "price": 2000,
+                "effect": "ads_boost",
+            },
+            {
+                "id": "streak_shield",
+                "name": "Golden Streak Shield",
+                "emoji": "⭐",
+                "desc": "Keep your streak alive for 1 day.",
+                "price": 1500,
+                "effect": "streak_shield",
+            },
+            {
+                "id": "fire_double",
+                "name": "Fire Double Coins",
+                "emoji": "🔥",
+                "desc": "Double coins on your next 5 ads.",
+                "price": 1000,
+                "effect": "ads_boost",
+            },
+            {
+                "id": "featured_badge",
+                "name": "Featured Badge",
+                "emoji": "🏆",
+                "desc": "Show off on the leaderboard.",
+                "price": 5000,
+                "effect": "profile_badge",
+            },
+        ]
         # Phase 1: Withdrawal requirements
         self.withdrawal_reqs = {
             "min_invites": 10,
@@ -534,6 +579,52 @@ class BotEngine:
             return True, f"🎁 You won a {gift['name']}! Open it to reveal {coins_won} coins (streak: {profile.snap_streak} 🔥).", gift
         return True, f"💥 You won a {gift['name']}. Better luck next time! (streak: {profile.snap_streak} 🔥)", gift
 
+    def get_shop_catalog(self) -> List[Dict[str, Any]]:
+        """Returns the shop catalog for the mini-app UI."""
+        return self.shop_items
+
+    def redeem_shop_item(self, user_id: int, item_id: str) -> tuple[bool, str, Dict[str, Any]]:
+        """Redeems a shop item for the user using their coins.
+
+        The item effect is applied server-side to prevent tampering:
+          - mystery_coins: grant a random 200-1000 coins surprise.
+          - ads_boost:     grant an "ads boost" that doubles the next 5 ads'
+                           coin reward (stored as active boost remaining).
+          - streak_shield: protect the daily streak for one day.
+          - profile_badge: mark the user as having a featured badge.
+        """
+        profile = self.get_profile(user_id)
+        item = next((i for i in self.shop_items if i.get("id") == item_id), None)
+        if not item:
+            return False, "Invalid shop item.", {}
+
+        price = int(item.get("price", 0))
+        if profile.coins < price:
+            return False, f"Not enough coins. You need {price} coins for this item.", {}
+
+        # Deduct coins first (atomic enough for single-user flow).
+        profile.coins -= price
+        effect = item.get("effect", "")
+
+        reward_message = f"🎁 You redeemed {item['name']}!"
+        if effect == "mystery_coins":
+            surprise = random.randint(200, 1000)
+            profile.coins += surprise
+            reward_message = f"🎁 You opened {item['name']} and won {surprise} coins!"
+        elif effect == "ads_boost":
+            profile.inventory.append({"type": "ads_boost", "remaining": 5, "item": item["id"]})
+            reward_message = f"🚀 {item['name']} activated! Next 5 ads give 2x coins."
+        elif effect == "streak_shield":
+            profile.inventory.append({"type": "streak_shield", "item": item["id"]})
+            reward_message = f"🛡️ {item['name']} active! Your streak is protected for a day."
+        elif effect == "profile_badge":
+            profile.inventory.append({"type": "profile_badge", "item": item["id"]})
+            reward_message = f"🏆 {item['name']} unlocked! You now have a featured badge on the leaderboard."
+
+        profile.log_activity("shop_redeem", {"item_id": item_id, "price": price, "effect": effect})
+        self._save_user(profile)
+        return True, reward_message, item
+
     def approve_withdrawal(self, admin_id: int, user_id: int, request_id: str, verification_code: str) -> str:
         """Admin command to approve a withdrawal after verifying the unique code."""
         admin_profile = self.get_profile(admin_id)
@@ -580,9 +671,10 @@ class BotEngine:
             "support": self.support.get_faq("en"),
             "snap_streak": profile.snap_streak,
             "inventory": profile.inventory,
-            "daily_ads_limit": self.daily_ads_limit,
+"daily_ads_limit": self.daily_ads_limit,
             "ads_per_reward": 2,
             "spin_gifts": self.spin_gifts,
+            "shop_items": self.shop_items,
         }
 
     def get_help(self, language: str = "en") -> Dict[str, Any]:

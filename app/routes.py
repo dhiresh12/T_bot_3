@@ -230,6 +230,27 @@ def spin(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "gift": gift, "value": gift.get("coins", 0) if gift else 0}), 200
 
 
+# --- Shop API endpoints ---
+
+@bp.get("/api/shop/catalog")
+def shop_catalog() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    return jsonify(current_engine.get_shop_catalog()), 200
+
+
+@bp.post("/api/shop/redeem/<int:user_id>")
+def shop_redeem(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    item_id = payload.get("item_id")
+    if not item_id:
+        return jsonify({"error": "Missing 'item_id' in request body."}), 400
+    current_engine.register_user(user_id, "Guest")
+    success, message, item = current_engine.redeem_shop_item(user_id, item_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "item": item, "coins": profile.coins}), 200
+
+
 # --- Admin API Endpoints (New/Moved) ---
 
 @bp.get("/api/admin/dashboard")

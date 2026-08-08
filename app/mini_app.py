@@ -625,22 +625,50 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             document.getElementById('task-status').innerText = 'Join the channel/group, then tap "I\'ve Joined" to get your reward.';
           }
 
-          function renderShop() {
+function renderShop() {
             const el = document.getElementById('shop-list');
-            const items = [
-              {em:'🎁', name:'Mystery Gift Box', desc:'Open a random surprise!', price:'500'},
-              {em:'💎', name:'Diamond Boost', desc:'Boost your earnings 2x for an hour', price:'2000'},
-              {em:'⭐', name:'Golden Streak Shield', desc:'Keep your streak alive for 1 day', price:'1500'},
-              {em:'🔥', name:'Fire Double Coins', desc:'Double coins on next 5 ads', price:'1000'},
-              {em:'🏆', name:'Featured Badge', desc:'Show off on the leaderboard', price:'5000'},
-            ];
+            let items = [];
+            try {
+              // Prefer the live backend catalog; fall back to browser fetch if needed.
+              items = window.__shopCatalog || [];
+            } catch (e) {}
+            if (!items || !items.length) {
+              el.innerHTML = '<div class="shop-item"><span>Loading shop...</span></div>';
+              loadShopCatalog();
+              return;
+            }
             el.innerHTML = items.map(function(it){
-              return '<div class="shop-item"><div class="em">' + it.em + '</div><div class="info"><b>' + it.name + '</b><p>' + it.desc + '</p></div><button class="btn btn-sm btn-gold" onclick="buyShop(' + it.price + ')">' + it.price + ' <span data-translate-key="coins">coins</span></button></div>';
+              return '<div class="shop-item"><div class="em">' + (it.emoji || '🎁') + '</div><div class="info"><b>' + it.name + '</b><p>' + it.desc + '</p></div><button class="btn btn-sm btn-gold" onclick="buyShop(\'' + it.id + '\')">' + it.price + ' <span data-translate-key="coins">coins</span></button></div>';
             }).join('');
             translateUI();
           }
-          function buyShop(price) {
-            document.getElementById('shop-status').innerText = '🛒 Coming soon — this item will be upgraded soon! (You need ' + price + ' coins)';
+
+          async function loadShopCatalog() {
+            try {
+              const r = await fetch('/api/shop/catalog');
+              const items = await r.json();
+              window.__shopCatalog = items || [];
+              renderShop();
+            } catch (e) {
+              document.getElementById('shop-list').innerHTML = '<div class="shop-item"><span>Shop unavailable right now.</span></div>';
+            }
+          }
+
+          async function buyShop(itemId) {
+            const statusEl = document.getElementById('shop-status');
+            statusEl.innerText = 'Processing...';
+            try {
+              const r = await fetch('/api/shop/redeem/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ item_id: itemId })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || 'Redeemed!';
+              fetchData();
+            } catch (e) {
+              statusEl.innerText = 'Shop error. Please try again.';
+            }
           }
 
           function renderHistory(data) {
