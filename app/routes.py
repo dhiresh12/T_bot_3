@@ -32,6 +32,16 @@ def _check_rate_limit(key: str) -> bool:
     return True
 
 
+def _safe_int(value: Any, default: int) -> int:
+    """Parses a query-string integer, falling back to a default on bad input."""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _get_user_id_from_request() -> tuple[int, str]:
     user_id = request.view_args.get("user_id") if request.view_args else None
     if user_id is None:
@@ -1166,6 +1176,90 @@ def admin_edit_user(user_id: int) -> tuple[dict, int]:
 
     success, message = current_engine.admin_service.edit_user_profile(user_id, updates_to_apply)
     return jsonify({"success": success, "message": message}), 200
+
+
+# --- User Search / Discovery ---
+
+@bp.get("/api/users/search")
+def search_users() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    query = request.args.get("q", "")
+    limit = _safe_int(request.args.get("limit"), 20)
+    results = current_engine.search_users(query, limit)
+    return jsonify({"results": results}), 200
+
+
+@bp.get("/api/users/discover/<int:user_id>")
+def discover_users(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    data = current_engine.get_user_discovery(user_id)
+    return jsonify(data), 200
+
+
+# --- Admin manual credit ---
+
+@bp.post("/api/admin/send-coins")
+def admin_send_coins() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    target_user_id = payload.get("target_user_id")
+    amount = payload.get("amount")
+    reason = payload.get("reason", "")
+
+    if not target_user_id or amount is None:
+        return jsonify({"error": "Missing target_user_id or amount"}), 400
+
+    try:
+        target_user_id = int(target_user_id)
+        amount = int(amount)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid user_id or amount"}), 400
+
+    admin_id = int(os.getenv("ADMIN_ID", 1))
+    success, message = current_engine.admin_send_coins(admin_id, target_user_id, amount, reason)
+    return jsonify({"success": success, "message": message}), 200
+
+
+# --- Withdrawal proof uploads ---
+
+@bp.post("/api/withdrawals/proof/<int:user_id>")
+def upload_withdrawal_proof(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    payload = request.get_json(silent=True) or {}
+    proof_url = payload.get("proof_url", "")
+    request_id = payload.get("request_id", "")
+
+    if not proof_url or not request_id:
+        return jsonify({"error": "Missing proof_url or request_id"}), 400
+
+    success, message = current_engine.upload_withdrawal_proof(user_id, proof_url, request_id)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.get("/api/withdrawals/proofs/<int:user_id>")
+def get_withdrawal_proofs(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    proofs = current_engine.get_withdrawal_proofs(user_id)
+    return jsonify({"proofs": proofs}), 200
+
+
+# --- Transaction history ---
+
+@bp.get("/api/transactions/<int:user_id>")
+def transaction_history(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    txn_type = request.args.get("type")
+    limit = _safe_int(request.args.get("limit"), 50)
+    transactions = current_engine.get_transaction_history(user_id, txn_type, limit)
+    return jsonify({"transactions": transactions}), 200
 
 
 # --- Admin Dashboard UI ---

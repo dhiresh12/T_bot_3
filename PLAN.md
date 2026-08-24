@@ -19,7 +19,7 @@ The repo has a working starter with all core features implemented and tested (72
 
 ### Phase 1 — Core Engine (`app/core.py`)
 - Two wallets: `wallet_bot` (outside) and `wallet_app` (mini app).
-- Expanded `UserProfile`: level/tier, daily_ads count + reset date, invites list, popularity, activity log, last_activity, is_verified.
+- Expanded `UserProfile`: level/tier, daily_ads count + reset date, invites list, popularity, activity log, last_activity, is_verified, transactions, withdrawal_proofs, privacy_settings, theme, unread_messages, last_message_at.
 - `complete_task` per task with reward (coins + money).
 - `watch_ads` with daily limit (20), reset at 12pm, random coins (50–500), ₹0.002 per ad, "request more ads" code system.
 - `invite` with real referral (₹0.005 when referred user actually joins).
@@ -36,12 +36,19 @@ The repo has a working starter with all core features implemented and tested (72
 - **Streak insurance** shop item.
 - **Referral tiers** (Bronze → Crown).
 - **XP boost** shop item.
+- **Transaction history** with type filtering.
+- **Withdrawal proof upload** system.
+- **User search/discovery** (search by name/ID, trending users).
+- **Admin manual coin credit** system.
+- **Ban/kick user system** with reason logging.
 
 ### Phase 2 — Security Module (`app/security.py`)
 - Unique code generator (mixed symbols, >500k combos).
 - Transaction ID generator.
 - Withdrawal approve/reject/verify flow with code matching.
-- **Telegram WebApp initData HMAC verification** (future-proof auth).
+- **Telegram WebApp initData HMAC verification** (`/api/auth/telegram`).
+- **Session-based authentication** (`/api/auth/login` with X-User-Token).
+- **Rate limiting** (30 requests/minute per user per endpoint).
 - Anti-crash / anti-tamper checks.
 
 ### Phase 3 — Admin Panel (`app/admin.py`)
@@ -52,6 +59,10 @@ The repo has a working starter with all core features implemented and tested (72
 - User tier distribution charts.
 - Total coin balance over time.
 - New user registrations over time.
+- **Broadcast messaging** — send messages to all users.
+- **Ban/kick users** — with reason and activity logging.
+- **Admin send coins** — manual credit to any user.
+- **Safe field filtering** — admin view only returns safe fields.
 
 ### Phase 4 — Engagement Layer (`app/engagement.py`)
 - Real tiers: Bronze, Silver, Gold, Platinum, Diamond, Crown, Conqueror.
@@ -75,7 +86,7 @@ The repo has a working starter with all core features implemented and tested (72
 
 ### Phase 7 — Mini App UI (`app/mini_app.py`)
 - Full mobile-style UI in one HTML file.
-- Bottom nav: Ads, Task, Friends, Popularity, Settings.
+- Bottom nav: Ads, Task, Friends, Discover, Settings.
 - Dashboard with avatar, ID, wallet, coins, level, XP, streak, popularity.
 - Watch Ads panel (15s timer, daily limit, more-ads code).
 - Task panel (join channels/groups, follow socials) with verification.
@@ -86,6 +97,7 @@ The repo has a working starter with all core features implemented and tested (72
 - Language switcher (20+ languages).
 - **Friends** page (send/accept/reject requests, friends list).
 - **Friend Requests** page (pending requests with accept/reject).
+- **Discover** page (search users, trending users, new users).
 - **Popularity** page (claim daily free popularity, buy with coins/money, send to friends).
 - **Settings** page (privacy toggles, theme selection: dark/light/blue).
 - **Profile modal** (view any user's profile, like, visit, add friend).
@@ -95,9 +107,11 @@ The repo has a working starter with all core features implemented and tested (72
 - **Scratch Cards** page (free daily card + scratch to win).
 - **Level Leaderboard** page (top players by level/XP).
 - **Social Share** page (share on Telegram/Twitter/WhatsApp for coins).
+- **Transactions** page (transaction history with filters).
 
 ### Phase 8 — Routes (`app/routes.py`) + API
 - All engine/admin/security features exposed as JSON endpoints.
+- **Authentication**: `/api/auth/login` (session) and `/api/auth/telegram` (HMAC).
 - **Friend system APIs**: send/accept/reject requests, list friends, list requests.
 - **Profile APIs**: view public profile, update bio, like profile, visit profile.
 - **Popularity APIs**: claim daily, buy with coins/money, send popularity.
@@ -105,10 +119,16 @@ The repo has a working starter with all core features implemented and tested (72
 - **Personal messaging API**: send/get messages between users.
 - **Privacy/theme APIs**: update settings, change theme.
 - **Translation API**: built-in dictionary for EN/HI/ES/FR/RU/ZH.
+- **Ad APIs**: `/api/ads/verify`, `/api/ads/unit/<user_id>` for AdMob integration.
+- **User search/discovery APIs**: `/api/users/search`, `/api/users/discover/<user_id>`.
+- **Admin APIs**: broadcast, ban/unban/kick, send coins, backup/rollback.
+- **Transaction history API**: `/api/transactions/<user_id>` with type filter.
+- **Withdrawal proof API**: upload and list proofs.
 
 ### Phase 9 — Tests + Docs
 - 72 tests covering all features.
 - Tests for: core engine, ads integration, advanced flows, extended features, mini app, new features (level, achievements, challenges, scratch, streak, referrals, spin, notifications, social sharing, leaderboard rewards), social features (friends, bio, profiles, translation, chat), popularity/social (popularity, likes, visits, coin transfer, privacy, themes, messaging).
+- **DEPLOY.md** — complete Render deployment guide.
 
 ## New Features Added (Latest Update)
 
@@ -119,6 +139,8 @@ The repo has a working starter with all core features implemented and tested (72
 - **Profile Visitors**: Track who visited your profile, see visitor count.
 - **Personal Messages**: Send private messages to any user, get notified.
 - **Bio**: Update your profile bio (visible to friends only).
+- **User Search**: Search users by name or ID.
+- **User Discovery**: See trending users and new users.
 
 ### Popularity System
 - **Daily Free Popularity**: Claim 10 free popularity points every day.
@@ -127,9 +149,10 @@ The repo has a working starter with all core features implemented and tested (72
 - **Popularity Levels**: Newcomer 🌱 → Rising 📈 → Popular ⭐ → Influencer 🔥 → Celebrity 👑.
 - **Shop Items**: Small/Large popularity packs available in shop.
 
-### Coin Transfer
+### Coin Transfer & Transactions
 - Send coins to any user directly.
 - Receive notifications when coins are received.
+- **Transaction history** with type filtering (ad_reward, task_reward, coin_exchange, coins_sent, coins_received, popularity_sent, popularity_received, admin_credit).
 - Activity log tracks all transfers.
 
 ### Privacy & Settings
@@ -137,8 +160,16 @@ The repo has a working starter with all core features implemented and tested (72
 - **Dark Themes**: Choose between Dark (default), Light, and Blue themes.
 - **Theme Persistence**: Saved in localStorage.
 
+### Admin Features
+- **Broadcast Messaging**: Send messages to all users at once.
+- **Ban/Kick System**: Ban users with reason, kick users from database.
+- **Admin Send Coins**: Manually credit coins to any user.
+- **Withdrawal Proofs**: Users can upload proof of payment for withdrawals.
+
 ### Security Hardening
-- **Telegram HMAC Auth**: initData verification ready for all user APIs.
+- **Session Authentication**: `/api/auth/login` with X-User-Token header.
+- **Telegram HMAC Auth**: `/api/auth/telegram` for production-grade auth.
+- **Rate Limiting**: 30 requests/minute per user per endpoint.
 - **Admin Key**: No hardcoded fallback, must be set via env var.
 - **Secret Key**: Required in production, no dev default.
 - **Per-User Locks**: threading.RLock prevents race conditions on all state changes.
@@ -149,6 +180,19 @@ The repo has a working starter with all core features implemented and tested (72
 - **redeem_more_ads Bug Fixed**: Now extends bonus ads limit instead of consuming counter.
 - **Scratch Card Dates Decoupled**: Separate last_scratch_claimed_at field.
 - **Predictable IDs**: UUID-based IDs for notifications and friend requests.
+
+### Ad Integration
+- **AdMob/AdSense/AdInPlay support** via AdsManager.
+- **Ad unit ID generation** for each user/ad.
+- **Ad completion verification** with duplicate prevention.
+- **Callback endpoint** `/api/ads/verify` for real ad providers.
+- **Ad stats endpoint** `/api/ads/unit/<user_id>` for frontend widget.
+
+### Deployment
+- **Render-ready** configuration with `render.yaml`.
+- **Procfile** with gunicorn config.
+- **requirements.txt** with all dependencies.
+- **DEPLOY.md** with step-by-step deployment guide.
 
 ## Architecture
 
@@ -182,7 +226,7 @@ The repo has a working starter with all core features implemented and tested (72
 
 ## Deployment
 - Render-ready (webhook auto-registration)
-- Environment variables: TELEGRAM_BOT_TOKEN, MONGO_URI, ADMIN_KEY, SECRET_KEY, ADMIN_ID, MINI_APP_URL
+- Environment variables: TELEGRAM_BOT_TOKEN, MONGO_URI, ADMIN_KEY, SECRET_KEY, ADMIN_ID, MINI_APP_URL, ADS_PROVIDER
 - Git branch: main
 
 ---

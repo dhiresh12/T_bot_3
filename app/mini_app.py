@@ -257,6 +257,8 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           .like-btn.liked { background:#ef4444; color:white; border-color:#ef4444; }
           .transfer-item { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:12px; }
           .transfer-item input { width:100%; padding:10px; background:var(--bg-dark); border:1px solid #334155; border-radius:10px; color:white; margin-bottom:8px; }
+          .search-box { margin:12px 0; }
+          .search-box input::placeholder { color:var(--text-muted); }
           .msg-bubble { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:12px; }
           .msg-bubble .sender { font-weight:700; color:var(--primary); font-size:13px; }
           .msg-bubble .text { margin-top:4px; font-size:14px; }
@@ -281,6 +283,8 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <div id="notif-dropdown-list"><p style="padding:12px 14px;color:var(--text-muted);font-size:12px;">No notifications yet</p></div>
             </div>
             <button class="icon-btn" id="friends-btn" onclick="showPage('friends'); loadFriends(); loadRequests();">👥</button>
+            <button class="icon-btn" id="popularity-btn" onclick="showPage('popularity')">🔥</button>
+            <button class="icon-btn" id="transactions-btn" onclick="showPage('transactions')">📊</button>
             <button class="icon-btn" id="support-btn" onclick="openSupport()">💬</button>
             <button class="icon-btn" id="lang-btn" onclick="openLang()">🌐</button>
           </div>
@@ -656,6 +660,27 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             </div>
             <p id="settings-status" class="status-msg"></p>
           </div>
+
+          <!-- DISCOVER -->
+          <div id="page-discover" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🔍 Discover Users</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Find and connect with other users</p>
+            <div class="search-box">
+              <input id="search-query" type="text" placeholder="Search by name or ID..." style="width:100%;padding:12px;background:var(--bg-dark);border:1px solid #334155;border-radius:12px;color:white;" oninput="searchUsers()">
+            </div>
+            <div id="search-results"></div>
+            <div class="section-title">Trending Users</div>
+            <div id="trending-users"></div>
+          </div>
+
+          <!-- TRANSACTIONS -->
+          <div id="page-transactions" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📊 Transactions</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your transaction history</p>
+            <div id="transactions-list"></div>
+          </div>
         </div>
 
         <!-- Bottom Navigation -->
@@ -663,7 +688,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           <button class="nav-item active" data-page="home" onclick="showPage('home')"><span class="em">🏠</span><span data-translate-key="nav_home">Home</span></button>
           <button class="nav-item" data-page="ads" onclick="showPage('ads')"><span class="em">▶</span><span data-translate-key="nav_ads">Ads</span></button>
           <button class="nav-item" data-page="friends" onclick="showPage('friends')"><span class="em">👥</span><span>Friends</span></button>
-          <button class="nav-item" data-page="popularity" onclick="showPage('popularity')"><span class="em">🔥</span><span>Popularity</span></button>
+          <button class="nav-item" data-page="discover" onclick="showPage('discover')"><span class="em">🔍</span><span>Discover</span></button>
           <button class="nav-item" data-page="settings" onclick="showPage('settings')"><span class="em">⚙️</span><span>Settings</span></button>
         </div>
 
@@ -1324,6 +1349,43 @@ function showPage(pageName) {
             if (pageName === 'friends') { loadFriends(); loadRequests(); }
             if (pageName === 'popularity') fetchData();
             if (pageName === 'settings') loadPrivacySettings();
+            if (pageName === 'transactions') loadTransactions();
+            if (pageName === 'discover') {
+              fetch('/api/users/discover/' + userId).then(r => r.json()).then(data => {
+                const trending = document.getElementById('trending-users');
+                if (data.trending_users && trending) {
+                  trending.innerHTML = data.trending_users.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + u.name + '</b><p>Level ' + u.level + ' • ' + u.popularity_level + '</p></div></div>').join('');
+                }
+              }).catch(function(e){});
+            }
+          }
+
+          async function searchUsers() {
+            const query = document.getElementById('search-query').value;
+            if (!query) { document.getElementById('search-results').innerHTML = ''; return; }
+            try {
+              const r = await fetch('/api/users/search?q=' + encodeURIComponent(query));
+              const data = await r.json();
+              const list = document.getElementById('search-results');
+              if (!data.results || !data.results.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No users found.</p>';
+                return;
+              }
+              list.innerHTML = data.results.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + u.name + '</b><p>Level ' + u.level + ' • ' + u.popularity_level + ' • ❤️' + u.profile_likes + '</p></div></div>').join('');
+            } catch (e) {}
+          }
+
+          async function loadTransactions() {
+            try {
+              const r = await fetch('/api/transactions/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('transactions-list');
+              if (!data.transactions || !data.transactions.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No transactions yet.</p>';
+                return;
+              }
+              list.innerHTML = data.transactions.map(t => '<div class="transfer-item"><b>' + t.type + '</b> • ₹' + t.amount.toFixed(2) + '<p style="font-size:11px;color:var(--text-muted);">' + new Date(t.timestamp).toLocaleString() + '</p></div>').join('');
+            } catch (e) {}
           }
 
           async function loadPrivacySettings() {

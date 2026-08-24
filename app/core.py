@@ -352,6 +352,10 @@ class UserProfile:  # Phase 1: Expanded UserProfile
     theme: str = "dark"
     unread_messages: int = 0
     last_message_at: Optional[str] = None
+    # --- Withdrawal proof uploads ---
+    withdrawal_proofs: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Transaction history ---
+    transactions: List[Dict[str, Any]] = field(default_factory=list)
 
     def log_activity(self, action: str, details: Optional[Dict] = None):
         """Helper to log user activity."""
@@ -855,6 +859,7 @@ class BotEngine:
             profile.wallet_bot += reward_money
             profile.popularity += 1
             profile.log_activity("complete_task", {"task_id": task_id, "reward_coins": reward_coins, "reward_money": reward_money})
+            self._add_transaction(user_id, "task_reward", reward_money, {"task_id": task_id, "reward_coins": reward_coins})
             self._save_user(profile)
             return True, f"Task '{task_id}' completed! You earned {reward_coins} coins + ₹{reward_money:.2f}."
 
@@ -909,6 +914,7 @@ class BotEngine:
             profile.coins += reward_coins
             profile.wallet_bot += reward_money
             profile.log_activity("watch_ad", {"reward_coins": reward_coins, "reward_money": reward_money})
+            self._add_transaction(user_id, "ad_reward", reward_money, {"reward_coins": reward_coins, "ad_number": profile.total_ads_watched})
             self._save_user(profile)
             return True, f"Ad completed! You earned ₹{reward_money:.3f} + {reward_coins} coins."
 
@@ -1422,6 +1428,7 @@ class BotEngine:
             profile.coins -= cost
             profile.popularity_points += amount
             profile.log_activity("buy_popularity", {"method": "coins", "amount": amount, "cost": cost})
+            self._add_transaction(user_id, "popularity_purchase_coins", cost, {"points_added": amount, "method": "coins"})
             self._save_user(profile)
             return True, f"Purchased {amount} popularity points for {cost} coins!", {"points_added": amount, "cost": cost}
 
@@ -1434,6 +1441,7 @@ class BotEngine:
             profile.wallet_bot -= cost
             profile.popularity_points += amount
             profile.log_activity("buy_popularity", {"method": "money", "amount": amount, "cost": cost})
+            self._add_transaction(user_id, "popularity_purchase_money", cost, {"points_added": amount, "method": "money"})
             self._save_user(profile)
             return True, f"Purchased {amount} popularity points for ₹{cost:.2f}!", {"points_added": amount, "cost": cost}
 
@@ -1453,6 +1461,8 @@ class BotEngine:
             to_profile.received_popularity[from_user_id] = to_profile.received_popularity.get(from_user_id, 0) + amount
             from_profile.log_activity("send_popularity", {"to_user_id": to_user_id, "amount": amount})
             to_profile.log_activity("receive_popularity", {"from_user_id": from_user_id, "amount": amount})
+            self._add_transaction(from_user_id, "popularity_sent", amount, {"to_user_id": to_user_id})
+            self._add_transaction(to_user_id, "popularity_received", amount, {"from_user_id": from_user_id})
             self.add_notification(to_user_id, "Popularity Received!", f"{from_profile.name} sent you {amount} popularity points!", {"type": "popularity", "from_user_id": from_user_id})
             self._save_user(from_profile)
             self._save_user(to_profile)
@@ -1507,6 +1517,8 @@ class BotEngine:
             to_profile.coins += amount
             from_profile.log_activity("send_coins", {"to_user_id": to_user_id, "amount": amount})
             to_profile.log_activity("receive_coins", {"from_user_id": from_user_id, "amount": amount})
+            self._add_transaction(from_user_id, "coins_sent", amount, {"to_user_id": to_user_id})
+            self._add_transaction(to_user_id, "coins_received", amount, {"from_user_id": from_user_id})
             self.add_notification(to_user_id, "Coins Received!", f"{from_profile.name} sent you {amount} coins!", {"type": "coins", "from_user_id": from_user_id})
             self._save_user(from_profile)
             self._save_user(to_profile)
@@ -1850,6 +1862,7 @@ class BotEngine:
             profile.coins -= coins
             profile.wallet_bot += final
             profile.log_activity("exchange_coins", {"coins": coins, "gross": gross, "fee": fee, "final": final})
+            self._add_transaction(user_id, "coin_exchange", final, {"coins_exchanged": coins, "gross": gross, "fee": fee})
             self._save_user(profile)
             return True, f"Exchanged {coins} coins for ₹{final:.2f} (after {self.withdrawal_fee_percent}% fee).", {
                 "coins_exchanged": coins,
@@ -1880,6 +1893,100 @@ class BotEngine:
                     self._save_user(target_profile)
                     return f"Withdrawal {request_id} for user {user_id} has been approved. Transaction ID: {request['transaction_id']}"
             return f"Pending request with ID {request_id} for user {user_id} not found."
+
+    # --- User Search / Discovery ---
+
+    def search_users(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+        query = query.strip().lower()
+        if not query:
+            return []
+        results = []
+        for profile in self.users.values():
+            if query in str(profile.user_id) or query in profile.name.lower():
+                results.append({
+                    "user_id": profile.user_id,
+                    "name": profile.name,
+                    "level": profile.level,
+                    "popularity_level": self._get_popularity_level(profile.popularity_points).get("name", "Newcomer"),
+                    "profile_likes": profile.profile_likes,
+                })
+            if len(results) >= limit:
+                break
+        return results
+
+    def get_user_discovery(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        all_users = []
+        for uid, p in self.users.items():
+            if uid != user_id:
+                all_users.append({
+                    "user_id": p.user_id,
+                    "name": p.name,
+                    "level": p.level,
+                    "popularity_points": p.popularity_points,
+                    "popularity_level": self._get_popularity_level(p.popularity_points).get("name", "Newcomer"),
+                    "profile_likes": p.profile_likes,
+                    "snap_streak": p.snap_streak,
+                })
+        all_users.sort(key=lambda x: x["popularity_points"], reverse=True)
+        return {
+            "user_id": user_id,
+            "discovery_count": len(all_users),
+            "trending_users": all_users[:10],
+            "new_users": all_users[-10:][::-1],
+        }
+
+    # --- Admin manual credit ---
+
+    def admin_send_coins(self, admin_id: int, target_user_id: int, amount: int, reason: str = "") -> tuple[bool, str]:
+        admin_profile = self.get_profile(admin_id)
+        if not admin_profile.admin:
+            return False, "Only admins can send coins."
+        target_profile = self.get_profile(target_user_id)
+        target_profile.coins += amount
+        target_profile.log_activity("admin_credit", {"amount": amount, "reason": reason[:200], "admin_id": admin_id})
+        self._add_transaction(target_user_id, "admin_credit", amount, {"reason": reason[:200], "admin_id": admin_id})
+        self._save_user(target_profile)
+        return True, f"Sent {amount} coins to user {target_user_id}."
+
+    # --- Withdrawal proof uploads ---
+
+    def upload_withdrawal_proof(self, user_id: int, proof_url: str, request_id: str) -> tuple[bool, str]:
+        profile = self.get_profile(user_id)
+        proof = {
+            "request_id": request_id,
+            "proof_url": proof_url[:500],
+            "timestamp": self._get_utc_now().isoformat(),
+            "status": "pending",
+        }
+        profile.withdrawal_proofs.append(proof)
+        profile.log_activity("withdrawal_proof_upload", {"request_id": request_id})
+        self._save_user(profile)
+        return True, "Withdrawal proof uploaded successfully!"
+
+    def get_withdrawal_proofs(self, user_id: int) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        return profile.withdrawal_proofs[-20:]
+
+    # --- Transaction history ---
+
+    def get_transaction_history(self, user_id: int, transaction_type: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        transactions = profile.transactions[-limit:]
+        if transaction_type:
+            transactions = [t for t in transactions if t.get("type") == transaction_type]
+        return transactions
+
+    def _add_transaction(self, user_id: int, transaction_type: str, amount: float, details: Optional[Dict] = None):
+        profile = self.get_profile(user_id)
+        transaction = {
+            "id": f"TXN-{user_id}-{uuid.uuid4().hex[:8].upper()}",
+            "type": transaction_type,
+            "amount": amount,
+            "timestamp": self._get_utc_now().isoformat(),
+            "details": details or {},
+        }
+        profile.transactions.append(transaction)
 
     def get_activity_count(self, profile: UserProfile) -> int:
         return len(profile.completed_tasks) + profile.invite_count
@@ -1954,6 +2061,8 @@ class BotEngine:
             "privacy_settings": profile.privacy_settings,
             "theme": profile.theme,
             "unread_messages": profile.unread_messages,
+            "transactions": profile.transactions[-10:],
+            "discovery_count": max(len(self.users) - 1, 0),
         }
 
     def get_help(self, language: str = "en") -> Dict[str, Any]:
