@@ -318,9 +318,52 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           ::-webkit-scrollbar-track { background: transparent; }
           ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 4px; }
           ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.35); }
+        .onboarding-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(12px);}
+        .onboarding-overlay.show{display:flex;animation:fadeIn 0.4s;}
+        .onboarding-card{background:linear-gradient(135deg,#1e293b,#111827);border:1px solid var(--border);border-radius:28px;padding:32px 24px;width:100%;max-width:380px;text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 40px rgba(99,102,241,0.15);}
+        .onboarding-step{display:none;animation:fadeIn 0.35s;}
+        .onboarding-step.active{display:block;}
+        .onboarding-step .onboard-em{font-size:64px;margin-bottom:12px;display:block;animation:giftPulse 2s infinite;}
+        .onboarding-step h3{font-size:22px;font-weight:800;margin:0 0 8px;background:linear-gradient(135deg,var(--cyan),var(--primary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+        .onboarding-step p{font-size:14px;color:var(--text-dim);line-height:1.5;margin:0;}
+        .onboarding-dots{display:flex;justify-content:center;gap:8px;margin:20px 0;}
+        .onboarding-dots .dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all 0.3s;}
+        .onboarding-dots .dot.active{background:var(--primary);width:24px;border-radius:4px;box-shadow:0 0 8px var(--primary-glow);}
+        .onboarding-nav{display:flex;gap:10px;justify-content:center;}
+        .onboarding-progress{position:absolute;top:16px;right:20px;font-size:11px;color:var(--text-dim);font-weight:700;}
         </style>
       </head>
       <body>
+        <div id="onboarding" class="onboarding-overlay">
+          <div class="onboarding-card">
+            <div class="onboarding-progress" id="onboard-progress">1 / 4</div>
+            <div class="onboarding-step active" data-step="1">
+              <span class="onboard-em">&#127881;</span>
+              <h3>Welcome to Xio_PayPlus!</h3>
+              <p>Your earning journey starts here. Complete tasks, watch ads, and invite friends to earn real coins!</p>
+            </div>
+            <div class="onboarding-step" data-step="2">
+              <span class="onboard-em">&#127909;</span>
+              <h3>Watch Ads &amp; Earn</h3>
+              <p>Watch short ads to earn coins and money. Watch 2 ads back-to-back for a reward!</p>
+            </div>
+            <div class="onboarding-step" data-step="3">
+              <span class="onboard-em">&#127942;</span>
+              <h3>Complete Tasks &amp; Challenges</h3>
+              <p>Join channels, follow socials, and complete daily challenges for bonus coins and XP!</p>
+            </div>
+            <div class="onboarding-step" data-step="4">
+              <span class="onboard-em">&#128176;</span>
+              <h3>Withdraw Your Earnings</h3>
+              <p>Meet the requirements and withdraw via UPI, Bank Transfer, or Mobile Top-up!</p>
+            </div>
+            <div class="onboarding-dots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <div class="onboarding-nav">
+              <button class="btn btn-sm" style="background:var(--bg-2);" id="onboard-skip" onclick="endOnboarding()">Skip</button>
+              <button class="btn btn-sm btn-gold" id="onboard-next" onclick="nextOnboard()">&#8594; Next</button>
+            </div>
+          </div>
+        </div>
         <div class="app-header">
           <div class="brand">Xio_PayPlus<small>Earn • Play • Win</small></div>
           <div class="header-actions">
@@ -396,7 +439,11 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <div class="wheel-pointer"></div>
               <div id="wheel" class="wheel"></div>
             </div>
-            <button id="spin-button" class="btn btn-gold" onclick="spinWheel()">🎁 Spin for a Gift!</button>
+            <button id="spin-button" class="btn btn-gold" onclick="spinWheel()">&#127873; Spin for a Gift!</button>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button id="super-spin-btn" class="btn btn-sm" style="flex:1;background:linear-gradient(135deg,#a855f7,#ec4899);box-shadow:0 0 16px rgba(168,85,247,0.3);" onclick="superSpin()">&#9889; 3x Super</button>
+              <button id="mega-spin-btn" class="btn btn-sm" style="flex:1;background:linear-gradient(135deg,#f97316,#eab308);box-shadow:0 0 16px rgba(249,115,22,0.3);" onclick="megaSpin()">&#128142; 5x Mega</button>
+            </div>
             <p id="spin-status" class="status-msg"></p>
 
             <!-- Surprise / Gift reveal -->
@@ -488,6 +535,15 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <div class="card"><div class="v" id="invite-earned-box">₹0.000</div><div style="font-size:12px;color:var(--text-muted);">Referral Earnings</div></div>
             </div>
             <div class="live-feed" id="live-feed-invite"><p>Recent referrals 🎉 Loading...</p></div>
+            <div class="section-title" style="margin-top:16px;">🏂 Referral Tier</div>
+            <div id="referral-tier-box" style="background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span id="referral-tier-name" style="font-weight:800;font-size:16px;">🥇 Bronze</span>
+                <span id="referral-tier-next" style="font-size:11px;color:var(--text-dim);">Next: Silver</span>
+              </div>
+              <div class="progress-bar" style="margin-top:8px;"><div id="referral-tier-fill" class="progress-fill" style="width:0%"></div></div>
+              <p id="referral-tier-info" style="font-size:11px;color:var(--text-dim);margin-top:8px;">Invite more friends to tier up and earn bonuses!</p>
+            </div>
           </div>
 
           <!-- WITHDRAW -->
@@ -511,6 +567,18 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <input id="withdraw-amount" type="number" placeholder="Amount (min ₹10)">
               <button id="withdraw-btn" class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
               <p id="withdraw-status" class="status-msg"></p>
+            </div>
+            <div class="section-title" style="margin-top:18px;">&#128203; Withdrawal Proof</div>
+            <div class="transfer-item">
+              <p style="font-size:12px;color:var(--text-dim);">Upload payment proof after withdrawal is processed.</p>
+              <input id="proof-txid" type="text" placeholder="Transaction ID (optional)">
+              <textarea id="proof-note" rows="2" placeholder="Note (optional)" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;color:white;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-sm btn-gold" onclick="uploadProof()">&#128228; Upload Proof</button>
+                <button class="btn btn-sm" onclick="loadProofs()">&#128196; View Proofs</button>
+              </div>
+              <p id="proof-status" class="status-msg" style="font-size:12px;"></p>
+              <div id="proofs-list" style="margin-top:10px;"></div>
             </div>
             <div class="section-title" data-translate-key="history_title">History</div>
             <div id="history-list"><div class="history-item"><span data-translate-key="no_history">No withdrawal history yet.</span></div></div>
@@ -611,6 +679,12 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <h2>⭐ Level Leaderboard</h2>
             <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Top players ranked by level & XP!</p>
             <div id="level-leaderboard-list"></div>
+            <div class="section-title" style="margin-top:18px;">&#127873; Leaderboard Rewards</div>
+            <div id="leaderboard-rewards-box" style="background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:14px;">
+              <p style="font-size:12px;color:var(--text-dim);">Top the leaderboard to earn bonus coins!</p>
+              <div id="rewards-list"></div>
+            </div>
+            <button id="claim-reward-btn" class="btn btn-gold" style="display:none;margin-top:10px;" onclick="claimLeaderboardReward()">&#127873; Claim Reward</button>
           </div>
 
 
@@ -699,6 +773,13 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <button class="btn btn-green" onclick="sendPersonalMessage()" style="width:100%;margin-top:8px;">Send Message</button>
             </div>
             <p id="msg-status" class="status-msg"></p>
+            <div class="section-title" style="margin-top:18px;">&#128176; Send Coins</div>
+            <div class="transfer-item">
+              <input id="coin-to-user" type="number" placeholder="User ID">
+              <input id="coin-amount" type="number" placeholder="Amount">
+              <button class="btn btn-green" onclick="sendCoins()">&#128176; Send Coins</button>
+              <p id="coin-status" class="status-msg" style="font-size:12px;"></p>
+            </div>
           </div>
 
           <!-- SETTINGS -->
@@ -712,6 +793,13 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <div class="privacy-toggle"><label>Show Popularity</label><input type="checkbox" id="setting-popularity" onchange="updatePrivacy('show_popularity', this.checked)"></div>
             <div class="privacy-toggle"><label>Show Bio</label><input type="checkbox" id="setting-bio" onchange="updatePrivacy('show_bio', this.checked)"></div>
             <div class="privacy-toggle"><label>Show Activity</label><input type="checkbox" id="setting-activity" onchange="updatePrivacy('show_activity', this.checked)"></div>
+            <div class="section-title">&#128100; Profile Bio</div>
+            <div class="transfer-item">
+              <textarea id="bio-text" placeholder="Write a short bio (visible to friends)..." rows="2" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;color:white;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>
+              <button class="btn btn-sm btn-gold" onclick="updateBio()">&#128190; Save Bio</button>
+              <p id="bio-status" class="status-msg" style="font-size:12px;"></p>
+            </div>
+            <div class="section-title" style="margin-top:16px;">Privacy Settings</div>
             <div class="privacy-toggle"><label>Show Friends</label><input type="checkbox" id="setting-friends" onchange="updatePrivacy('show_friends', this.checked)"></div>
             <div class="section-title" style="margin-top:16px;">Theme</div>
             <div class="method-row">
@@ -1317,7 +1405,7 @@ async function completeTask(btn) {
           }
 
           async function spinWheel() {
-            const btn = document.getElementById('spin-button');
+            playSound('spin'); haptic('medium');            const btn = document.getElementById('spin-button');
             const wheel = document.getElementById('wheel');
             const status = document.getElementById('spin-status');
             btn.disabled = true;
@@ -1435,6 +1523,7 @@ function showPage(pageName) {
             if (pageName === 'settings') loadPrivacySettings();
             if (pageName === 'transactions') loadTransactions();
             if (pageName === 'more') {}
+            playSound('nav'); haptic('light');
             if (pageName === 'discover') {
               fetch('/api/users/discover/' + userId).then(r => r.json()).then(data => {
                 const trending = document.getElementById('trending-users');
@@ -1985,6 +2074,215 @@ function showPage(pageName) {
             }
           }
 
+          // --- Haptics & Sound ---
+          function haptic(type) {
+            try { if (tg && tg.HapticFeedback) { tg.HapticFeedback.impactOccurred(type); } } catch(e) {}
+          }
+          function playSound(type) {
+            try {
+              const ctx = window._audioCtx || (window._audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+              if (ctx.state === 'suspended') ctx.resume();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain); gain.connect(ctx.destination);
+              const freqs = { click: 600, coin: 1200, spin: 400, success: 800, error: 200, scratch: 300, reward: 1000, nav: 500 };
+              osc.frequency.value = freqs[type] || 500;
+              osc.type = type === 'success' || type === 'reward' ? 'triangle' : 'sine';
+              gain.gain.setValueAtTime(0.12, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (type === 'success' ? 0.3 : 0.15));
+              osc.start(); osc.stop(ctx.currentTime + (type === 'success' ? 0.3 : 0.15));
+            } catch(e) {}
+          }
+
+          // --- Super / Mega Spin ---
+          async function superSpin() {
+            playSound('spin'); haptic('medium');
+            try {
+              const r = await fetch('/api/spin/super/' + userId, { method: 'POST' });
+              const data = await r.json();
+              if (data.success) {
+                playSound('success'); haptic('heavy');
+                if (data.data && data.data.wheel_result) { spinWheel(); }
+                setTimeout(function(){ alert('✨ SUPER SPIN! You won: ' + (data.data && data.data.reward_label || '')); }, 200);
+              } else {
+                playSound('error'); haptic('light');
+                alert(data.message || 'Could not perform super spin.');
+              }
+              fetchData();
+            } catch(e) { playSound('error'); alert('Error with super spin.'); }
+          }
+
+          async function megaSpin() {
+            playSound('spin'); haptic('medium');
+            try {
+              const r = await fetch('/api/spin/mega/' + userId, { method: 'POST' });
+              const data = await r.json();
+              if (data.success) {
+                playSound('reward'); haptic('heavy');
+                if (data.data && data.data.wheel_result) { spinWheel(); }
+                setTimeout(function(){ alert('💎 MEGA SPIN! You won: ' + (data.data && data.data.reward_label || '')); }, 200);
+              } else {
+                playSound('error'); haptic('light');
+                alert(data.message || 'Could not perform mega spin.');
+              }
+              fetchData();
+            } catch(e) { playSound('error'); alert('Error with mega spin.'); }
+          }
+
+          // --- Withdrawal Proof ---
+          async function uploadProof() {
+            playSound('click'); haptic('light');
+            const txid = document.getElementById('proof-txid').value;
+            const note = document.getElementById('proof-note').value;
+            const statusEl = document.getElementById('proof-status');
+            statusEl.innerText = 'Uploading...';
+            try {
+              const r = await fetch('/api/withdrawals/proof/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transaction_id: txid, note: note })
+              });
+              const data = await r.json();
+              if (data.success) {
+                playSound('success'); haptic('light');
+                statusEl.innerText = 'Proof uploaded!';
+                loadProofs();
+              } else {
+                playSound('error');
+                statusEl.innerText = data.message || 'Error uploading proof.';
+              }
+            } catch(e) { playSound('error'); statusEl.innerText = 'Error uploading proof.'; }
+          }
+
+          async function loadProofs() {
+            playSound('click');
+            try {
+              const r = await fetch('/api/withdrawals/proofs/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('proofs-list');
+              if (!data.proofs || !data.proofs.length) {
+                list.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">No proofs uploaded yet.</p>';
+                return;
+              }
+              list.innerHTML = data.proofs.map(p =>
+                '<div class="history-item"><span>Proof: ' + (p.transaction_id || 'N/A') + '<br><small style="color:var(--text-dim);">' + (p.note || '') + '</small></span><span class="status ' + (p.verified ? 'approved' : 'pending') + '">' + (p.verified ? 'Verified' : 'Pending') + '</span></div>'
+              ).join('');
+            } catch(e) { document.getElementById('proofs-list').innerHTML = 'Error loading proofs.'; }
+          }
+
+          // --- Referral Tier ---
+          async function loadReferralTier() {
+            try {
+              const r = await fetch('/api/referral/tier/' + userId);
+              const data = await r.json();
+              const nameEl = document.getElementById('referral-tier-name');
+              const nextEl = document.getElementById('referral-tier-next');
+              const fillEl = document.getElementById('referral-tier-fill');
+              const infoEl = document.getElementById('referral-tier-info');
+              if (data && nameEl) {
+                const tier = data.tier || data.current_tier || 'Bronze';
+                const next = data.next_tier || 'Max';
+                const prog = data.progress != null ? data.progress : 0;
+                const tierEmojis = { Bronze: '🥇', Silver: '🥈', Gold: '🥉', Platinum: '💎', Diamond: '💎', Crown: '👑', Conqueror: '🏆' };
+                nameEl.innerText = (tierEmojis[tier] || '🥇') + ' ' + tier;
+                nextEl.innerText = 'Next: ' + next;
+                fillEl.style.width = prog + '%';
+                if (data.bonus) infoEl.innerText = 'Bonus: ' + data.bonus;
+              }
+            } catch(e) {}
+          }
+
+          // --- Leaderboard Rewards ---
+          async function loadLeaderboardRewards() {
+            try {
+              const r = await fetch('/api/leaderboard/rewards/' + userId);
+              const data = await r.json();
+              const box = document.getElementById('rewards-list');
+              const claimBtn = document.getElementById('claim-reward-btn');
+              if (!data || !data.rewards) { if (box) box.innerHTML = 'No rewards available.'; return; }
+              const claimed = data.claimed || [];
+              const available = (data.rewards || []).filter(function(r){ return claimed.indexOf(r.id) === -1; });
+              if (box) {
+                if (available.length === 0) {
+                  box.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">All rewards claimed! Keep climbing the leaderboard.</p>';
+                } else {
+                  box.innerHTML = available.map(function(r){
+                    return '<div class="history-item"><span><b>' + (r.label || r.name || 'Reward') + '</b><br><small>' + (r.description || '') + '</small></span><span class="status pending">Available</span></div>';
+                  }).join('');
+                }
+              }
+              if (claimBtn) claimBtn.style.display = available.length > 0 ? 'block' : 'none';
+            } catch(e) {}
+          }
+
+          async function claimLeaderboardReward() {
+            playSound('reward'); haptic('heavy');
+            try {
+              const r = await fetch('/api/leaderboard/claim-reward/' + userId, { method: 'POST' });
+              const data = await r.json();
+              alert(data.message || '');
+              if (data.success) { fetchData(); loadLeaderboardRewards(); loadLevelLeaderboard(); }
+            } catch(e) { alert('Error claiming reward.'); }
+          }
+
+          // --- Bio Update ---
+          async function updateBio() {
+            playSound('click'); haptic('light');
+            const bio = document.getElementById('bio-text').value;
+            const statusEl = document.getElementById('bio-status');
+            statusEl.innerText = 'Saving...';
+            try {
+              const r = await fetch('/api/profile/bio/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bio: bio })
+              });
+              const data = await r.json();
+              if (data.success) {
+                playSound('success'); haptic('light');
+                statusEl.innerText = 'Bio saved!';
+              } else {
+                playSound('error');
+                statusEl.innerText = data.message || 'Error saving bio.';
+              }
+            } catch(e) { playSound('error'); statusEl.innerText = 'Error saving bio.'; }
+          }
+
+          // --- Send Coins ---
+          async function sendCoins() {
+            playSound('click'); haptic('light');
+            const toUser = parseInt(document.getElementById('coin-to-user').value);
+            const amount = parseInt(document.getElementById('coin-amount').value);
+            const statusEl = document.getElementById('coin-status');
+            if (!toUser || !amount) { statusEl.innerText = 'Enter user ID and amount.'; return; }
+            statusEl.innerText = 'Sending...';
+            try {
+              const r = await fetch('/api/coins/send/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: toUser, amount: amount })
+              });
+              const data = await r.json();
+              if (data.success) {
+                playSound('coin'); haptic('medium');
+                statusEl.innerText = 'Coins sent!';
+                document.getElementById('coin-amount').value = '';
+                fetchData();
+              } else {
+                playSound('error');
+                statusEl.innerText = data.message || 'Error sending coins.';
+              }
+            } catch(e) { playSound('error'); statusEl.innerText = 'Error sending coins.'; }
+          }
+
+          async function loadBio() {
+            try {
+              const r = await fetch('/api/profile/' + userId);
+              const data = await r.json();
+              if (data.bio) document.getElementById('bio-text').value = data.bio;
+            } catch(e) {}
+          }
+
           window.addEventListener('load', function(){
             buildWheel();
             setSupportLinks();
@@ -2001,6 +2299,10 @@ function showPage(pageName) {
 loadChallenges();
             loadAchievements();
             loadLevelLeaderboard();
+            loadReferralTier();
+            loadLeaderboardRewards();
+            loadProofs();
+            loadBio();
             setInterval(loadChallenges, 30000);
             setInterval(loadNotifications, 15000);
             // Close notification dropdown when clicking outside
@@ -2017,6 +2319,36 @@ loadFriends();
             setInterval(loadRequests, 30000);
              setInterval(fetchData, 8000);
            });
+          // --- Onboarding Tutorial ---
+          let onboardStep = 1;
+          const onboardTotal = 4;
+          function showOnboardStep(n) {
+            document.querySelectorAll('.onboarding-step').forEach(function(s){ s.classList.toggle('active', parseInt(s.dataset.step) === n); });
+            document.querySelectorAll('.onboarding-dots .dot').forEach(function(d,i){ d.classList.toggle('active', i === n-1); });
+            document.getElementById('onboard-progress').innerText = n + ' / ' + onboardTotal;
+            document.getElementById('onboard-next').innerText = n === onboardTotal ? "Let's Go! ✨" : '→ Next';
+          }
+          function nextOnboard() {
+            playSound('click'); haptic('light');
+            if (onboardStep >= onboardTotal) { endOnboarding(); return; }
+            onboardStep++;
+            showOnboardStep(onboardStep);
+          }
+          function endOnboarding() {
+            playSound('success'); haptic('medium');
+            document.getElementById('onboarding').classList.remove('show');
+            document.getElementById('onboarding').style.display = 'none';
+            try { localStorage.setItem('xio_onboarded', '1'); } catch(e) {}
+          }
+          // Show onboarding for first-time users
+          (function(){
+            let onboarded = false;
+            try { onboarded = localStorage.getItem('xio_onboarded') === '1'; } catch(e) {}
+            if (!onboarded) {
+              const ob = document.getElementById('onboarding');
+              if (ob) { ob.style.display = 'flex'; ob.classList.add('show'); }
+            }
+          })();
         </script>
       </body>
     </html>
