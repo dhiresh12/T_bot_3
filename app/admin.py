@@ -55,6 +55,8 @@ class AdminPanelService:
                 "coins": p.coins,
                 "invite_count": p.invite_count,
                 "is_admin": p.admin,
+                "popularity_points": p.popularity_points,
+                "popularity_level": p.popularity_level,
             }
             for p in self.engine.users.values()
         ]

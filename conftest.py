@@ -6,6 +6,9 @@ browser driver that are not part of the default test dependencies.
 """
 import os
 
+os.environ.setdefault("ADMIN_KEY", "admin-xio")
+os.environ.setdefault("SECRET_KEY", "dev-secret")
+
 # Files that should be skipped by pytest during collection.
 # Applied relative to the project root.
 collect_ignore = ["app/test_admin_ui.py"]

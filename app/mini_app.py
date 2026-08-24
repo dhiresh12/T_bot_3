@@ -248,6 +248,26 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           .lang-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
           .lang-chip { background:var(--bg-light); border:1px solid #334155; border-radius:12px; padding:12px; text-align:center; cursor:pointer; font-size:14px; }
           .lang-chip.active { border-color:var(--primary); background:rgba(59,130,246,0.15); }
+          .popularity-bar { display:flex; align-items:center; gap:8px; margin-top:6px; }
+          .popularity-bar .pop-icon { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,#f59e0b,#ef4444); display:flex; align-items:center; justify-content:center; font-size:13px; }
+          .popularity-bar .pop-info { flex:1; font-size:11px; color:var(--text-muted); }
+          .popularity-bar .pop-fill { height:6px; background:rgba(255,255,255,0.2); border-radius:4px; overflow:hidden; flex:1; }
+          .popularity-bar .pop-fill > div { height:100%; background:linear-gradient(90deg,#f59e0b,#ef4444); border-radius:4px; transition:width 0.6s; }
+          .like-btn, .visit-btn { background:var(--bg-light); border:1px solid #334155; color:var(--text-light); border-radius:10px; padding:8px 14px; cursor:pointer; font-size:13px; }
+          .like-btn.liked { background:#ef4444; color:white; border-color:#ef4444; }
+          .transfer-item { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:12px; }
+          .transfer-item input { width:100%; padding:10px; background:var(--bg-dark); border:1px solid #334155; border-radius:10px; color:white; margin-bottom:8px; }
+          .msg-bubble { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:12px; }
+          .msg-bubble .sender { font-weight:700; color:var(--primary); font-size:13px; }
+          .msg-bubble .text { margin-top:4px; font-size:14px; }
+          .msg-bubble .time { font-size:11px; color:var(--text-muted); margin-top:4px; }
+          .privacy-toggle { display:flex; justify-content:space-between; align-items:center; background:var(--bg-light); padding:12px 14px; border-radius:12px; margin-bottom:10px; }
+          .privacy-toggle label { font-size:14px; }
+          .privacy-toggle input { width:auto; }
+          .theme-option { flex:1; background:var(--bg-light); border:2px solid #334155; padding:12px; border-radius:14px; text-align:center; cursor:pointer; }
+          .theme-option.active { border-color:var(--primary); background:rgba(59,130,246,0.15); }
+          .theme-option .em { font-size:24px; }
+          .theme-option .nm { font-size:12px; margin-top:4px; }
         </style>
       </head>
       <body>
@@ -562,6 +582,8 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               </div>
               <div class="bio" id="pm-bio"></div>
               <button id="pm-add-friend" class="btn btn-gold" style="width:100%;margin-top:14px;display:none;" onclick="sendFriendRequestFromModal()">➕ Add Friend</button>
+              <button class="btn btn-sm btn-gold" onclick="likeProfile(currentProfileUserId);closeProfileModal();" style="width:48%;margin-top:10px;">❤️ Like</button>
+              <button class="btn btn-sm" onclick="visitProfile(currentProfileUserId);" style="width:48%;margin-top:10px;">👁️ Visit</button>
             </div>
           </div>
 
@@ -572,15 +594,77 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Select your preferred language</p>
             <div class="lang-grid" id="lang-grid"></div>
           </div>
+
+          <!-- POPULARITY -->
+          <div id="page-popularity" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🔥 Popularity</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Grow your popularity and become famous!</p>
+            <div class="balance-card" style="text-align:left;padding:18px;">
+              <div style="font-size:13px;opacity:0.85;">Your Popularity</div>
+              <div style="font-size:32px;font-weight:800;" id="pop-points">0</div>
+              <div id="pop-level" style="font-size:13px;opacity:0.9;">🌱 Newcomer</div>
+              <div class="popularity-bar"><div class="pop-icon">🔥</div><div class="pop-info">Next level progress</div><div class="pop-fill"><div id="pop-progress" style="width:0%"></div></div></div>
+            </div>
+            <div class="section-title">Claim & Buy</div>
+            <button id="claim-pop-btn" class="btn btn-gold" onclick="claimDailyPopularity()" style="width:100%;">🎁 Claim Free Popularity</button>
+            <div class="section-title" style="margin-top:16px;">Buy with Coins</div>
+            <div class="transfer-item">
+              <input id="pop-amount" type="number" placeholder="Amount (1 point = 100 coins)">
+              <button class="btn btn-green" onclick="buyPopularityCoins()">Buy with Coins</button>
+            </div>
+            <div class="section-title">Send Popularity</div>
+            <div class="transfer-item">
+              <input id="pop-to-user" type="number" placeholder="User ID">
+              <input id="pop-send-amount" type="number" placeholder="Amount">
+              <button class="btn btn-gold" onclick="sendPopularity()">Send Popularity</button>
+            </div>
+            <p id="pop-status" class="status-msg"></p>
+          </div>
+
+          <!-- MESSAGES -->
+          <div id="page-messages" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>💬 Messages</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Chat with friends and other users</p>
+            <div class="msg-bubble">
+              <div class="sender">Send a message</div>
+              <input id="msg-to-user" type="number" placeholder="User ID" style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid #334155;border-radius:10px;color:white;margin-bottom:8px;">
+              <textarea id="msg-text" rows="3" style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid #334155;border-radius:10px;color:white;font-family:inherit;" placeholder="Type your message..."></textarea>
+              <button class="btn btn-green" onclick="sendPersonalMessage()" style="width:100%;margin-top:8px;">Send Message</button>
+            </div>
+            <p id="msg-status" class="status-msg"></p>
+          </div>
+
+          <!-- SETTINGS -->
+          <div id="page-settings" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>⚙️ Settings</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Manage your privacy and preferences</p>
+            <div class="section-title">Privacy Settings</div>
+            <div class="privacy-toggle"><label>Show Wallet</label><input type="checkbox" id="setting-wallet" onchange="updatePrivacy('show_wallet', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Coins</label><input type="checkbox" id="setting-coins" onchange="updatePrivacy('show_coins', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Popularity</label><input type="checkbox" id="setting-popularity" onchange="updatePrivacy('show_popularity', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Bio</label><input type="checkbox" id="setting-bio" onchange="updatePrivacy('show_bio', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Activity</label><input type="checkbox" id="setting-activity" onchange="updatePrivacy('show_activity', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Friends</label><input type="checkbox" id="setting-friends" onchange="updatePrivacy('show_friends', this.checked)"></div>
+            <div class="section-title" style="margin-top:16px;">Theme</div>
+            <div class="method-row">
+              <div class="theme-option active" data-theme="dark" onclick="selectTheme('dark')"><div class="em">🌙</div><div class="nm">Dark</div></div>
+              <div class="theme-option" data-theme="light" onclick="selectTheme('light')"><div class="em">☀️</div><div class="nm">Light</div></div>
+              <div class="theme-option" data-theme="blue" onclick="selectTheme('blue')"><div class="em">💙</div><div class="nm">Blue</div></div>
+            </div>
+            <p id="settings-status" class="status-msg"></p>
+          </div>
         </div>
 
         <!-- Bottom Navigation -->
         <div class="nav">
           <button class="nav-item active" data-page="home" onclick="showPage('home')"><span class="em">🏠</span><span data-translate-key="nav_home">Home</span></button>
           <button class="nav-item" data-page="ads" onclick="showPage('ads')"><span class="em">▶</span><span data-translate-key="nav_ads">Ads</span></button>
-          <button class="nav-item" data-page="tasks" onclick="showPage('tasks')"><span class="em">📋</span><span data-translate-key="nav_tasks">Tasks</span></button>
           <button class="nav-item" data-page="friends" onclick="showPage('friends')"><span class="em">👥</span><span>Friends</span></button>
-          <button class="nav-item" data-page="wallet" onclick="showPage('wallet')"><span class="em">💰</span><span data-translate-key="nav_wallet">Withdraw</span></button>
+          <button class="nav-item" data-page="popularity" onclick="showPage('popularity')"><span class="em">🔥</span><span>Popularity</span></button>
+          <button class="nav-item" data-page="settings" onclick="showPage('settings')"><span class="em">⚙️</span><span>Settings</span></button>
         </div>
 
         <script>
@@ -706,7 +790,7 @@ function t(key) {
               const c = document.createElement('div');
               c.className = 'lang-chip' + (code === currentLang ? ' active' : '');
               c.innerText = cfg.flag + ' ' + cfg.label;
-              c.onclick = function(){ currentLang = code; try{localStorage.setItem('xio_lang', code);}catch(e){} translateUI(); fetchData(true); };
+              c.onclick = function(){ currentLang = code; try{localStorage.setItem('xio_lang', code); localStorage.setItem('xio_theme', 'dark');}catch(e){} translateUI(); fetchData(true); };
               grid.appendChild(c);
             }
           }
@@ -766,6 +850,14 @@ function t(key) {
             } else {
               notifBadge.style.display = 'none';
             }
+
+            // Popularity UI
+            const popPoints = data.popularity_points || 0;
+            document.getElementById('pop-points').innerText = popPoints.toLocaleString();
+            const popLevel = data.popularity_level || {name: 'Newcomer', emoji: '🌱'};
+            document.getElementById('pop-level').innerText = popLevel.emoji + ' ' + popLevel.name;
+            const popPct = data.popularity_level && data.popularity_level.next_level_min ? Math.min(99, Math.max(2, (popPoints % 1000) / 10)) : 0;
+            document.getElementById('pop-progress').style.width = popPct + '%';
 
             injectFeed('live-feed-withdraw');
 
@@ -1230,6 +1322,20 @@ function showPage(pageName) {
             document.querySelectorAll('.nav-item').forEach(function(i){ i.classList.toggle('active', i.dataset.page === pageName); });
             if (pageName === 'ads') seedAdsChat();
             if (pageName === 'friends') { loadFriends(); loadRequests(); }
+            if (pageName === 'popularity') fetchData();
+            if (pageName === 'settings') loadPrivacySettings();
+          }
+
+          async function loadPrivacySettings() {
+            try {
+              const r = await fetch('/api/dashboard/' + userId);
+              const data = await r.json();
+              const settings = data.privacy_settings || {};
+              for (const [key, value] of Object.entries(settings)) {
+                const el = document.getElementById('setting-' + key.replace('show_', ''));
+                if (el) el.checked = value;
+              }
+            } catch (e) {}
           }
 
           function seedAdsChat() {
@@ -1601,6 +1707,137 @@ function showPage(pageName) {
           }
 
 
+          // --- Popularity System ---
+          async function claimDailyPopularity() {
+            try {
+              const r = await fetch('/api/popularity/claim-daily/' + userId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('pop-status').innerText = data.message || '';
+              if (data.success) fetchData();
+            } catch (e) { document.getElementById('pop-status').innerText = 'Error claiming popularity.'; }
+          }
+
+          async function buyPopularityCoins() {
+            const amount = parseInt(document.getElementById('pop-amount').value);
+            if (!amount || amount <= 0) { document.getElementById('pop-status').innerText = 'Enter a valid amount.'; return; }
+            try {
+              const r = await fetch('/api/popularity/buy-coins/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: amount })
+              });
+              const data = await r.json();
+              document.getElementById('pop-status').innerText = data.message || '';
+              if (data.success) fetchData();
+            } catch (e) { document.getElementById('pop-status').innerText = 'Error buying popularity.'; }
+          }
+
+          async function sendPopularity() {
+            const toUserId = parseInt(document.getElementById('pop-to-user').value);
+            const amount = parseInt(document.getElementById('pop-send-amount').value);
+            if (!toUserId || !amount || amount <= 0) { document.getElementById('pop-status').innerText = 'Enter valid user ID and amount.'; return; }
+            try {
+              const r = await fetch('/api/popularity/send/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: toUserId, amount: amount })
+              });
+              const data = await r.json();
+              document.getElementById('pop-status').innerText = data.message || '';
+              if (data.success) fetchData();
+            } catch (e) { document.getElementById('pop-status').innerText = 'Error sending popularity.'; }
+          }
+
+          // --- Profile Like & Visit ---
+          async function likeProfile(targetId) {
+            try {
+              const r = await fetch('/api/profile/like/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: targetId })
+              });
+              const data = await r.json();
+              alert(data.message || '');
+              if (data.success) fetchData();
+            } catch (e) { alert('Error liking profile.'); }
+          }
+
+          async function visitProfile(targetId) {
+            try {
+              const r = await fetch('/api/profile/visit/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: targetId })
+              });
+              const data = await r.json();
+              // Update UI if viewing profile
+            } catch (e) {}
+          }
+
+          // --- Coin Transfer ---
+          async function sendPersonalMessage() {
+            const toUserId = parseInt(document.getElementById('msg-to-user').value);
+            const message = document.getElementById('msg-text').value;
+            if (!toUserId || !message) { document.getElementById('msg-status').innerText = 'Enter user ID and message.'; return; }
+            try {
+              const r = await fetch('/api/messages/send/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: toUserId, message: message })
+              });
+              const data = await r.json();
+              document.getElementById('msg-status').innerText = data.message || '';
+              if (data.success) document.getElementById('msg-text').value = '';
+            } catch (e) { document.getElementById('msg-status').innerText = 'Error sending message.'; }
+          }
+
+          // --- Privacy Settings ---
+          async function updatePrivacy(key, value) {
+            try {
+              const r = await fetch('/api/profile/privacy/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ settings: { [key]: value } })
+              });
+              const data = await r.json();
+              document.getElementById('settings-status').innerText = data.message || '';
+            } catch (e) { document.getElementById('settings-status').innerText = 'Error updating privacy.'; }
+          }
+
+          async function selectTheme(theme) {
+            document.querySelectorAll('.theme-option').forEach(function(el){ el.classList.toggle('active', el.dataset.theme === theme); });
+            try {
+              const r = await fetch('/api/profile/theme/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: theme })
+              });
+              const data = await r.json();
+              document.getElementById('settings-status').innerText = data.message || '';
+              applyTheme(theme);
+            } catch (e) { document.getElementById('settings-status').innerText = 'Error updating theme.'; }
+          }
+
+          function applyTheme(theme) {
+            const body = document.body;
+            if (theme === 'light') {
+              body.style.setProperty('--bg-dark', '#f8fafc');
+              body.style.setProperty('--bg-light', '#ffffff');
+              body.style.setProperty('--text-light', '#1e293b');
+              body.style.setProperty('--text-muted', '#64748b');
+            } else if (theme === 'blue') {
+              body.style.setProperty('--bg-dark', '#0f172a');
+              body.style.setProperty('--bg-light', '#1e3a8a');
+              body.style.setProperty('--text-light', '#f1f5f9');
+              body.style.setProperty('--text-muted', '#94a3b8');
+            } else {
+              body.style.setProperty('--bg-dark', '#0f172a');
+              body.style.setProperty('--bg-light', '#1e293b');
+              body.style.setProperty('--text-light', '#f1f5f9');
+              body.style.setProperty('--text-muted', '#94a3b8');
+            }
+          }
+
           window.addEventListener('load', function(){
             buildWheel();
             setSupportLinks();
@@ -1631,10 +1868,8 @@ loadFriends();
             loadRequests();
             setInterval(loadFriends, 30000);
             setInterval(loadRequests, 30000);
-            setInterval(fetchData, 8000);
-            setInterval(fetchData, 8000);
-            setInterval(fetchData, 8000);
-          });
+             setInterval(fetchData, 8000);
+           });
         </script>
       </body>
     </html>

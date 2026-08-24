@@ -535,6 +535,145 @@ def send_chat_message(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": True, "message": "Message sent."}), 200
 
 
+# --- Popularity & Social Features API ---
+
+@bp.post("/api/popularity/claim-daily/<int:user_id>")
+def claim_daily_popularity(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.claim_daily_popularity(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "data": data}), 200
+
+
+@bp.post("/api/popularity/buy-coins/<int:user_id>")
+def buy_popularity_coins(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    amount = int(payload.get("amount", 0))
+    if amount <= 0:
+        return jsonify({"error": "Invalid amount."}), 400
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.buy_popularity_with_coins(user_id, amount)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "coins": profile.coins, "data": data}), 200
+
+
+@bp.post("/api/popularity/buy-money/<int:user_id>")
+def buy_popularity_money(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    amount = int(payload.get("amount", 0))
+    if amount <= 0:
+        return jsonify({"error": "Invalid amount."}), 400
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.buy_popularity_with_money(user_id, amount)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "wallet_bot": profile.wallet_bot, "data": data}), 200
+
+
+@bp.post("/api/popularity/send/<int:user_id>")
+def send_popularity(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    to_user_id = payload.get("to_user_id")
+    amount = int(payload.get("amount", 0))
+    if not to_user_id or amount <= 0:
+        return jsonify({"error": "Missing 'to_user_id' or invalid 'amount'."}), 400
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(to_user_id, "Guest")
+    success, message, data = current_engine.send_popularity(user_id, to_user_id, amount)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "data": data}), 200
+
+
+@bp.post("/api/profile/like/<int:user_id>")
+def like_profile(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    target_id = payload.get("target_id")
+    if not target_id:
+        return jsonify({"error": "Missing 'target_id' in request body."}), 400
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(target_id, "Guest")
+    success, message, data = current_engine.like_profile(user_id, target_id)
+    return jsonify({"success": success, "message": message, "data": data}), 200
+
+
+@bp.post("/api/profile/visit/<int:user_id>")
+def visit_profile(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    target_id = payload.get("target_id")
+    if not target_id:
+        return jsonify({"error": "Missing 'target_id' in request body."}), 400
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(target_id, "Guest")
+    data = current_engine.visit_profile(user_id, target_id)
+    return jsonify(data), 200
+
+
+@bp.post("/api/coins/send/<int:user_id>")
+def send_coins(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    to_user_id = payload.get("to_user_id")
+    amount = int(payload.get("amount", 0))
+    if not to_user_id or amount <= 0:
+        return jsonify({"error": "Missing 'to_user_id' or invalid 'amount'."}), 400
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(to_user_id, "Guest")
+    success, message, data = current_engine.send_coins_to_user(user_id, to_user_id, amount)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "coins": profile.coins, "data": data}), 200
+
+
+@bp.post("/api/profile/privacy/<int:user_id>")
+def update_privacy(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    settings = payload.get("settings", {})
+    current_engine.register_user(user_id, "Guest")
+    success, message = current_engine.update_privacy_settings(user_id, settings)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.post("/api/profile/theme/<int:user_id>")
+def update_theme(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    theme = payload.get("theme", "dark")
+    current_engine.register_user(user_id, "Guest")
+    profile = current_engine.get_profile(user_id)
+    profile.theme = theme
+    profile.log_activity("update_theme", {"theme": theme})
+    current_engine._save_user(profile)
+    return jsonify({"success": True, "message": f"Theme updated to {theme}.", "theme": theme}), 200
+
+
+@bp.post("/api/messages/send/<int:user_id>")
+def send_personal_message(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    to_user_id = payload.get("to_user_id")
+    message = payload.get("message", "")
+    if not to_user_id or not message:
+        return jsonify({"error": "Missing 'to_user_id' or 'message'."}), 400
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(to_user_id, "Guest")
+    success, msg = current_engine.send_personal_message(user_id, to_user_id, message)
+    return jsonify({"success": success, "message": msg}), 200
+
+
+@bp.get("/api/messages/<int:user_id>/with/<int:other_id>")
+def get_personal_messages(user_id: int, other_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(other_id, "Guest")
+    messages = current_engine.get_personal_messages(user_id, other_id)
+    return jsonify({"messages": messages}), 200
+
+
 # --- Admin API Endpoints (New/Moved) ---
 
 @bp.get("/api/admin/dashboard")
@@ -562,7 +701,6 @@ def admin_users() -> tuple[dict, int]:
 @bp.get("/api/admin/view_user/<int:user_id>")
 def admin_view_user(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
-    # Security Improvement: Check for a secret header
     admin_key = request.headers.get("X-Admin-Key")
     if not admin_key or admin_key != current_engine.admin_key:
         return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
@@ -570,10 +708,9 @@ def admin_view_user(user_id: int) -> tuple[dict, int]:
     target_profile = current_engine.admin_service.get_user_full_profile(user_id)
     if not target_profile:
         return jsonify({"error": f"User {user_id} not found."}), 404
-    
-    # Convert dataclass to dict for JSON serialization
-    from dataclasses import asdict
-    profile_dict = asdict(target_profile)
+
+    safe_fields = {"user_id", "name", "coins", "wallet_bot", "invite_count", "admin", "registered_at", "tier", "level"}
+    profile_dict = {k: getattr(target_profile, k) for k in safe_fields if hasattr(target_profile, k)}
     return jsonify(profile_dict), 200
 
 
@@ -603,8 +740,7 @@ def admin_command(command: str) -> tuple[dict, int]:
     Supports commands like 'bonus' to update a bot-level setting.
     """
     current_engine = current_app.config["engine"]
-    admin_key = request.headers.get("X-Admin-Key") or (
-        request.get_json(silent=True) or {}).get("admin_key")
+    admin_key = request.headers.get("X-Admin-Key")
     if not admin_key or admin_key != current_engine.admin_key:
         return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
 
