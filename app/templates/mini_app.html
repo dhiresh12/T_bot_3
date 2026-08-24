@@ -356,8 +356,82 @@
                   <div class="level-info">
                     <div style="font-size:11px;color:var(--text-muted);">Level <span id="level-num">1</span> • <span id="xp-text">0 XP</span></div>
                     <div class="xp-bar"><div id="xp-fill" class="xp-fill" style="width:0%"></div></div>
-                  </div>
-                </div>
+          </div>
+        </div>
+        <div id="debug-panel" style="display:none; position:fixed; top:10px; left:10px; right:10px; bottom:auto; max-height:60vh; background:rgba(0,0,0,0.95); color:#0f0; font-family:monospace; font-size:11px; padding:12px; border-radius:12px; z-index:9999; overflow:auto; border:1px solid #333;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <b>🐛 Debug Console</b>
+            <button onclick="document.getElementById('debug-panel').style.display='none'" style="background:#333; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer;">Close</button>
+          </div>
+          <div id="debug-errors" style="margin-bottom:8px;"></div>
+          <button onclick="location.reload()" style="background:#22c55e; color:#000; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:700; margin-right:6px;">🔄 Refresh App</button>
+          <button onclick="clearDebugLog()" style="background:#333; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">Clear</button>
+          <button onclick="testShowPage()" style="background:#3b82f6; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">Test showPage</button>
+          <div id="debug-log" style="margin-top:8px; max-height:30vh; overflow:auto;"></div>
+        </div>
+        <button id="debug-toggle" onclick="toggleDebug()" style="display:none; position:fixed; bottom:80px; right:10px; background:rgba(0,0,0,0.8); color:#0f0; border:1px solid #333; padding:8px 12px; border-radius:50%; font-size:16px; cursor:pointer; z-index:9998;">🐛</button>
+        <script>
+          window.__debugErrors = [];
+          window.__debugLogs = [];
+          function logDebug(msg) {
+            const time = new Date().toLocaleTimeString();
+            window.__debugLogs.push('[' + time + '] ' + msg);
+            const el = document.getElementById('debug-log');
+            if (el) { el.innerHTML = window.__debugLogs.slice(-50).map(l => '<div>' + l + '</div>').join(''); }
+          }
+          function addDebugError(err) {
+            window.__debugErrors.push(err);
+            const el = document.getElementById('debug-errors');
+            if (el) { el.innerHTML = window.__debugErrors.slice(-20).map(e => '<div style="color:#ef4444;">❌ ' + e + '</div>').join(''); }
+          }
+          function clearDebugLog() {
+            window.__debugLogs = [];
+            window.__debugErrors = [];
+            const logEl = document.getElementById('debug-log');
+            const errEl = document.getElementById('debug-errors');
+            if (logEl) logEl.innerHTML = '';
+            if (errEl) errEl.innerHTML = '';
+          }
+          function toggleDebug() {
+            const panel = document.getElementById('debug-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            if (panel.style.display === 'block') logDebug('Debug panel opened');
+          }
+          function testShowPage() {
+            logDebug('Testing showPage("home")...');
+            try {
+              if (typeof showPage === 'function') {
+                showPage('home');
+                logDebug('✅ showPage("home") executed successfully');
+              } else {
+                logDebug('❌ showPage is not a function: ' + typeof showPage);
+              }
+            } catch(e) {
+              logDebug('❌ Error calling showPage: ' + e.message);
+              addDebugError(e.message);
+            }
+          }
+          window.onerror = function(msg, url, line) {
+            addDebugError(msg + ' (line ' + line + ')');
+            logDebug('ERROR: ' + msg + ' at line ' + line);
+            return false;
+          };
+          window.addEventListener('unhandledrejection', function(event) {
+            addDebugError('Unhandled: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
+            logDebug('UNHANDLED REJECTION: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
+          });
+          logDebug('Debug logger initialized');
+          logDebug('showPage type: ' + typeof showPage);
+          logDebug('User ID: ' + userId);
+          setTimeout(function() {
+            const pages = document.querySelectorAll('.page');
+            logDebug('Found ' + pages.length + ' page elements');
+            const activePage = document.querySelector('.page.active');
+            logDebug('Active page: ' + (activePage ? activePage.id : 'none'));
+            const navItems = document.querySelectorAll('.nav-item');
+            logDebug('Found ' + navItems.length + ' nav items');
+          }, 1000);
+        </script>
                 <div class="streak-pill" id="streak-pill">🔥 0</div>
               </div>
             </div>
@@ -2394,6 +2468,11 @@ loadFriends();
               if (ob) { ob.style.display = 'flex'; ob.classList.add('show'); }
             }
           })();
+          setTimeout(function() {
+            var btn = document.getElementById('debug-toggle');
+            if (btn) btn.style.display = 'block';
+            logDebug('Debug toggle button visible. Tap 🐛 to open debug panel.');
+          }, 2000);
         </script>
       </body>
     </html>
