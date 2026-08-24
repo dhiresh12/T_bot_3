@@ -2445,7 +2445,7 @@ loadFriends();
             document.querySelectorAll('.onboarding-step').forEach(function(s){ s.classList.toggle('active', parseInt(s.dataset.step) === n); });
             document.querySelectorAll('.onboarding-dots .dot').forEach(function(d,i){ d.classList.toggle('active', i === n-1); });
             document.getElementById('onboard-progress').innerText = n + ' / ' + onboardTotal;
-            document.getElementById('onboard-next').innerText = n === onboardTotal ? "Let's Go! ✨" : '→ Next';
+            document.getElementById('onboard-next').innerText = n === onboardTotal ? `Let's Go! ✨` : '→ Next';
           }
           function nextOnboard() {
             playSound('click'); haptic('light');
