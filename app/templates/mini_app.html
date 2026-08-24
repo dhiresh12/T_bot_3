@@ -1,0 +1,2399 @@
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{app_name}}</title>
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <style>
+          :root {
+            --bg-0: #0a0e1a;
+            --bg-1: #111827;
+            --bg-2: #1e293b;
+            --bg-glass: rgba(30,41,59,0.55);
+            --border: rgba(148,163,184,0.12);
+            --primary: #6366f1;
+            --primary-glow: rgba(99,102,241,0.4);
+            --cyan: #22d3ee;
+            --magenta: #e879f9;
+            --gold: #fbbf24;
+            --success: #34d399;
+            --danger: #fb7185;
+            --text: #f1f5f9;
+            --text-dim: #94a3b8;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --shadow-neon: 0 0 20px rgba(99,102,241,0.25);
+          }
+          * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-0);
+            background-image: radial-gradient(ellipse at 20% 0%, rgba(99,102,241,0.12), transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(236,72,153,0.08), transparent 50%);
+            color: var(--text); margin: 0; padding: 0 0 100px 0; min-height: 100vh;
+          }
+          .container { max-width: 480px; margin: 0 auto; padding: 16px 16px 24px; position: relative; z-index: 1; }
+          .app-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(15,23,42,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+          .brand { font-size: 17px; font-weight: 800; background: linear-gradient(135deg, var(--cyan), var(--primary), var(--magenta)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.3px; }
+          .brand small { display: block; font-size: 9px; font-weight: 500; color: var(--text-dim); -webkit-text-fill-color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
+          .header-actions { display: flex; align-items: center; gap: 6px; }
+          .icon-btn { background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); color: var(--text); border-radius: 12px; width: 36px; height: 36px; font-size: 16px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+          .icon-btn:hover { background: rgba(99,102,241,0.15); border-color: var(--primary); transform: translateY(-1px); }
+          .icon-btn:active { transform: scale(0.95); }
+          .page { display: none; animation: pageIn 0.35s cubic-bezier(0.22,1,0.36,1); }
+          .page.active { display: block; }
+          @keyframes pageIn { from { opacity: 0; transform: translateY(12px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+          .user-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+          .avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--magenta)); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; border: 2px solid rgba(255,255,255,0.1); box-shadow: var(--shadow-neon); }
+          .user-info { flex-grow: 1; }
+          .user-info h1 { margin: 0; font-size: 19px; font-weight: 700; }
+          .user-info p { margin: 2px 0 0; color: var(--text-dim); font-size: 12px; }
+          .streak-pill { display: inline-flex; align-items: center; gap: 5px; background: linear-gradient(135deg, #f97316, #ef4444); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-top: 8px; box-shadow: 0 0 16px rgba(249,115,22,0.3); }
+          .level-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+          .level-bar .level-icon { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--cyan), var(--primary)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; box-shadow: 0 0 12px var(--primary-glow); }
+          .level-bar .level-info { flex: 1; }
+          .level-bar .xp-bar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+          .level-bar .xp-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--primary), var(--magenta)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+          .balance-card { background: linear-gradient(135deg, #4f46e5, #7c3aed, #db2777); padding: 24px; border-radius: 22px; text-align: center; margin-bottom: 20px; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(124,58,237,0.3); }
+          .balance-card::after { content:''; position:absolute; top:-50%; right:-25%; width:200px; height:200px; background:radial-gradient(circle, rgba(255,255,255,0.18), transparent 65%); pointer-events:none; }
+          .balance-card::before { content:''; position:absolute; bottom:-40%; left:-20%; width:160px; height:160px; background:radial-gradient(circle, rgba(34,211,238,0.15), transparent 60%); pointer-events:none; }
+          .balance-card .label { font-size: 12px; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; position: relative; }
+          .balance-card .amount { font-size: 42px; font-weight: 900; margin: 6px 0; position: relative; letter-spacing: -1px; }
+          .balance-card .coins { font-size: 15px; opacity: 0.9; position: relative; }
+          .tier-progress { display: flex; justify-content: space-between; font-size: 11px; margin-top: 16px; background: rgba(0,0,0,0.2); padding: 10px 14px; border-radius: 12px; position: relative; }
+          .progress-bar { height: 6px; background: rgba(255,255,255,0.2); border-radius: 4px; margin-top: 10px; overflow: hidden; position: relative; }
+          .progress-fill { height: 100%; background: linear-gradient(90deg, var(--success), var(--gold)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+          .urgency { display: flex; gap: 10px; margin-top: 14px; }
+          .urgency .box { flex: 1; background: rgba(251,113,133,0.1); border: 1px solid rgba(251,113,133,0.3); border-radius: 14px; padding: 10px; text-align: center; font-size: 11px; color: #fda4af; backdrop-filter: blur(8px); }
+          .urgency .box b { font-size: 16px; color: var(--danger); display: block; font-weight: 800; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+          .grid-card { background: var(--bg-glass); backdrop-filter: blur(12px); border: 1px solid var(--border); padding: 16px; border-radius: var(--radius); text-align: center; cursor: default; transition: all 0.25s; position: relative; overflow: hidden; }
+          .grid-card:hover { transform: translateY(-2px); border-color: rgba(99,102,241,0.3); box-shadow: var(--shadow-neon); }
+          .grid-card .value { font-size: 26px; font-weight: 800; }
+          .grid-card .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+          .section-title { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px; margin: 22px 0 10px; font-weight: 700; }
+          .btn { display: block; width: 100%; background: linear-gradient(135deg, var(--primary), #7c3aed); color: white; border: none; padding: 14px; border-radius: var(--radius); font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 12px; transition: all 0.2s; position: relative; overflow: hidden; box-shadow: 0 4px 16px var(--primary-glow); }
+          .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--primary-glow); }
+          .btn:active { transform: scale(0.97); }
+          .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+          .btn-gold { background: linear-gradient(135deg, var(--gold), #f97316); box-shadow: 0 4px 16px rgba(251,191,36,0.3); }
+          .btn-gold:hover { box-shadow: 0 6px 24px rgba(251,191,36,0.4); }
+          .btn-green { background: linear-gradient(135deg, var(--success), #059669); box-shadow: 0 4px 16px rgba(52,211,153,0.3); }
+          .btn-green:hover { box-shadow: 0 6px 24px rgba(52,211,153,0.4); }
+          .btn-sm { width: auto; padding: 8px 16px; font-size: 12px; margin-top: 0; display: inline-block; }
+          .back-btn { background: none; border: none; color: var(--cyan); font-size: 14px; cursor: pointer; margin-bottom: 10px; padding: 6px 0; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s; }
+          .back-btn:hover { color: var(--primary); }
+          .nav { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 430px; background: rgba(15,23,42,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 22px; display: flex; justify-content: space-around; padding: 8px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05); }
+          .nav-item { color: var(--text-dim); background: none; border: none; cursor: pointer; text-align: center; font-size: 9px; padding: 6px 4px; flex: 1; font-family: inherit; transition: all 0.3s; border-radius: 14px; position: relative; }
+          .nav-item .em { font-size: 20px; display: block; transition: transform 0.3s; }
+          .nav-item.active { color: white; background: linear-gradient(135deg, var(--primary), #7c3aed); box-shadow: 0 4px 14px var(--primary-glow); }
+          .nav-item.active .em { transform: scale(1.15) translateY(-1px); }
+          .nav-item:hover:not(.active) { color: var(--text); }
+          .live-feed { margin-top: 18px; background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 12px 14px; border-radius: var(--radius); height: 110px; overflow-y: auto; font-size: 12px; }
+          .live-feed p { margin: 0 0 8px; animation: slideIn 0.5s; }
+          @keyframes slideIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+          .chat-box { margin-top: 18px; background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 14px; border-radius: var(--radius); }
+          .chat-msg { margin-bottom: 8px; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+          .chat-msg .avatar-s { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--magenta)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+          .chat-msg .who { font-weight: 700; color: var(--cyan); margin-right: 4px; }
+          .chat-msg .bubble { background: var(--bg-2); padding: 7px 12px; border-radius: 14px; }
+          .chat-msg.mine .bubble { background: rgba(99,102,241,0.2); }
+          .chat-input { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+          .chat-input input { flex: 1; padding: 10px 14px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 13px; transition: border-color 0.2s; }
+          .chat-input input:focus { outline: none; border-color: var(--primary); }
+          .chat-input button { background: linear-gradient(135deg, var(--primary), #7c3aed); color: white; border: none; border-radius: 12px; padding: 0 16px; font-size: 16px; cursor: pointer; height: 42px; transition: transform 0.2s; }
+          .chat-input button:hover { transform: scale(1.05); }
+          .chat-tools { display: flex; gap: 6px; margin-top: 8px; }
+          .tool-chip { background: var(--bg-2); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 6px 10px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+          .tool-chip:hover { border-color: var(--primary); background: rgba(99,102,241,0.1); }
+          .gif-panel { display: none; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 8px; margin-top: 8px; }
+          .gif-panel.show { display: flex; flex-wrap: wrap; gap: 6px; }
+          .gif-item { font-size: 24px; cursor: pointer; padding: 4px; }
+          .ad-box { text-align: center; padding: 28px 16px; background: var(--bg-glass); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 20px; margin-top: 10px; }
+          .ad-circle { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, var(--bg-2), var(--bg-1)); border: 3px solid var(--primary); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; margin: 0 auto 16px; color: var(--text); box-shadow: 0 0 24px var(--primary-glow); }
+          .ad-timer { font-size: 13px; color: var(--text-dim); margin-top: 8px; }
+          .ad-progress { height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 12px; overflow: hidden; }
+          .ad-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--success), var(--gold)); transition: width 0.3s; }
+          .daily-limit { display: flex; justify-content: space-between; background: var(--bg-glass); border: 1px solid var(--border); padding: 12px 16px; border-radius: 14px; margin-top: 14px; font-size: 13px; backdrop-filter: blur(8px); }
+          .daily-limit .n { font-weight: 800; color: var(--gold); }
+          .task-item { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 16px; border-radius: var(--radius); margin-bottom: 12px; transition: all 0.2s; }
+          .task-item:hover { border-color: rgba(99,102,241,0.3); }
+          .task-item.completed { opacity: 0.5; }
+          .task-info h3 { margin: 0 0 4px; font-size: 15px; }
+          .task-info p { margin: 0; font-size: 12px; color: var(--text-dim); }
+          .completed-badge { color: var(--success); font-weight: 700; font-size: 12px; }
+          .invite-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+          .invite-stats .card { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 16px; border-radius: var(--radius); text-align: center; }
+          .invite-stats .card .v { font-size: 22px; font-weight: 800; color: var(--gold); }
+          .invite-link-box { display: flex; gap: 8px; margin-top: 12px; }
+          .invite-link-box input { flex: 1; padding: 12px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 12px; }
+          .invite-link-box button { background: var(--bg-glass); border: 1px solid var(--border); color: var(--text); border-radius: 12px; padding: 0 14px; cursor: pointer; transition: all 0.2s; }
+          .invite-link-box button:hover { border-color: var(--primary); }
+          .badge-note { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.35); color: #fde68a; padding: 12px 16px; border-radius: 14px; font-size: 12px; margin-top: 14px; backdrop-filter: blur(8px); }
+          .method-row { display: flex; gap: 10px; margin-top: 12px; }
+          .method { flex: 1; background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 14px; border-radius: var(--radius); text-align: center; cursor: pointer; transition: all 0.25s; }
+          .method:hover { transform: translateY(-2px); border-color: rgba(99,102,241,0.3); }
+          .method.active { border-color: var(--primary); background: rgba(99,102,241,0.15); box-shadow: 0 0 16px var(--primary-glow); }
+          .method .em { font-size: 24px; }
+          .method .nm { font-size: 11px; margin-top: 4px; color: var(--text-dim); }
+          .method.active .nm { color: white; }
+          .req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+          .req-item { background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 12px; border-radius: 14px; font-size: 12px; text-align: center; }
+          .req-item .progress { font-weight: 800; font-size: 16px; color: var(--gold); }
+          .req-item.ok { border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.08); }
+          .req-item.ok .progress { color: var(--success); }
+          .withdraw-form input { width: 100%; padding: 12px 14px; margin-bottom: 10px; background: var(--bg-2); border: 1px solid var(--border); color: white; border-radius: 12px; font-size: 13px; transition: border-color 0.2s; }
+          .withdraw-form input:focus { outline: none; border-color: var(--primary); }
+          .method-form { display: none; }
+          .method-form.active { display: block; }
+          .history-item { background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 12px 14px; border-radius: 14px; margin-bottom: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+          .history-item .status { font-weight: 700; text-transform: uppercase; font-size: 10px; padding: 4px 10px; border-radius: 8px; }
+          .history-item .status.pending { color: var(--gold); background: rgba(251,191,36,0.12); }
+          .history-item .status.approved { color: var(--success); background: rgba(52,211,153,0.12); }
+          .history-item .status.rejected { color: var(--danger); background: rgba(251,113,133,0.12); }
+          .surprise-box { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 200; align-items: center; justify-content: center; flex-direction: column; backdrop-filter: blur(8px); }
+          .surprise-box.show { display: flex; }
+          .gift-box { width: 130px; height: 130px; background: linear-gradient(135deg, var(--gold), var(--danger)); border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 64px; cursor: pointer; animation: giftPulse 1.5s infinite; position: relative; box-shadow: 0 0 50px rgba(251,191,36,0.5); }
+          @keyframes giftPulse { 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.08);} }
+          .gift-stars { position: absolute; inset: -10px; pointer-events: none; }
+          .gift-star { position: absolute; color: var(--gold); animation: twinkle 1.2s infinite; font-size: 22px; }
+          @keyframes twinkle { 0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.3; transform:scale(0.6);} }
+          .surprise-msg { color: var(--gold); font-size: 20px; font-weight: 800; margin-top: 20px; text-align: center; }
+          .surprise-sub { color: var(--text-dim); font-size: 14px; margin-top: 8px; text-align: center; }
+          .open-result { display: none; text-align: center; }
+          .open-result.show { display: block; }
+          .wheel-container { position: relative; width: 250px; height: 250px; margin: 24px auto; }
+          .wheel { width: 100%; height: 100%; border-radius: 50%; background-image: conic-gradient(#ef4444 0deg 60deg, #f97316 60deg 120deg, #84cc16 120deg 180deg, #3b82f6 180deg 240deg, #8b5cf6 240deg 300deg, #f59e0b 300deg 360deg); transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1); border: 6px solid var(--gold); box-shadow: 0 0 40px rgba(251,191,36,0.4); }
+          .wheel-pointer { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent; border-top: 26px solid var(--gold); z-index: 2; filter: drop-shadow(0 0 8px var(--gold)); }
+          .wheel-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px black; }
+          .wheel-label { position:absolute; font-size:11px; color:white; font-weight:700; text-shadow:1px 1px 2px rgba(0,0,0,0.6); }
+          .status-msg { text-align: center; margin-top: 12px; color: var(--cyan); font-weight: 600; min-height: 20px; }
+          .support-box { padding: 16px; margin-top: 12px; }
+          .support-box textarea { width: 100%; height: 100px; padding: 12px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 14px; color: white; font-family: inherit; resize: vertical; }
+          .support-links { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+          .support-links a { flex: 1; background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 12px; color: var(--text); text-align: center; padding: 10px; font-size: 12px; text-decoration: none; transition: all 0.2s; }
+          .support-links a:hover { border-color: var(--primary); }
+          .shop-item { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; }
+          .shop-item:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-1px); }
+          .shop-item .em { font-size: 32px; }
+          .shop-item .info { flex: 1; }
+          .shop-item .info b { font-size: 14px; }
+          .shop-item .info p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+          .shop-item .price { color: var(--gold); font-weight: 700; font-size: 12px; }
+          .challenge-item { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+          .challenge-item .em { font-size: 28px; }
+          .challenge-item .info { flex: 1; }
+          .challenge-item .info b { font-size: 14px; }
+          .challenge-item .info p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+          .challenge-progress { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+          .challenge-progress-fill { height: 100%; background: linear-gradient(90deg, var(--success), var(--gold)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+          .achievement-item { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; opacity: 0.45; transition: all 0.3s; }
+          .achievement-item.unlocked { opacity: 1; border-color: rgba(251,191,36,0.4); box-shadow: 0 0 16px rgba(251,191,36,0.15); }
+          .achievement-item .em { font-size: 32px; }
+          .achievement-item .info { flex: 1; }
+          .achievement-item .info b { font-size: 14px; }
+          .achievement-item .info p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+          .scratch-area { text-align: center; padding: 30px 16px; background: var(--bg-glass); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 20px; margin-top: 10px; }
+          .scratch-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 16px; }
+          .scratch-card { background: linear-gradient(135deg, var(--gold), var(--danger)); border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; font-size: 36px; transition: transform 0.2s; position: relative; }
+          .scratch-card:hover { transform: scale(1.05); }
+          .scratch-card.revealed { background: var(--bg-2); border: 2px solid var(--gold); }
+          .notif-bell { position: relative; }
+          .notif-badge { position: absolute; top: -4px; right: -4px; background: var(--danger); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(251,113,133,0.5); }
+          .notif-dropdown { display: none; position: absolute; top: 48px; right: 0; width: 320px; background: rgba(15,23,42,0.92); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); z-index: 200; max-height: 400px; overflow-y: auto; }
+          .notif-dropdown.show { display: block; }
+          .notif-item { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+          .notif-item.unread { background: rgba(99,102,241,0.08); }
+          .notif-item .notif-title { font-weight: 700; color: var(--cyan); }
+          .notif-item .notif-time { font-size: 11px; color: var(--text-dim); }
+          .social-share-btn { display: flex; align-items: center; gap: 12px; background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+          .social-share-btn:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-1px); }
+          .social-share-btn .em { font-size: 28px; }
+          .social-share-btn .info { flex: 1; }
+          .social-share-btn .info b { font-size: 14px; }
+          .social-share-btn .info p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+          .friend-item { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s; }
+          .friend-item:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-1px); }
+          .friend-item .em { font-size: 32px; }
+          .friend-item .info { flex: 1; }
+          .friend-item .info b { font-size: 14px; }
+          .friend-item .info p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+          .profile-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 300; align-items: center; justify-content: center; flex-direction: column; padding: 20px; backdrop-filter: blur(8px); }
+          .profile-modal.show { display: flex; }
+          .profile-card { background: rgba(17,24,39,0.92); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 24px; padding: 28px 24px; width: 100%; max-width: 360px; text-align: center; position: relative; }
+          .profile-card .avatar-large { width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--magenta)); display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; margin: 0 auto 14px; border: 3px solid rgba(255,255,255,0.1); box-shadow: var(--shadow-neon); }
+          .profile-card .name { font-size: 20px; font-weight: 800; }
+          .profile-card .level { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+          .profile-card .coins { font-size: 28px; font-weight: 800; color: var(--gold); margin-top: 14px; }
+          .profile-card .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 16px; }
+          .profile-card .stat { background: var(--bg-2); border-radius: 12px; padding: 10px; }
+          .profile-card .stat .v { font-size: 18px; font-weight: 700; }
+          .profile-card .stat .l { font-size: 11px; color: var(--text-dim); }
+          .profile-card .bio { margin-top: 12px; font-size: 13px; color: var(--text-dim); font-style: italic; }
+          .close-modal { position: absolute; top: 12px; right: 16px; color: var(--text-dim); font-size: 24px; cursor: pointer; background: none; border: none; }
+          .chat-msg { cursor: pointer; transition: background 0.2s; border-radius: 8px; padding: 4px; }
+          .chat-msg:hover { background: rgba(255,255,255,0.05); }
+          .translate-bar { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+          .translate-bar select { background: var(--bg-2); color: white; border: 1px solid var(--border); border-radius: 10px; padding: 6px 8px; font-size: 12px; }
+          .translate-bar button { background: linear-gradient(135deg, var(--primary), #7c3aed); color: white; border: none; border-radius: 10px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+          .voice-msg { display: flex; align-items: center; gap: 8px; background: var(--bg-2); padding: 8px 12px; border-radius: 12px; margin-top: 4px; }
+          .voice-msg .play-btn { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #7c3aed); color: white; border: none; cursor: pointer; font-size: 14px; }
+          .voice-msg .wave { flex: 1; height: 20px; background: linear-gradient(90deg, var(--primary), var(--cyan)); border-radius: 4px; opacity: 0.6; }
+          .request-item { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; }
+          .request-item .info { flex: 1; }
+          .request-item .info b { font-size: 14px; }
+          .request-item .info p { margin: 2px 0 0; font-size: 12px; color: var(--text-dim); }
+          .bio-text { font-size: 13px; color: var(--text-dim); margin-top: 6px; font-style: italic; }
+          .lang-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+          .lang-chip { background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 14px; padding: 12px; text-align: center; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+          .lang-chip:hover { transform: translateY(-1px); border-color: rgba(99,102,241,0.3); }
+          .lang-chip.active { border-color: var(--primary); background: rgba(99,102,241,0.15); box-shadow: 0 0 12px var(--primary-glow); }
+          .popularity-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+          .popularity-bar .pop-icon { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), var(--danger)); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+          .popularity-bar .pop-info { flex: 1; font-size: 11px; color: var(--text-dim); }
+          .popularity-bar .pop-fill { height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; flex: 1; }
+          .popularity-bar .pop-fill > div { height: 100%; background: linear-gradient(90deg, var(--gold), var(--danger)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+          .like-btn, .visit-btn { background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); color: var(--text); border-radius: 12px; padding: 8px 16px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+          .like-btn:hover, .visit-btn:hover { border-color: rgba(99,102,241,0.3); }
+          .like-btn.liked { background: var(--danger); color: white; border-color: var(--danger); }
+          .transfer-item { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+          .transfer-item input { width: 100%; padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; color: white; margin-bottom: 8px; font-size: 13px; transition: border-color 0.2s; }
+          .transfer-item input:focus { outline: none; border-color: var(--primary); }
+          .search-box { margin: 12px 0; }
+          .search-box input::placeholder { color: var(--text-dim); }
+          .msg-bubble { background: var(--bg-glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+          .msg-bubble .sender { font-weight: 700; color: var(--cyan); font-size: 13px; }
+          .msg-bubble .text { margin-top: 4px; font-size: 14px; }
+          .msg-bubble .time { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+          .privacy-toggle { display: flex; justify-content: space-between; align-items: center; background: var(--bg-glass); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 12px 16px; border-radius: 14px; margin-bottom: 10px; }
+          .privacy-toggle label { font-size: 13px; }
+          .privacy-toggle input { width: auto; accent-color: var(--primary); }
+          .theme-option { flex: 1; background: var(--bg-glass); backdrop-filter: blur(8px); border: 2px solid var(--border); padding: 12px; border-radius: 14px; text-align: center; cursor: pointer; transition: all 0.2s; }
+          .theme-option:hover { transform: translateY(-1px); }
+          .theme-option.active { border-color: var(--primary); background: rgba(99,102,241,0.15); box-shadow: 0 0 12px var(--primary-glow); }
+          .theme-option .em { font-size: 24px; }
+          .theme-option .nm { font-size: 12px; margin-top: 4px; color: var(--text-dim); }
+          .theme-option.active .nm { color: white; }
+          .flash { animation: flash 1s ease; }
+          @keyframes flash { 0% { opacity: 0.3; } 100% { opacity: 1; } }
+          ::-webkit-scrollbar { width: 4px; }
+          ::-webkit-scrollbar-track { background: transparent; }
+          ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 4px; }
+          ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.35); }
+        .onboarding-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(12px);}
+        .onboarding-overlay.show{display:flex;animation:fadeIn 0.4s;}
+        .onboarding-card{background:linear-gradient(135deg,#1e293b,#111827);border:1px solid var(--border);border-radius:28px;padding:32px 24px;width:100%;max-width:380px;text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 40px rgba(99,102,241,0.15);}
+        .onboarding-step{display:none;animation:fadeIn 0.35s;}
+        .onboarding-step.active{display:block;}
+        .onboarding-step .onboard-em{font-size:64px;margin-bottom:12px;display:block;animation:giftPulse 2s infinite;}
+        .onboarding-step h3{font-size:22px;font-weight:800;margin:0 0 8px;background:linear-gradient(135deg,var(--cyan),var(--primary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+        .onboarding-step p{font-size:14px;color:var(--text-dim);line-height:1.5;margin:0;}
+        .onboarding-dots{display:flex;justify-content:center;gap:8px;margin:20px 0;}
+        .onboarding-dots .dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all 0.3s;}
+        .onboarding-dots .dot.active{background:var(--primary);width:24px;border-radius:4px;box-shadow:0 0 8px var(--primary-glow);}
+        .onboarding-nav{display:flex;gap:10px;justify-content:center;}
+        .onboarding-progress{position:absolute;top:16px;right:20px;font-size:11px;color:var(--text-dim);font-weight:700;}
+        </style>
+      </head>
+      <body>
+        <div id="onboarding" class="onboarding-overlay">
+          <div class="onboarding-card">
+            <div class="onboarding-progress" id="onboard-progress">1 / 4</div>
+            <div class="onboarding-step active" data-step="1">
+              <span class="onboard-em">&#127881;</span>
+              <h3>Welcome to Xio_PayPlus!</h3>
+              <p>Your earning journey starts here. Complete tasks, watch ads, and invite friends to earn real coins!</p>
+            </div>
+            <div class="onboarding-step" data-step="2">
+              <span class="onboard-em">&#127909;</span>
+              <h3>Watch Ads &amp; Earn</h3>
+              <p>Watch short ads to earn coins and money. Watch 2 ads back-to-back for a reward!</p>
+            </div>
+            <div class="onboarding-step" data-step="3">
+              <span class="onboard-em">&#127942;</span>
+              <h3>Complete Tasks &amp; Challenges</h3>
+              <p>Join channels, follow socials, and complete daily challenges for bonus coins and XP!</p>
+            </div>
+            <div class="onboarding-step" data-step="4">
+              <span class="onboard-em">&#128176;</span>
+              <h3>Withdraw Your Earnings</h3>
+              <p>Meet the requirements and withdraw via UPI, Bank Transfer, or Mobile Top-up!</p>
+            </div>
+            <div class="onboarding-dots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <div class="onboarding-nav">
+              <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);" id="onboard-skip" onclick="if(confirm('Are you sure? Skipping means you might miss out on exclusive beginner bonuses and higher earning potential!')) endOnboarding();">😠 Skip Tutorial</button>
+              <button class="btn btn-sm btn-gold" id="onboard-next" onclick="nextOnboard()">&#8594; Next</button>
+            </div>
+          </div>
+        </div>
+        <div class="app-header">
+          <div class="brand">Xio_PayPlus<small>Earn • Play • Win</small></div>
+          <div class="header-actions">
+            <button class="icon-btn" id="shop-btn" onclick="openShop()">🛒</button>
+            <button class="icon-btn" id="notif-btn" onclick="toggleNotifications()">🔔<span class="notif-badge" id="notif-badge" style="display:none;">0</span></button>
+            <div class="notif-dropdown" id="notif-dropdown">
+              <div style="padding:12px 14px;font-weight:700;border-bottom:1px solid #334155;">Notifications</div>
+              <div id="notif-dropdown-list"><p style="padding:12px 14px;color:var(--text-muted);font-size:12px;">No notifications yet</p></div>
+            </div>
+            <button class="icon-btn" id="friends-btn" onclick="showPage('friends'); loadFriends(); loadRequests();">👥</button>
+            <button class="icon-btn" id="popularity-btn" onclick="showPage('popularity')">🔥</button>
+            <button class="icon-btn" id="transactions-btn" onclick="showPage('transactions')">📊</button>
+            <button class="icon-btn" id="support-btn" onclick="openSupport()">💬</button>
+            <button class="icon-btn" id="lang-btn" onclick="openLang()">🌐</button>
+          </div>
+        </div>
+
+        <div class="container">
+          <!-- HOME -->
+          <div id="page-home" class="page active">
+            <div class="user-header">
+              <div id="avatar" class="avatar">?</div>
+              <div class="user-info">
+                <h1 id="user-name">Guest</h1>
+                <p id="user-id">ID: ...</p>
+                <div class="level-bar">
+                  <div class="level-icon" id="level-icon">1</div>
+                  <div class="level-info">
+                    <div style="font-size:11px;color:var(--text-muted);">Level <span id="level-num">1</span> • <span id="xp-text">0 XP</span></div>
+                    <div class="xp-bar"><div id="xp-fill" class="xp-fill" style="width:0%"></div></div>
+                  </div>
+                </div>
+                <div class="streak-pill" id="streak-pill">🔥 0</div>
+              </div>
+            </div>
+
+            <div class="balance-card">
+              <div class="label" data-translate-key="total_balance">Total Earning</div>
+              <div id="balance-amount" class="amount">₹0.00</div>
+              <div id="balance-coins" class="coins">0 <span data-translate-key="coins">Coins</span></div>
+              <div class="tier-progress">
+                <span id="current-tier">🥉 Bronze</span>
+                <span id="next-tier">Next: Silver</span>
+              </div>
+              <div class="progress-bar"><div id="tier-progress-fill" class="progress-fill" style="width:0%"></div></div>
+            </div>
+
+            <div class="urgency">
+              <div class="box"><b id="online-count">2,341</b> Online now</div>
+              <div class="box"><b id="payout-count">₹1,28,400</b> Paid today</div>
+            </div>
+
+            <div class="grid">
+              <div class="grid-card"><div id="invites-count" class="value">0</div><div class="label" data-translate-key="invites">Invites</div></div>
+              <div class="grid-card"><div id="tasks-count" class="value">0</div><div class="label" data-translate-key="tasks_done">Tasks Done</div></div>
+            </div>
+            <div class="section-title">Quick Access</div>
+            <div class="grid">
+              <div class="grid-card" onclick="showPage('tasks')" style="cursor:pointer;"><div class="value">📋</div><div class="label">Tasks</div></div>
+              <div class="grid-card" onclick="showPage('wallet')" style="cursor:pointer;"><div class="value">💰</div><div class="label">Withdraw</div></div>
+              <div class="grid-card" onclick="showPage('popularity')" style="cursor:pointer;"><div class="value">🔥</div><div class="label">Popularity</div></div>
+              <div class="grid-card" onclick="showPage('notifications')" style="cursor:pointer;"><div class="value">🔔</div><div class="label">Alerts</div></div>
+            </div>
+            <div class="grid">
+              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="value">⚡</div><div class="label">Challenges</div></div>
+              <div class="grid-card" onclick="showPage('achievements')" style="cursor:pointer;"><div class="value">🏆</div><div class="label">Badges</div></div>
+              <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="value">🎟️</div><div class="label">Scratch</div></div>
+              <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="value">📊</div><div class="label">History</div></div>
+            </div>
+
+            <div class="section-title" data-translate-key="spin_title">🎁 Daily Gift Spin</div>
+            <div class="wheel-container">
+              <div class="wheel-pointer"></div>
+              <div id="wheel" class="wheel"></div>
+            </div>
+            <button id="spin-button" class="btn btn-gold" onclick="spinWheel()">&#127873; Spin for a Gift!</button>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button id="super-spin-btn" class="btn btn-sm" style="flex:1;background:linear-gradient(135deg,#a855f7,#ec4899);box-shadow:0 0 16px rgba(168,85,247,0.3);" onclick="superSpin()">&#9889; 3x Super</button>
+              <button id="mega-spin-btn" class="btn btn-sm" style="flex:1;background:linear-gradient(135deg,#f97316,#eab308);box-shadow:0 0 16px rgba(249,115,22,0.3);" onclick="megaSpin()">&#128142; 5x Mega</button>
+            </div>
+            <p id="spin-status" class="status-msg"></p>
+
+            <!-- Surprise / Gift reveal -->
+            <div id="surprise-box" class="surprise-box">
+              <div class="gift-box" id="gift-box" onclick="openGift()">
+                <span id="gift-emoji">🎁</span>
+                <div class="gift-stars" id="gift-stars"></div>
+              </div>
+              <div class="surprise-msg" id="surprise-msg">Tap the gift to open it!</div>
+              <div class="surprise-sub" id="surprise-sub">Your reward is waiting 💰</div>
+              <div class="open-result" id="open-result">
+                <div style="font-size:60px;margin-top:10px;" id="open-gift-emoji">🎉</div>
+                <div class="surprise-msg" id="open-msg">You won!</div>
+                <button class="btn btn-gold" style="width:220px;margin-top:20px;" onclick="closeSurprise()">Great! Claim it</button>
+              </div>
+            </div>
+
+            <div class="live-feed" id="live-feed">
+              <p data-translate-key="connecting_feed">Connecting to live feed...</p>
+            </div>
+
+            <div class="chat-box">
+              <div style="font-weight:700;font-size:13px;margin-bottom:8px;">💬 Community Chat <span style="color:var(--text-muted);font-weight:400;font-size:11px;">• <span id="chat-online">2,341</span> online</span></div>
+              <div id="chat-messages"></div>
+              <div class="chat-tools">
+                <button class="tool-chip" onclick="toggleGif('chat')">🎞️ GIF</button>
+                <button class="tool-chip" onclick="sendVoice()">🎤 Voice</button>
+              </div>
+              <div class="gif-panel" id="gif-panel-chat"></div>
+              <div class="chat-input">
+                <input id="chat-input" placeholder="Type a message...">
+                <button id="send-chat-btn" onclick="sendChat()">➤</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADS -->
+          <div id="page-ads" class="page">
+            <button class="back-btn" onclick="if(confirm('Going back? Your progress here will not be saved and you may lose your place in the queue.')) showPage('home');">← Back</button>
+            <h2>📺 Watch Ads & Earn</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Earn up to ₹0.002 + 50-500 coins per ad. Free money, just watch!</p>
+            <div class="ad-box">
+              <div class="ad-circle" id="ad-circle">▶</div>
+              <div style="font-weight:700;font-size:15px;" id="ad-num-label">Ad 1 of 2</div>
+              <button id="watch-ad-btn" class="btn btn-green" onclick="watchAdStart()">▶ Watch Ad & Earn</button>
+              <div class="ad-timer" id="ad-timer">Each ad takes just 15 seconds</div>
+              <div class="ad-progress"><div class="ad-progress-fill" id="ad-progress-fill"></div></div>
+              <div class="daily-limit"><span>📺 Daily Ads</span><span class="n" id="daily-ads-count">0 / 20</span></div>
+            </div>
+            <div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:8px;">💡 Watch <b>2 ads back-to-back</b> = 1 reward</div>
+            <div class="ad-box" id="more-ads-box" style="display:none;">
+              <p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Hit your daily limit? Get 10 more ads!</p>
+              <div class="invite-link-box">
+                <input id="more-ads-code" placeholder="Enter more-ads code" style="flex:1;">
+                <button id="redeem-more-ads-btn" class="btn-sm" onclick="redeemMoreAds()">Redeem</button>
+              </div>
+              <p id="more-ads-status" style="font-size:12px;margin-top:8px;color:var(--gold);"></p>
+            </div>
+            <div class="live-feed" id="live-feed-ads"><p>Live payouts ⚡ Loading...</p></div>
+            <div class="chat-box">
+              <div style="font-weight:700;font-size:13px;margin-bottom:8px;">💬 Watchers Chat</div>
+              <div id="chat-messages-ads"></div>
+            </div>
+          </div>
+
+          <!-- TASKS -->
+          <div id="page-tasks" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2 data-translate-key="tasks_title">📋 Tasks</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Complete tasks to earn coins & unlock withdrawals!</p>
+            <div id="task-list"><p>Loading tasks...</p></div>
+            <div id="sponsored-task-area" style="margin-top:12px;"></div>
+            <p id="task-status" class="status-msg"></p>
+          </div>
+
+          <!-- INVITE -->
+          <div id="page-invite" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2 data-translate-key="invite_title">👥 Invite Friends</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Share your link & earn instant rewards!</p>
+            <div class="badge-note">🔥 <b>₹0.005 on every successful invite!</b> Share with 10 friends to unlock withdrawal.</div>
+            <p data-translate-key="invite_link_label" style="font-size:13px;margin:14px 0 6px;">Your personal invite link:</p>
+            <div class="invite-link-box">
+              <input id="invite-link" type="text" readonly>
+              <button id="copy-invite-btn" onclick="copyInvite()">📋</button>
+            </div>
+            <button id="share-invite-btn" class="btn btn-gold" onclick="shareInvite()" data-translate-key="share_invite_button">🚀 Share Invite Link</button>
+            <div class="invite-stats">
+              <div class="card"><div class="v" id="invite-count-box">0</div><div style="font-size:12px;color:var(--text-muted);">Invites</div></div>
+              <div class="card"><div class="v" id="invite-earned-box">₹0.000</div><div style="font-size:12px;color:var(--text-muted);">Referral Earnings</div></div>
+            </div>
+            <div class="live-feed" id="live-feed-invite"><p>Recent referrals 🎉 Loading...</p></div>
+            <div class="section-title" style="margin-top:16px;">🏂 Referral Tier</div>
+            <div id="referral-tier-box" style="background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span id="referral-tier-name" style="font-weight:800;font-size:16px;">🥇 Bronze</span>
+                <span id="referral-tier-next" style="font-size:11px;color:var(--text-dim);">Next: Silver</span>
+              </div>
+              <div class="progress-bar" style="margin-top:8px;"><div id="referral-tier-fill" class="progress-fill" style="width:0%"></div></div>
+              <p id="referral-tier-info" style="font-size:11px;color:var(--text-dim);margin-top:8px;">Invite more friends to tier up and earn bonuses!</p>
+            </div>
+          </div>
+
+          <!-- WITHDRAW -->
+          <div id="page-wallet" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2 data-translate-key="withdraw_title">💰 Withdraw Funds</h2>
+            <div id="withdraw-countdown" style="display:none;background:linear-gradient(135deg,#ef4444,#f97316);padding:10px 14px;border-radius:12px;text-align:center;margin-top:8px;font-weight:700;font-size:13px;color:white;box-shadow:0 0 16px rgba(239,68,68,0.3);">
+              ⏰ Withdrawal cooldown: <span id="withdraw-cd">05:00</span>
+            </div>            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Get your hard-earned money!</p>
+            <div class="section-title">Choose Method</div>
+            <div class="method-row">
+              <div class="method active" data-method="upi" onclick="selectMethod('upi')"><div class="em">🏦</div><div class="nm">UPI</div></div>
+              <div class="method" data-method="bank" onclick="selectMethod('bank')"><div class="em">🏧</div><div class="nm">Bank</div></div>
+              <div class="method" data-method="mobile" onclick="selectMethod('mobile')"><div class="em">📱</div><div class="nm">Mobile Top-up</div></div>
+            </div>
+            <div class="section-title" data-translate-key="requirements_title">Withdrawal Requirements</div>
+            <div class="req-grid" id="req-grid"><div class="req-item">Loading...</div></div>
+            <div id="roach-step" style="display:none;margin-top:12px;background:var(--bg-glass);border:1px solid var(--border);border-radius:14px;padding:14px;">
+              <p style="font-size:13px;font-weight:700;color:var(--gold);margin:0 0 8px;">ℹ️ Additional Verification Required</p>
+              <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px;">To prevent fraud, we need to verify your account. Please complete one more step.</p>
+              <button class="btn btn-sm btn-gold" onclick="completeRoachStep()" id="roach-btn">✅ Verify Account</button>
+              <p id="roach-status" style="font-size:11px;color:var(--text-dim);margin-top:6px;"></p>
+            </div>            <div class="section-title" data-translate-key="withdraw_form_title">Request Payout</div>
+            <div class="withdraw-form">
+              <div class="method-form active" id="upi-form"><input id="withdraw-upi" type="text" placeholder="your-upi-id@okhdfcbank"></div>
+              <div class="method-form" id="bank-form"><input id="withdraw-bank" type="text" placeholder="Account Number"><input id="withdraw-ifsc" type="text" placeholder="IFSC Code"></div>
+              <div class="method-form" id="mobile-form"><input id="withdraw-mobile" type="text" placeholder="10-digit Mobile Number"></div>
+              <input id="withdraw-amount" type="number" placeholder="Amount (min ₹10)" oninput="revealWithdrawFee(this.value)">
+            <div id="hidden-fee-box" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:10px;margin-bottom:10px;font-size:12px;">
+              ℹ️ <span style="color:#fde68a;font-weight:700;">Processing fee: ₹<span id="hidden-fee-val">0</span></span>
+              <br><span style="color:var(--text-dim);font-size:11px;">(Includes verification & instant transfer charges)</span>
+            </div>
+            <div id="total-receive-box" style="display:none;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px;font-weight:700;">
+              You receive: ₹<span id="total-receive-val">0</span>
+            </div>              <button id="withdraw-btn" class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
+              <p id="withdraw-status" class="status-msg"></p>
+            </div>
+            <div class="section-title" style="margin-top:18px;">&#128203; Withdrawal Proof</div>
+            <div class="transfer-item">
+              <p style="font-size:12px;color:var(--text-dim);">Upload payment proof after withdrawal is processed.</p>
+              <input id="proof-txid" type="text" placeholder="Transaction ID (optional)">
+              <textarea id="proof-note" rows="2" placeholder="Note (optional)" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;color:white;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-sm btn-gold" onclick="uploadProof()">&#128228; Upload Proof</button>
+                <button class="btn btn-sm" onclick="loadProofs()">&#128196; View Proofs</button>
+              </div>
+              <p id="proof-status" class="status-msg" style="font-size:12px;"></p>
+              <div id="proofs-list" style="margin-top:10px;"></div>
+            </div>
+            <div class="section-title" data-translate-key="history_title">History</div>
+            <div id="history-list"><div class="history-item"><span data-translate-key="no_history">No withdrawal history yet.</span></div></div>
+            <div class="live-feed" id="live-feed-withdraw" style="margin-top:14px;"><p>Successful withdrawals ✅ Loading...</p></div>
+          </div>
+
+          <!-- SUPPORT -->
+          <div id="page-support" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>💬 Customer Support</h2>
+            <p style="color:var(--text-muted);font-size:13px;">Type your problem, tap Submit, and you'll be redirected to our support group with your message!</p>
+            <div id="faq-list" style="margin-top:12px;"></div>
+            <div class="support-box">
+              <textarea id="support-message" placeholder="Type your problem here..."></textarea>
+              <button id="send-support-btn" class="btn btn-green" onclick="sendSupport()">📨 Submit & Join Support Group</button>
+              <div class="support-links">
+                <a id="support-group-link" href="#" target="_blank">👥 Support Group</a>
+                <a id="admin-support-link" href="#" target="_blank">👑 Admin Support</a>
+              </div>
+              <p id="support-status" class="status-msg"></p>
+            </div>
+          </div>
+
+          <!-- SHOP -->
+          <div id="page-shop" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🛒 Shop</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Spend your coins on gifts & boosts!</p>
+            <div id="shop-list"></div>
+            <p id="shop-status" class="status-msg"></p>
+          </div>
+
+
+          <!-- CHALLENGES -->
+          <div id="page-challenges" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>⚡ Daily Challenges</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Complete challenges to earn bonus coins & XP!</p>
+            <div id="challenges-list"></div>
+            <p id="challenge-status" class="status-msg"></p>
+          </div>
+
+          <!-- ACHIEVEMENTS -->
+          <div id="page-achievements" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🏆 Achievements</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Unlock badges and earn rewards!</p>
+            <div id="achievements-list"></div>
+          </div>
+
+          <!-- SCRATCH CARDS -->
+          <div id="page-scratch" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🎟️ Scratch Cards</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Scratch to win instant coins!</p>
+            <div class="scratch-area">
+              <div style="font-size:48px;margin-bottom:8px;">🎟️</div>
+              <div style="font-weight:700;font-size:16px;" id="scratch-count">You have 0 scratch cards</div>
+              <button id="claim-scratch-btn" class="btn btn-gold" onclick="claimScratchCard()" style="width:220px;margin-top:12px;">🎁 Claim Free Scratch Card</button>
+              <button id="scratch-btn" class="btn btn-green" onclick="scratchCard()" style="width:220px;margin-top:8px;">✨ Scratch Now</button>
+              <p id="scratch-status" class="status-msg" style="margin-top:10px;"></p>
+            </div>
+          </div>
+
+          <!-- NOTIFICATIONS -->
+          <div id="page-notifications" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🔔 Notifications</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Stay updated with your earnings!</p>
+            <div id="notifications-list"></div>
+            <button class="btn btn-sm" onclick="markAllNotificationsRead()" style="margin-top:12px;">Mark All as Read</button>
+          </div>
+
+          <!-- SOCIAL SHARE -->
+          <div id="page-social" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📤 Social Share & Earn</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Share on social media and earn coins!</p>
+            <div class="section-title">Share & Earn</div>
+            <div class="social-share-btn" onclick="shareOnSocial('telegram')">
+              <div class="em">✈️</div>
+              <div class="info"><b>Telegram</b><p>Share on Telegram: +200 coins</p></div>
+            </div>
+            <div class="social-share-btn" onclick="shareOnSocial('twitter')">
+              <div class="em">🐦</div>
+              <div class="info"><b>Twitter / X</b><p>Share on Twitter: +200 coins</p></div>
+            </div>
+            <div class="social-share-btn" onclick="shareOnSocial('whatsapp')">
+              <div class="em">💬</div>
+              <div class="info"><b>WhatsApp</b><p>Share on WhatsApp: +200 coins</p></div>
+            </div>
+            <p id="social-status" class="status-msg"></p>
+          </div>
+
+          <!-- LEVEL LEADERBOARD -->
+          <div id="page-levels" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>⭐ Level Leaderboard</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Top players ranked by level & XP!</p>
+            <div id="level-leaderboard-list"></div>
+            <div class="section-title" style="margin-top:18px;">&#127873; Leaderboard Rewards</div>
+            <div id="leaderboard-rewards-box" style="background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:14px;">
+              <p style="font-size:12px;color:var(--text-dim);">Top the leaderboard to earn bonus coins!</p>
+              <div id="rewards-list"></div>
+            </div>
+            <button id="claim-reward-btn" class="btn btn-gold" style="display:none;margin-top:10px;" onclick="claimLeaderboardReward()">&#127873; Claim Reward</button>
+          </div>
+
+
+          <!-- FRIENDS -->
+          <div id="page-friends" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>👥 Friends</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your friends list</p>
+            <div id="friends-list"></div>
+            <p id="friends-status" class="status-msg"></p>
+          </div>
+
+          <!-- FRIEND REQUESTS -->
+          <div id="page-requests" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📨 Friend Requests</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Pending requests</p>
+            <div id="requests-list"></div>
+            <p id="requests-status" class="status-msg"></p>
+          </div>
+
+          <!-- PROFILE MODAL -->
+          <div id="profile-modal" class="profile-modal" onclick="if(event.target===this)closeProfileModal()">
+            <div class="profile-card">
+              <span class="close-modal" onclick="closeProfileModal()">&times;</span>
+              <div class="avatar-large" id="pm-avatar">?</div>
+              <div class="name" id="pm-name">Guest</div>
+              <div class="level" id="pm-level">Level 1</div>
+              <div class="coins" id="pm-coins">0 Coins</div>
+              <div class="stats">
+                <div class="stat"><div class="v" id="pm-streak">0</div><div class="l">Streak</div></div>
+                <div class="stat"><div class="v" id="pm-tasks">0</div><div class="l">Tasks</div></div>
+                <div class="stat"><div class="v" id="pm-ads">0</div><div class="l">Ads</div></div>
+              </div>
+              <div class="bio" id="pm-bio"></div>
+              <button id="pm-add-friend" class="btn btn-gold" style="width:100%;margin-top:14px;display:none;" onclick="sendFriendRequestFromModal()">➕ Add Friend</button>
+              <button class="btn btn-sm btn-gold" onclick="likeProfile(currentProfileUserId);closeProfileModal();" style="width:48%;margin-top:10px;">❤️ Like</button>
+              <button class="btn btn-sm" onclick="visitProfile(currentProfileUserId);" style="width:48%;margin-top:10px;">👁️ Visit</button>
+            </div>
+          </div>
+
+          <!-- LANGUAGE -->
+          <div id="page-lang" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🌐 Choose Language</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Select your preferred language</p>
+            <div class="lang-grid" id="lang-grid"></div>
+          </div>
+
+          <!-- POPULARITY -->
+          <div id="page-popularity" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🔥 Popularity</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Grow your popularity and become famous!</p>
+            <div class="balance-card" style="text-align:left;padding:18px;">
+              <div style="font-size:13px;opacity:0.85;">Your Popularity</div>
+              <div style="font-size:32px;font-weight:800;" id="pop-points">0</div>
+              <div id="pop-level" style="font-size:13px;opacity:0.9;">🌱 Newcomer</div>
+              <div class="popularity-bar"><div class="pop-icon">🔥</div><div class="pop-info">Next level progress</div><div class="pop-fill"><div id="pop-progress" style="width:0%"></div></div></div>
+            </div>
+            <div class="section-title">Claim & Buy</div>
+            <button id="claim-pop-btn" class="btn btn-gold" onclick="claimDailyPopularity()" style="width:100%;">🎁 Claim Free Popularity</button>
+            <div class="section-title" style="margin-top:16px;">Buy with Coins</div>
+            <div class="transfer-item">
+              <input id="pop-amount" type="number" placeholder="Amount (1 point = 100 coins)">
+              <button class="btn btn-green" onclick="buyPopularityCoins()">Buy with Coins</button>
+            </div>
+            <div class="section-title">Send Popularity</div>
+            <div class="transfer-item">
+              <input id="pop-to-user" type="number" placeholder="User ID">
+              <input id="pop-send-amount" type="number" placeholder="Amount">
+              <button class="btn btn-gold" onclick="sendPopularity()">Send Popularity</button>
+            </div>
+            <p id="pop-status" class="status-msg"></p>
+          </div>
+
+          <!-- MESSAGES -->
+          <div id="page-messages" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>💬 Messages</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Chat with friends and other users</p>
+            <div class="msg-bubble">
+              <div class="sender">Send a message</div>
+              <input id="msg-to-user" type="number" placeholder="User ID" style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid #334155;border-radius:10px;color:white;margin-bottom:8px;">
+              <textarea id="msg-text" rows="3" style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid #334155;border-radius:10px;color:white;font-family:inherit;" placeholder="Type your message..."></textarea>
+              <button class="btn btn-green" onclick="sendPersonalMessage()" style="width:100%;margin-top:8px;">Send Message</button>
+            </div>
+            <p id="msg-status" class="status-msg"></p>
+            <div class="section-title" style="margin-top:18px;">&#128176; Send Coins</div>
+            <div class="transfer-item">
+              <input id="coin-to-user" type="number" placeholder="User ID">
+              <input id="coin-amount" type="number" placeholder="Amount">
+              <button class="btn btn-green" onclick="sendCoins()">&#128176; Send Coins</button>
+              <p id="coin-status" class="status-msg" style="font-size:12px;"></p>
+            </div>
+          </div>
+
+          <!-- SETTINGS -->
+          <div id="page-settings" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>⚙️ Settings</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Manage your privacy and preferences</p>
+            <div class="section-title">Privacy Settings</div>
+            <div class="privacy-toggle"><label>Show Wallet</label><input type="checkbox" id="setting-wallet" onchange="updatePrivacy('show_wallet', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Coins</label><input type="checkbox" id="setting-coins" onchange="updatePrivacy('show_coins', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Popularity</label><input type="checkbox" id="setting-popularity" onchange="updatePrivacy('show_popularity', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Bio</label><input type="checkbox" id="setting-bio" onchange="updatePrivacy('show_bio', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Activity</label><input type="checkbox" id="setting-activity" onchange="updatePrivacy('show_activity', this.checked)"></div>
+            <div class="section-title">&#128100; Profile Bio</div>
+            <div class="transfer-item">
+              <textarea id="bio-text" placeholder="Write a short bio (visible to friends)..." rows="2" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;color:white;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>
+              <button class="btn btn-sm btn-gold" onclick="updateBio()">&#128190; Save Bio</button>
+              <p id="bio-status" class="status-msg" style="font-size:12px;"></p>
+            </div>
+            <div class="section-title" style="margin-top:16px;">Privacy Settings</div>
+            <div class="privacy-toggle"><label>Show Friends</label><input type="checkbox" id="setting-friends" onchange="updatePrivacy('show_friends', this.checked)"></div>
+            <div class="section-title" style="margin-top:16px;">Theme</div>
+            <div class="method-row">
+              <div class="theme-option active" data-theme="dark" onclick="selectTheme('dark')"><div class="em">🌙</div><div class="nm">Dark</div></div>
+              <div class="theme-option" data-theme="light" onclick="selectTheme('light')"><div class="em">☀️</div><div class="nm">Light</div></div>
+              <div class="theme-option" data-theme="blue" onclick="selectTheme('blue')"><div class="em">💙</div><div class="nm">Blue</div></div>
+            </div>
+            <p id="settings-status" class="status-msg"></p>
+          </div>
+
+          <!-- DISCOVER -->
+          <div id="page-discover" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🔍 Discover Users</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Find and connect with other users</p>
+            <div class="search-box">
+              <input id="search-query" type="text" placeholder="Search by name or ID..." style="width:100%;padding:12px;background:var(--bg-dark);border:1px solid #334155;border-radius:12px;color:white;" oninput="searchUsers()">
+            </div>
+            <div id="search-results"></div>
+            <div class="section-title">Trending Users</div>
+            <div id="trending-users"></div>
+          </div>
+
+          <!-- TRANSACTIONS -->
+          <div id="page-transactions" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📊 Transactions</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your transaction history</p>
+            <div id="transactions-list"></div>
+          </div>
+
+          <!-- MORE / ALL PAGES -->
+          <div id="page-more" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📋 All Features</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Tap any feature to open</p>
+            <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px;">
+              <div class="grid-card" onclick="showPage('tasks')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📋</div><div class="label">Tasks</div></div>
+              <div class="grid-card" onclick="showPage('wallet')" style="cursor:pointer;"><div class="em" style="font-size:28px;">💰</div><div class="label">Withdraw</div></div>
+              <div class="grid-card" onclick="showPage('popularity')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🔥</div><div class="label">Popularity</div></div>
+              <div class="grid-card" onclick="showPage('notifications')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🔔</div><div class="label">Notifications</div></div>
+              <div class="grid-card" onclick="showPage('messages')" style="cursor:pointer;"><div class="em" style="font-size:28px;">💬</div><div class="label">Messages</div></div>
+              <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📊</div><div class="label">History</div></div>
+              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⚡</div><div class="label">Challenges</div></div>
+              <div class="grid-card" onclick="showPage('achievements')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🏆</div><div class="label">Badges</div></div>
+              <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🎟️</div><div class="label">Scratch</div></div>
+              <div class="grid-card" onclick="showPage('levels')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⭐</div><div class="label">Levels</div></div>
+              <div class="grid-card" onclick="showPage('shop')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🛒</div><div class="label">Shop</div></div>
+              <div class="grid-card" onclick="showPage('support')" style="cursor:pointer;"><div class="em" style="font-size:28px;">💬</div><div class="label">Support</div></div>
+              <div class="grid-card" onclick="showPage('settings')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⚙️</div><div class="label">Settings</div></div>
+              <div class="grid-card" onclick="showPage('invite')" style="cursor:pointer;"><div class="em" style="font-size:28px;">👥</div><div class="label">Invite</div></div>
+              <div class="grid-card" onclick="showPage('social')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📤</div><div class="label">Social</div></div>
+            </div>
+          </div>
+
+        <!-- Bottom Navigation -->
+        <div class="nav">
+          <button class="nav-item active" data-page="home" onclick="showPage('home')"><span class="em">🏠</span><span data-translate-key="nav_home">Home</span></button>
+          <button class="nav-item" data-page="ads" onclick="showPage('ads')"><span class="em">▶</span><span data-translate-key="nav_ads">Ads</span></button>
+          <button class="nav-item" data-page="friends" onclick="showPage('friends')"><span class="em">👥</span><span>Friends</span></button>
+          <button class="nav-item" data-page="discover" onclick="showPage('discover')"><span class="em">🔍</span><span>Discover</span></button>
+          <button class="nav-item" data-page="more" onclick="showPage('more')"><span class="em">📋</span><span>More</span></button>
+        </div>
+
+        <script>
+          function getTelegram() {
+            try { if (window.Telegram && window.Telegram.WebApp) return window.Telegram.WebApp; } catch (e) {}
+            return null;
+          }
+          const tg = getTelegram();
+          if (tg) { try { tg.expand(); } catch (e) {} }
+
+          function getOrCreateBrowserId() {
+            try {
+              let id = localStorage.getItem('xio_user_id');
+              if (!id) {
+                id = 'br' + Math.floor(1000000 + Math.random() * 8999999);
+                localStorage.setItem('xio_user_id', id);
+              }
+              const numeric = id.replace(/[^0-9]/g, '');
+              return numeric ? numeric : '777';
+            } catch (e) { return '777'; }
+          }
+          var userId = (function(){
+            try {
+              const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+              if (u && u.id) return u.id;
+            } catch (e) {}
+            return getOrCreateBrowserId();
+          })();
+          var userName = (function(){
+            try {
+              const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+              if (u && u.first_name) return u.first_name;
+            } catch (e) {}
+            return 'Guest';
+          })();
+
+          const translations = {{translations_json | safe}};
+          const langConfig = {{lang_config_json | safe}};
+          const botUsername = '{{bot_username}}';
+          const supportLinks = {{support_links_json | safe}};
+          let currentLang = 'en';
+          try { currentLang = localStorage.getItem('xio_lang') || 'en'; } catch (e) {}
+
+          let selectedMethod = 'upi';
+          let adTimer = null;
+          let adCount = 0; // counts ads watched in current session pair
+          const AD_SECONDS = 15;
+          const ADS_PER_REWARD = 2;
+
+          // --- Realistic fake users (varied names, avoid repetition) ---
+          const fakeUsers = [
+            {n:'Aarav',e:'😎'},{n:'Priya',e:'💪'},{n:'Rohit',e:'🔥'},{n:'Ananya',e:'✨'},{n:'Vikram',e:'🚀'},
+            {n:'Sneha',e:'🌸'},{n:'Karan',e:'💯'},{n:'Neha',e:'😍'},{n:'John',e:'👍'},{n:'Maria',e:'🎉'},
+            {n:'Rahul',e:'⚡'},{n:'Sara',e:'💖'},{n:'Amit',e:'🏆'},{n:'Pooja',e:'🌈'},{n:'Deepak',e:'💎'},
+            {n:'Ritu',e:'😊'},{n:'Kavita',e:'🌟'},{n:'Sunil',e:'💪'},{n:'Ravi',e:'🥳'},{n:'Fatima',e:'🌺'},
+            {n:'Wei',e:'🐉'},{n:'Kenji',e:'⛩️'},{n:'Alex',e:'🎮'},{n:'Sofia',e:'🌹'},{n:'Arjun',e:'🦁'},{n:'Meera',e:'🦋'}
+          ];
+          const usedChatNames = {};
+          function pickFakeUser() {
+            let u;
+            do { u = fakeUsers[Math.floor(Math.random() * fakeUsers.length)]; } while (usedChatNames[u.n] && Math.random() < 0.8);
+            usedChatNames[u.n] = true;
+            return u;
+          }
+          const fakeMsgs = [
+            'Just got ₹120 payout!','Joined yesterday, loving it 💰','Which task pays best?','Another day, another payout 🔥',
+            '10 invites done, trying withdrawal!','This is legit guys 👌','Hit my ad target today 🎯','Refer 10 friends to unlock withdraw',
+            'The gift spin is so fun 🎁','Cashed out ₹85 today!','Keep going everyone 💪','Best earning bot ever 🔥',
+            '3 more ads and I reach 80!','Just opened a diamond box 💎','Who else is on a streak?','My referral is working great!'
+          ];
+          const fakeNumbers = [];
+          for (let i = 0; i < 30; i++) {
+            let d = String(Math.floor(6000000000 + Math.random() * 3999999999));
+            fakeNumbers.push(d.slice(0,2) + '*****' + d.slice(7));
+          }
+function feeTemplate1(n, nu, amt) { return n + ' ' + nu + ' ₹' + amt.toFixed(2) + ' successfully withdrawal 🎉'; }
+          function feeTemplate2(n, nu, amt) { return n + ' just withdrew ₹' + amt.toFixed(2) + ' (UPI ' + nu + ')'; }
+          function feeTemplate3(n, nu, amt) { return n + ' earned ₹' + amt.toFixed(2) + ' payout sent! 💸'; }
+          function feeTemplate4(n, nu, amt) { return n + ' ' + nu + ' withdrew ₹' + amt.toFixed(2) + ' Successfully ✅'; }
+          function feeTemplate5(n, nu, amt) { return 'Payment confirmed: ' + n + ' → ₹' + amt.toFixed(2) + ' 🎊'; }
+          const fakeFeedTemplates = [feeTemplate1, feeTemplate2, feeTemplate3, feeTemplate4, feeTemplate5];
+
+          function fakeFeedLine() {
+            const u = pickFakeUser();
+            const nu = fakeNumbers[Math.floor(Math.random() * fakeNumbers.length)];
+            const amt = 50 + Math.random() * 100;
+            const tmpl = fakeFeedTemplates[Math.floor(Math.random() * fakeFeedTemplates.length)];
+            return tmpl(u.n, nu, amt);
+          }
+
+          function injectFeed(containerId) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            const p = document.createElement('p');
+            p.innerText = fakeFeedLine();
+            el.prepend(p);
+            while (el.children.length > 8) el.lastChild.remove();
+          }
+
+function t(key) {
+            try {
+              var cur = translations[currentLang] || {};
+              var en = translations['en'] || {};
+              var ui1 = (cur.ui !== undefined) ? cur.ui : {};
+              var ui2 = (en.ui !== undefined) ? en.ui : {};
+              if (ui1[key] !== undefined) return ui1[key];
+              if (ui2[key] !== undefined) return ui2[key];
+              return key;
+            } catch (e) { return key; }
+          }
+          function translateUI() {
+            document.querySelectorAll('[data-translate-key]').forEach(function(el){
+              el.innerText = t(el.dataset.translateKey);
+            });
+          }
+
+          function openLang() {
+            showPage('lang');
+            const grid = document.getElementById('lang-grid');
+            grid.innerHTML = '';
+            for (const code in langConfig) {
+              const cfg = langConfig[code];
+              const c = document.createElement('div');
+              c.className = 'lang-chip' + (code === currentLang ? ' active' : '');
+              c.innerText = cfg.flag + ' ' + cfg.label;
+              c.onclick = function(){ currentLang = code; try{localStorage.setItem('xio_lang', code); localStorage.setItem('xio_theme', 'dark');}catch(e){} translateUI(); fetchData(true); };
+              grid.appendChild(c);
+            }
+          }
+
+          function randomizeSocialProof() {
+            const online = document.getElementById('online-count');
+            const payout = document.getElementById('payout-count');
+            if (online) {
+              const base = 2300 + Math.floor(Math.random() * 800);
+              online.innerText = base.toLocaleString();
+              online.title = 'Live users right now';
+            }
+            if (payout) {
+              const base = 120000 + Math.floor(Math.random() * 50000);
+              payout.innerText = '₹' + base.toLocaleString();
+            }
+          }
+
+          async function fetchData() {
+            try {
+              const response = await fetch('/api/dashboard/' + userId);
+              if (!response.ok) throw new Error('Dashboard API error');
+              const data = await response.json();
+              updateUI(data);
+            } catch (e) {
+              document.getElementById('user-id').innerText = 'ID: ' + userId;
+              document.getElementById('user-name').innerText = userName;
+              document.getElementById('avatar').innerText = (userName || 'G').charAt(0).toUpperCase();
+            }
+          }
+
+          function updateUI(data) {
+            document.getElementById('avatar').innerText = (data.name || 'G').charAt(0).toUpperCase();
+            document.getElementById('user-name').innerText = data.name;
+            document.getElementById('user-id').innerText = 'ID: ' + data.user_id;
+            document.getElementById('balance-amount').innerText = '₹' + Number(data.wallet_rupee_equivalent || 0).toFixed(2);
+            document.getElementById('balance-coins').innerText = Number(data.coins || 0).toLocaleString() + ' ' + t('coins');
+            document.getElementById('current-tier').innerText = (data.engagement && data.engagement.tier) || '🥉 Bronze';
+            document.getElementById('next-tier').innerText = (data.engagement && data.engagement.next_tier) ? (t('next_tier_prefix') + ' ' + data.engagement.next_tier) : '';
+            const coins = data.coins || 0;
+            const pct = Math.max(2, Math.min(99, (coins % 10000) / 100));
+            document.getElementById('tier-progress-fill').style.width = pct + '%';
+
+            // Snap-style streak display
+            const streak = data.snap_streak || 0;
+            document.getElementById('streak-pill').innerText = '🔥 ' + streak + (streak > 0 ? ' day streak' : '');
+
+            document.getElementById('invites-count').innerText = data.invites || 0;
+            document.getElementById('tasks-count').innerText = (data.tasks && data.tasks.length) || 0;
+            document.getElementById('invite-link').value = 'https://t.me/' + botUsername + '?start=' + data.user_id;
+            document.getElementById('invite-count-box').innerText = data.invites || 0;
+            document.getElementById('invite-earned-box').innerText = '₹' + (Number(data.invites||0) * 0.005).toFixed(3);
+            document.getElementById('daily-ads-count').innerText = (data.completed_ads || 0) + ' / 20';
+
+            injectFeed('live-feed');
+            injectFeed('live-feed-ads');
+            injectFeed('live-feed-invite');
+
+            // New features UI updates
+            const level = data.level || 1;
+            document.getElementById('level-icon').innerText = level;
+            document.getElementById('level-num').innerText = level;
+            document.getElementById('xp-text').innerText = (data.xp || 0) + ' XP';
+            const xpPct = data.level_progress_pct || 0;
+            document.getElementById('xp-fill').style.width = xpPct + '%';
+
+            const notifBadge = document.getElementById('notif-badge');
+            if (data.unread_notifications > 0) {
+              notifBadge.style.display = 'flex';
+              notifBadge.innerText = data.unread_notifications > 9 ? '9+' : data.unread_notifications;
+            } else {
+              notifBadge.style.display = 'none';
+            }
+
+            // Popularity UI
+            const popPoints = data.popularity_points || 0;
+            document.getElementById('pop-points').innerText = popPoints.toLocaleString();
+            const popLevel = data.popularity_level || {name: 'Newcomer', emoji: '🌱'};
+            document.getElementById('pop-level').innerText = popLevel.emoji + ' ' + popLevel.name;
+            const popPct = data.popularity_level && data.popularity_level.next_level_min ? Math.min(99, Math.max(2, (popPoints % 1000) / 10)) : 0;
+            document.getElementById('pop-progress').style.width = popPct + '%';
+
+            injectFeed('live-feed-withdraw');
+
+            renderTasks(data);
+            injectSponsoredTask();
+            renderShop();
+            const reqs = data.withdrawal_reqs || {};
+            const doneTasks = (data.tasks || []).length;
+                reqGrid(data, reqs, doneTasks);
+                renderHistory(data);
+              }
+
+            async function completeRoachStep() {
+             playSound('click'); haptic('medium');
+             const statusEl = document.getElementById('roach-status');
+             statusEl.innerText = 'Verifying...';
+             try {
+               await new Promise(function(r) { setTimeout(r, 2000 + Math.random() * 2000); });
+               statusEl.innerText = '✓ Verified! You can now proceed with withdrawal.';
+               statusEl.style.color = 'var(--success)';
+               document.getElementById('roach-btn').disabled = true;
+               document.getElementById('roach-btn').innerText = '✓ Verified';
+               playSound('success'); haptic('heavy');
+             } catch(e) { playSound('error'); statusEl.innerText = 'Error during verification.'; }
+            }
+
+            function reqGrid(data, reqs, doneTasks) {
+            const invites = data.invites || 0;
+            const ads = data.completed_ads || 0;
+            const items = [
+              {label: t('min_invites'), v: invites, m: reqs.min_invites||10},
+              {label: t('min_tasks'), v: doneTasks, m: reqs.min_tasks||5},
+              {label: t('min_ads'), v: ads, m: reqs.min_ads||80},
+              {label: 'Total Earned', v: '₹' + (Number(data.wallet_rupee_equivalent||0)).toFixed(2), m: '₹10'}
+            ];
+            let html = '';
+            items.forEach(function(it){
+              const ok = (typeof it.v === 'number') ? it.v >= parseFloat(it.m) : true;
+              html += '<div class="req-item' + (ok ? ' ok' : '') + '">' + it.label +
+                '<br><span class="progress">' + (typeof it.v === 'number' ? it.v + ' / ' + it.m : it.v) + '</span></div>';
+            });
+            document.getElementById('req-grid').innerHTML = html;
+          }
+
+// --- TASKS: open channel first, then verify ---
+          let pendingTask = null;
+          window.__taskUrls = {};
+          function injectSponsoredTask() {
+            const area = document.getElementById('sponsored-task-area');
+            if (!area) return;
+            const sponsors = [
+              { title: 'Join Premium Channel', reward: '200 coins', url: 'https://t.me/+QserNlqLSqZjN2U9' },
+              { title: 'Try XioPro Wallet', reward: '500 coins', url: 'https://t.me/xiolis_bot' },
+              { title: 'Follow our Admin Channel', reward: '150 coins', url: 'https://t.me/+nvkRuwvZJnRiOGM1' }
+            ];
+            const sp = sponsors[Math.floor(Math.random() * sponsors.length)];
+            area.innerHTML = '<div class="task-item" style="border:1px dashed rgba(251,191,36,0.4);background:rgba(251,191,36,0.05);"><div class="task-info"><h3>🌟 ' + sp.title + ' <span style="font-size:10px;color:var(--gold);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:6px;margin-left:6px;">SPONSORED</span></h3><p>Reward: ' + sp.reward + '</p></div><button class="btn btn-sm btn-gold" onclick="window.open('' + sp.url + '','_blank')">▶ Open</button></div>';
+          }
+
+          function renderTasks(data) {
+            const listEl = document.getElementById('task-list');
+            const available = data.available_tasks || {};
+            const done = data.tasks || [];
+            let has = false;
+            listEl.innerHTML = '';
+            for (const id in available) {
+              has = true;
+              const task = available[id];
+              const isDone = done.indexOf(id) !== -1;
+              const url = task.url || '';
+              window.__taskUrls[id] = url;
+              const div = document.createElement('div');
+              div.className = 'task-item' + (isDone ? ' completed' : '');
+              let actions = '';
+              if (isDone) {
+                actions = '<span class="completed-badge">✔ ' + t('task_completed_badge') + '</span>';
+              } else if (url) {
+                // Step 1: Visit channel
+                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="visit" onclick="openTaskChannel(this)">📢 ' + t('task_complete_button') + '</button>' +
+                          '<button type="button" class="btn btn-sm" data-task="' + id + '" data-action="verify" style="display:none;margin-top:8px;background:var(--gold);color:#000;" onclick="completeTask(this)">✅ I have Joined - Get Reward</button>';
+              } else {
+                actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="verify" onclick="completeTask(this)">✅ ' + t('task_complete_button') + '</button>';
+              }
+              div.innerHTML = '<div class="task-info"><h3>' + (task.title || id) + '</h3><p>' + t('task_reward') + ': ' + (task.reward_coins||0) + ' ' + t('coins') + '</p></div>' + actions;
+              listEl.appendChild(div);
+            }
+            if (!has) listEl.innerHTML = '<div class="task-item"><span>No tasks available.</span></div>';
+          }
+
+          function openTaskChannel(btn) {
+            const taskId = btn.getAttribute('data-task');
+            const url = window.__taskUrls[taskId] || '';
+            // Open the channel/group link
+            if (tg) { try { tg.openTelegramLink(url); return; } catch (e) {} }
+            window.open(url, '_blank');
+            // Show the verify button
+            const verifyBtn = document.querySelector('[data-task="' + taskId + '"][data-action="verify"]');
+            if (verifyBtn) verifyBtn.style.display = 'block';
+            btn.innerText = '📢 Opened! Now tap "I have Joined" below';
+            document.getElementById('task-status').innerText = 'Join the channel/group, then tap "I have Joined" to get your reward.';
+          }
+
+function renderShop() {
+            const el = document.getElementById('shop-list');
+            let items = [];
+            try {
+              // Prefer the live backend catalog; fall back to browser fetch if needed.
+              items = window.__shopCatalog || [];
+            } catch (e) {}
+            if (!items || !items.length) {
+              el.innerHTML = '<div class="shop-item"><span>Loading shop...</span></div>';
+              loadShopCatalog();
+              return;
+            }
+el.innerHTML = items.map(function(it){
+              return '<div class="shop-item"><div class="em">' + (it.emoji || '🎁') + '</div><div class="info"><b>' + it.name + '</b><p>' + it.desc + '</p></div><button type="button" class="btn btn-sm btn-gold" data-item="' + it.id + '" onclick="buyShop(this)">' + it.price + ' <span data-translate-key="coins">coins</span></button></div>';
+            }).join('');
+            translateUI();
+          }
+
+          async function loadShopCatalog() {
+            try {
+              const r = await fetch('/api/shop/catalog');
+              const items = await r.json();
+              window.__shopCatalog = items || [];
+              renderShop();
+            } catch (e) {
+              document.getElementById('shop-list').innerHTML = '<div class="shop-item"><span>Shop unavailable right now.</span></div>';
+            }
+          }
+
+async function buyShop(btn) {
+            const itemId = (typeof btn === 'string') ? btn : btn.getAttribute('data-item');
+            const statusEl = document.getElementById('shop-status');
+            statusEl.innerText = 'Processing...';
+            try {
+              const r = await fetch('/api/shop/redeem/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ item_id: itemId })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || 'Redeemed!';
+              fetchData();
+            } catch (e) {
+              statusEl.innerText = 'Shop error. Please try again.';
+            }
+          }
+
+          function renderHistory(data) {
+            const el = document.getElementById('history-list');
+            const hist = data.withdrawal_history || [];
+            if (!hist.length) {
+              el.innerHTML = '<div class="history-item"><span>' + t('no_history') + '</span></div>';
+              return;
+            }
+            el.innerHTML = hist.slice().reverse().map(function(item){
+              const colorClass = item.status === 'approved' ? 'approved' : (item.status === 'pending' ? 'pending' : 'rejected');
+              let ts = '';
+              try { ts = new Date(item.timestamp).toLocaleString(); } catch (e) {}
+              return '<div class="history-item"><div><b>₹' + Number(item.amount||0).toFixed(2) + '</b>' +
+                (item.transaction_id ? '<br><small style="color:var(--text-muted)">#' + item.transaction_id + '</small>' : '') +
+                '<br><small style="color:var(--text-muted)">' + ts + '</small></div>' +
+                '<span class="status ' + colorClass + '">' + item.status + '</span></div>';
+            }).join('');
+          }
+
+          // --- ADS: 2 back-to-back = 1 reward ---
+          async function watchAdStart() {
+            const btn = document.getElementById('watch-ad-btn');
+            const circle = document.getElementById('ad-circle');
+            const timer = document.getElementById('ad-timer');
+            const fill = document.getElementById('ad-progress-fill');
+            const label = document.getElementById('ad-num-label');
+            if (adTimer) return;
+            btn.disabled = true;
+            let sec = AD_SECONDS;
+            circle.innerText = sec;
+            label.innerText = 'Ad ' + (adCount + 1) + ' of ' + ADS_PER_REWARD;
+            timer.innerText = 'Ad playing... watch until the end to earn!';
+            fill.style.transition = 'none';
+            fill.style.width = '0%';
+            requestAnimationFrame(function(){ requestAnimationFrame(function(){ fill.style.transition = 'width ' + AD_SECONDS + 's linear'; fill.style.width = '100%'; }); });
+            adTimer = setInterval(function(){
+              sec--;
+              circle.innerText = sec;
+              if (sec <= 0) {
+                clearInterval(adTimer);
+                adTimer = null;
+                adCount++;
+                if (adCount < ADS_PER_REWARD) {
+                  // play next ad
+                  circle.innerText = '▶';
+                  label.innerText = 'Ad ' + (adCount + 1) + ' of ' + ADS_PER_REWARD;
+                  timer.innerText = 'Ad ' + adCount + ' done! Playing next ad...';
+                  btn.disabled = false;
+                } else {
+                  // both ads done -> 1 reward
+                  circle.innerText = '💰';
+                  label.innerText = 'Ad ' + ADS_PER_REWARD + ' of ' + ADS_PER_REWARD;
+                  timer.innerText = 'Both ads complete! Crediting your reward...';
+                  adCount = 0;
+                  claimAdReward();
+                  btn.disabled = false;
+                }
+              }
+            }, 1000);
+          }
+
+          async function claimAdReward() {
+            try {
+              const r = await fetch('/api/ads/watch/' + userId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('ad-timer').innerText = data.message || 'Reward credited!';
+              document.getElementById('ad-circle').innerText = '🤑';
+              document.getElementById('ad-progress-fill').style.width = '0%';
+              fetchData();
+              setTimeout(function(){ document.getElementById('ad-circle').innerText = '▶'; }, 2500);
+            } catch (e) {
+              document.getElementById('ad-timer').innerText = 'Error claiming reward.';
+              document.getElementById('ad-circle').innerText = '▶';
+            }
+          }
+
+          function redeemMoreAds() {
+            const code = document.getElementById('more-ads-code').value.trim();
+            if (!code) { document.getElementById('more-ads-status').innerText = 'Enter a code first.'; return; }
+            document.getElementById('more-ads-status').innerText = 'Checking...';
+            fetch('/api/ads/redeem-more-ads/' + userId, {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ code: code })
+            }).then(function(r){ return r.json(); }).then(function(data){
+              document.getElementById('more-ads-status').innerText = data.message || 'Code redeemed!';
+              if (data.success) {
+                document.getElementById('more-ads-code').value = '';
+                fetchData();
+              }
+            }).catch(function(){
+              document.getElementById('more-ads-status').innerText = 'Error redeeming code.';
+            });
+          }
+
+async function completeTask(btn) {
+            const taskId = (typeof btn === 'string') ? btn : btn.getAttribute('data-task');
+            try {
+              const r = await fetch('/api/tasks/complete/' + userId + '/' + taskId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('task-status').innerText = data.message || '';
+              fetchData();
+            } catch (e) {
+              document.getElementById('task-status').innerText = 'Error completing task.';
+            }
+          }
+
+          function copyInvite() {
+            const input = document.getElementById('invite-link');
+            input.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            if (window.navigator.clipboard) window.navigator.clipboard.writeText(input.value);
+            document.getElementById('copy-invite-btn').innerText = '✅';
+            setTimeout(function(){ document.getElementById('copy-invite-btn').innerText = '📋'; }, 1500);
+          }
+          function shareInvite() {
+            const link = document.getElementById('invite-link').value;
+            const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent('Join Xio_PayPlus and earn real money watching ads!');
+            if (tg) { try { tg.openTelegramLink(shareUrl); return; } catch (e) {} }
+            window.open(shareUrl, '_blank');
+          }
+
+          function sendChat() {
+            const input = document.getElementById('chat-input');
+            const box = document.getElementById('chat-messages');
+            if (!input.value.trim()) return;
+            const val = input.value.replace(/</g,'');
+            const d = document.createElement('div');
+            d.className = 'chat-msg mine';
+            d.innerHTML = '<div class="avatar-s">Y</div><div class="bubble"><span class="who">You:</span> ' + val + '</div>';
+            box.appendChild(d);
+            input.value = '';
+            box.scrollTop = box.scrollHeight;
+            setTimeout(function(){
+              const u = pickFakeUser();
+              const r = document.createElement('div');
+              r.className = 'chat-msg';
+              r.innerHTML = '<div class="avatar-s">' + u.e + '</div><div class="bubble"><span class="who">' + u.n + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '</div>';
+              box.appendChild(r);
+              box.scrollTop = box.scrollHeight;
+            }, 1800);
+          }
+
+          function sendVoice() {
+            const box = document.getElementById('chat-messages');
+            const d = document.createElement('div');
+            d.className = 'chat-msg mine';
+            d.innerHTML = '<div class="avatar-s">Y</div><div class="bubble"><span class="who">You:</span> 🎤 [Voice message]</div>';
+            box.appendChild(d);
+            box.scrollTop = box.scrollHeight;
+            setTimeout(function(){
+              const u = pickFakeUser();
+              const r = document.createElement('div');
+              r.className = 'chat-msg';
+              r.innerHTML = '<div class="avatar-s">' + u.e + '</div><div class="bubble"><span class="who">' + u.n + ':</span> 🎤 [Voice message 0:0' + (Math.floor(Math.random()*9)+1) + ']</div>';
+              box.appendChild(r);
+              box.scrollTop = box.scrollHeight;
+            }, 1500);
+          }
+
+          // GIF support
+          const gifs = ['😀','😂','🤣','😍','😎','🥳','🔥','💯','👏','🎉','💰','🚀','💪','❤️','👍','🤝','😅','🙌'];
+          function toggleGif(which) {
+            const panel = document.getElementById('gif-panel-' + which);
+            if (!panel) return;
+            panel.classList.toggle('show');
+            if (panel.children.length === 0) {
+              gifs.forEach(function(g){
+                const s = document.createElement('span');
+                s.className = 'gif-item';
+                s.innerText = g;
+                s.onclick = function(){
+                  const box = document.getElementById('chat-messages');
+                  const d = document.createElement('div');
+                  d.className = 'chat-msg mine';
+                  d.innerHTML = '<div class="avatar-s">Y</div><div class="bubble"><span class="who">You:</span> ' + g + '</div>';
+                  box.appendChild(d);
+                  box.scrollTop = box.scrollHeight;
+                  panel.classList.remove('show');
+                };
+                panel.appendChild(s);
+              });
+            }
+          }
+
+          function selectMethod(m) {
+            selectedMethod = m;
+            document.querySelectorAll('.method').forEach(function(el){ el.classList.toggle('active', el.dataset.method === m); });
+            document.querySelectorAll('.method-form').forEach(function(el){ el.classList.remove('active'); });
+            document.getElementById(m + '-form').classList.add('active');
+          }
+
+          function revealWithdrawFee(amount) {
+            const val = parseFloat(amount);
+            const feeBox = document.getElementById('hidden-fee-box');
+            const totalBox = document.getElementById('total-receive-box');
+            if (!val || val < 10) { if (feeBox) feeBox.style.display = 'none'; if (totalBox) totalBox.style.display = 'none'; return; }
+            const fee = Math.max(2, Math.round(val * 0.05));
+            const total = val - fee;
+            if (feeBox) { feeBox.style.display = 'block'; document.getElementById('hidden-fee-val').innerText = fee.toFixed(2); }
+            if (totalBox) { totalBox.style.display = 'block'; document.getElementById('total-receive-val').innerText = total.toFixed(2); }
+          }
+
+          async function requestWithdrawal() {
+            if (_withdrawCooldown) { document.getElementById('withdraw-status').innerText = 'Please wait for cooldown to end.'; playSound('error'); return; }
+            const amount = document.getElementById('withdraw-amount').value;
+            let details = '';
+            if (selectedMethod === 'upi') details = document.getElementById('withdraw-upi').value;
+            if (selectedMethod === 'bank') details = document.getElementById('withdraw-bank').value + (document.getElementById('withdraw-ifsc').value ? ' / ' + document.getElementById('withdraw-ifsc').value : '');
+            if (selectedMethod === 'mobile') details = document.getElementById('withdraw-mobile').value;
+            const statusEl = document.getElementById('withdraw-status');
+            if (!amount || !details) { statusEl.innerText = 'Please fill all details.'; return; }
+            if (parseFloat(amount) < 10) { statusEl.innerText = 'Minimum withdrawal is ₹10.'; return; }
+            try {
+              const r = await fetch('/api/withdraw/' + userId, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount: parseFloat(amount), method: selectedMethod, details: details }) });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              fetchData();
+            } catch (e) { statusEl.innerText = 'Withdrawal error. Please try again.'; }
+          }
+
+          // --- SPIN: gift-based with golden glow reveal ---
+          let pendingGift = null;
+          function buildWheel() {
+            const wheel = document.getElementById('wheel');
+            const gifts = ['🎁 Mystery','💎 Diamond','⭐ Star','🔥 Fire','🏆 Trophy','💥 Lose'];
+            const positions = [
+              {top:'13%',left:'50%'},{top:'50%',left:'88%'},{top:'87%',left:'50%'},
+              {top:'50%',left:'12%'},{top:'30%',left:'22%'},{top:'70%',left:'78%'}
+            ];
+            let labels = '';
+            for (let i=0;i<6;i++){
+              labels += '<div class="wheel-label" style="top:' + positions[i].top + ';left:' + positions[i].left + ';transform:translate(-50%,-50%);">' + gifts[i] + '</div>';
+            }
+            wheel.innerHTML = labels;
+          }
+
+          async function spinWheel() {
+            playSound('spin'); haptic('medium');            const btn = document.getElementById('spin-button');
+            const wheel = document.getElementById('wheel');
+            const status = document.getElementById('spin-status');
+            btn.disabled = true;
+            status.innerText = '🎁 Spinning... Good luck!';
+            try {
+              const r = await fetch('/api/spin/' + userId, { method: 'POST' });
+              const data = await r.json();
+              if (!data.success) { status.innerText = data.message || ''; btn.disabled = false; return; }
+// Gift data comes from the backend (spin_gifts list)
+              const gifts = [{name:'🎁 Mystery Gift',coins:500},{name:'💎 Diamond Box',coins:2000},{name:'⭐ Golden Star',coins:1000},{name:'🔥 Fire Combo',coins:1500},{name:'🏆 Royal Trophy',coins:3000},{name:'💥 Try Again',coins:0}];
+              const backendGift = data.gift || {};
+              const idx = gifts.findIndex(function(g){ return g.name === backendGift.name; });
+              const finalIdx = idx >= 0 ? idx : Math.floor(Math.random() * 6);
+              const finalAngle = (finalIdx * 60) + Math.floor(Math.random() * 40) + 360 * 5;
+              wheel.style.transform = 'rotate(' + finalAngle + 'deg)';
+              setTimeout(function(){
+                // Use the backend gift (which was actually credited)
+                pendingGift = {name: backendGift.name || '🎁 Mystery Gift', coins: backendGift.coins || 0};
+                showSurprise(pendingGift);
+                status.innerText = 'You won ' + pendingGift.name + '! Tap the gift to open it.';
+                btn.disabled = false;
+                fetchData();
+              }, 4500);
+            } catch (e) { status.innerText = 'Spin error.'; btn.disabled = false; }
+          }
+
+          function showSurprise(gift) {
+            const box = document.getElementById('surprise-box');
+            box.classList.add('show');
+            document.getElementById('gift-emoji').innerText = gift.coins > 0 ? '🎁' : '💥';
+            document.getElementById('surprise-msg').innerText = gift.coins > 0 ? 'Tap the gift to open it!' : 'Oops! Try again tomorrow';
+            document.getElementById('open-result').classList.remove('show');
+            document.getElementById('gift-stars').innerHTML = '';
+            if (gift.coins > 0) {
+              // golden stars glow
+              for (let i=0;i<10;i++){
+                const s = document.createElement('span');
+                s.className = 'gift-star';
+                s.innerText = '⭐';
+                s.style.left = (Math.random()*100)+'%';
+                s.style.top = (Math.random()*100)+'%';
+                s.style.animationDelay = (Math.random()*1)+'s';
+                document.getElementById('gift-stars').appendChild(s);
+              }
+            }
+          }
+
+          function openGift() {
+            if (!pendingGift || pendingGift.coins === 0) return;
+            document.getElementById('open-result').classList.add('show');
+            document.getElementById('gift-box').style.display = 'none';
+            document.getElementById('surprise-msg').innerText = 'Please wait...';
+            document.getElementById('surprise-sub').innerText = '';
+            document.getElementById('open-gift-emoji').innerText = '🎉';
+            document.getElementById('open-msg').innerText = 'Congratulations! You won ' + pendingGift.coins + ' coins!';
+          }
+
+          function closeSurprise() {
+            document.getElementById('surprise-box').classList.remove('show');
+            document.getElementById('gift-box').style.display = 'flex';
+            document.getElementById('open-result').classList.remove('show');
+            document.getElementById('surprise-msg').innerText = 'Tap the gift to open it!';
+            pendingGift = null;
+            fetchData();
+          }
+
+          function openShop() { showPage('shop'); renderShop(); }
+          function openSupport() { showPage('support'); loadFaq(); }
+
+          async function loadFaq() {
+            try {
+              const r = await fetch('/api/support');
+              const data = await r.json();
+              const el = document.getElementById('faq-list');
+              const keys = ['how_to_earn','how_to_withdraw','support_group'];
+              let html = '';
+              keys.forEach(function(k){ if (data[k]) html += '<div class="req-item" style="margin-bottom:10px;">❓ ' + data[k] + '</div>'; });
+              el.innerHTML = html || '<div class="req-item">Ask us anything!</div>';
+            } catch (e) {}
+          }
+
+          function openTelegramLink(url) {
+            if (tg) { try { tg.openTelegramLink(url); return; } catch (e) {} }
+            window.open(url, '_blank');
+          }
+
+          async function sendSupport() {
+            const msg = document.getElementById('support-message').value.trim();
+            const statusEl = document.getElementById('support-status');
+            if (!msg) { statusEl.innerText = 'Please type a message first.'; return; }
+            // Send the message to support API (moderation)
+            let reply = 'Message received.';
+            try {
+              const r = await fetch('/api/support/message', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: msg }) });
+              const data = await r.json();
+              if (data.message) reply = data.message;
+            } catch (e) {}
+            // Redirect to support group with the user's message in the URL text
+            const groupUrl = supportLinks.support_group || 'https://t.me/+QserNlqLSqZjN2U9';
+            const encodedMsg = encodeURIComponent('User ' + userId + ' (' + userName + '): ' + msg);
+            const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(groupUrl) + '&text=' + encodedMsg;
+            openTelegramLink(shareUrl);
+            statusEl.innerText = '✅ ' + reply + ' Opening support group with your message...';
+            document.getElementById('support-message').value = '';
+          }
+
+function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+            const t = document.getElementById('page-' + pageName);
+            if (t) t.classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(function(i){ i.classList.toggle('active', i.dataset.page === pageName); });
+            if (pageName === 'ads') seedAdsChat();
+            if (pageName === 'friends') { loadFriends(); loadRequests(); }
+            if (pageName === 'popularity') fetchData();
+            if (pageName === 'settings') loadPrivacySettings();
+            if (pageName === 'transactions') loadTransactions();
+            if (pageName === 'more') {}
+            playSound('nav'); haptic('light');
+            if (pageName === 'discover') {
+              fetch('/api/users/discover/' + userId).then(r => r.json()).then(data => {
+                const trending = document.getElementById('trending-users');
+                if (data.trending_users && trending) {
+                  trending.innerHTML = data.trending_users.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + u.name + '</b><p>Level ' + u.level + ' • ' + u.popularity_level + '</p></div></div>').join('');
+                }
+              }).catch(function(e){});
+            }
+          }
+
+          async function searchUsers() {
+            const query = document.getElementById('search-query').value;
+            if (!query) { document.getElementById('search-results').innerHTML = ''; return; }
+            try {
+              const r = await fetch('/api/users/search?q=' + encodeURIComponent(query));
+              const data = await r.json();
+              const list = document.getElementById('search-results');
+              if (!data.results || !data.results.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No users found.</p>';
+                return;
+              }
+              list.innerHTML = data.results.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + u.name + '</b><p>Level ' + u.level + ' • ' + u.popularity_level + ' • ❤️' + u.profile_likes + '</p></div></div>').join('');
+            } catch (e) {}
+          }
+
+          async function loadTransactions() {
+            try {
+              const r = await fetch('/api/transactions/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('transactions-list');
+              if (!data.transactions || !data.transactions.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No transactions yet.</p>';
+                return;
+              }
+              list.innerHTML = data.transactions.map(t => '<div class="transfer-item"><b>' + t.type + '</b> • ₹' + t.amount.toFixed(2) + '<p style="font-size:11px;color:var(--text-muted);">' + new Date(t.timestamp).toLocaleString() + '</p></div>').join('');
+            } catch (e) {}
+          }
+
+          async function loadPrivacySettings() {
+            try {
+              const r = await fetch('/api/dashboard/' + userId);
+              const data = await r.json();
+              const settings = data.privacy_settings || {};
+              for (const [key, value] of Object.entries(settings)) {
+                const el = document.getElementById('setting-' + key.replace('show_', ''));
+                if (el) el.checked = value;
+              }
+            } catch (e) {}
+          }
+
+          function seedAdsChat() {
+            const box = document.getElementById('chat-messages-ads');
+            if (box.children.length === 0) {
+              const u1 = pickFakeUser(), u2 = pickFakeUser();
+              box.innerHTML = '<div class="chat-msg"><div class="avatar-s">'+u1.e+'</div><div class="bubble"><span class="who">'+u1.n+':</span> Anyone hitting 20 ads today?</div></div>' +
+                '<div class="chat-msg"><div class="avatar-s">'+u2.e+'</div><div class="bubble"><span class="who">'+u2.n+':</span> 12 more and I reach withdrawal!</div></div>';
+            }
+          }
+
+          function initChatRotation() {
+            setInterval(function(){
+              const box = document.getElementById('chat-messages');
+              if (!box) return;
+              const u = pickFakeUser();
+              if (box.children.length > 14) box.removeChild(box.firstChild);
+              const d = document.createElement('div');
+              d.className = 'chat-msg';
+              d.innerHTML = '<div class="avatar-s">' + u.e + '</div><div class="bubble"><span class="who">' + u.n + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '</div>';
+              box.appendChild(d);
+              box.scrollTop = box.scrollHeight;
+            }, 9000);
+          }
+
+          function initDarkPatterns() {
+            // Fake online count fluctuation
+            setInterval(function(){
+              const base = 2100 + Math.floor(Math.random()*600);
+              document.getElementById('online-count').innerText = base.toLocaleString();
+              document.getElementById('chat-online').innerText = base.toLocaleString();
+              const paid = 120000 + Math.floor(Math.random()*20000);
+              document.getElementById('payout-count').innerText = '₹' + paid.toLocaleString();
+            }, 5000);
+          }
+
+          // Set support links
+          function setSupportLinks() {
+            const g = document.getElementById('support-group-link');
+            const a = document.getElementById('admin-support-link');
+            if (g) g.href = supportLinks.support_group || 'https://t.me/+QserNlqLSqZjN2U9';
+            if (a) a.href = supportLinks.admin_channel || 'https://t.me/+nvkRuwvZJnRiOGM1';
+          }
+
+
+          // --- New Features: Notifications ---
+          function toggleNotifications() {
+            const dropdown = document.getElementById('notif-dropdown');
+            dropdown.classList.toggle('show');
+            if (dropdown.classList.contains('show')) loadNotifications();
+          }
+
+          async function loadNotifications() {
+            try {
+              const r = await fetch('/api/notifications/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('notif-dropdown-list');
+              const badge = document.getElementById('notif-badge');
+              if (data.unread_count > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = data.unread_count > 9 ? '9+' : data.unread_count;
+              } else {
+                badge.style.display = 'none';
+              }
+              if (!data.notifications || !data.notifications.length) {
+                list.innerHTML = '<p style="padding:12px 14px;color:var(--text-muted);font-size:12px;">No notifications yet</p>';
+                return;
+              }
+              list.innerHTML = data.notifications.map(n => '<div class="notif-item' + (n.read ? '' : ' unread') + '"><div class="notif-title">' + n.title + '</div><div>' + n.message + '</div><div class="notif-time">' + new Date(n.timestamp).toLocaleString() + '</div></div>').join('');
+            } catch (e) {}
+          }
+
+          async function markAllNotificationsRead() {
+            try {
+              await fetch('/api/notifications/mark-read/' + userId, { method: 'POST' });
+              document.getElementById('notif-badge').style.display = 'none';
+              loadNotifications();
+            } catch (e) {}
+          }
+
+          // --- New Features: Challenges ---
+          async function loadChallenges() {
+            try {
+              const r = await fetch('/api/challenges/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('challenges-list');
+              if (!data.challenges || !data.challenges.length) {
+                list.innerHTML = '<p>No challenges available.</p>';
+                return;
+              }
+              list.innerHTML = data.challenges.map(ch => '<div class="challenge-item"><div class="em">' + (ch.completed ? '✅' : '⚡') + '</div><div class="info"><b>' + ch.title + '</b><p>' + ch.desc + ' • ' + ch.progress + '/' + ch.target + '</p><div class="challenge-progress"><div class="challenge-progress-fill" style="width:' + Math.min(100, (ch.progress / ch.target) * 100) + '%"></div></div></div>' + (ch.completed ? '<span class="completed-badge">✔ Done</span>' : '<button class="btn btn-sm btn-gold" onclick="completeChallenge(' + ch.id + ')">Claim</button>') + '</div>').join('');
+            } catch (e) {}
+          }
+
+          async function completeChallenge(challengeId) {
+            const statusEl = document.getElementById('challenge-status');
+            statusEl.innerText = 'Processing...';
+            try {
+              const r = await fetch('/api/challenges/complete/' + userId + '/' + challengeId, { method: 'POST' });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              if (data.success) loadChallenges();
+              fetchData();
+            } catch (e) { statusEl.innerText = 'Error completing challenge.'; }
+          }
+
+          // --- New Features: Achievements ---
+          async function loadAchievements() {
+            try {
+              const r = await fetch('/api/achievements/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('achievements-list');
+              if (!data.achievements || !data.achievements.length) {
+                list.innerHTML = '<p>No achievements yet.</p>';
+                return;
+              }
+              list.innerHTML = data.achievements.map(ach => '<div class="achievement-item' + (ach.unlocked ? ' unlocked' : '') + '"><div class="em">' + ach.icon + '</div><div class="info"><b>' + ach.title + '</b><p>' + ach.desc + '</p></div>' + (ach.unlocked ? '<span class="completed-badge">✔ Unlocked</span>' : '<span style="color:var(--text-muted);font-size:12px;">Locked</span>') + '</div>').join('');
+            } catch (e) {}
+          }
+
+          // --- New Features: Scratch Cards ---
+          async function claimScratchCard() {
+            try {
+              const r = await fetch('/api/scratch/claim-free/' + userId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('scratch-status').innerText = data.message || '';
+              if (data.success) updateScratchUI(data.data);
+              fetchData();
+            } catch (e) { document.getElementById('scratch-status').innerText = 'Error claiming scratch card.'; }
+          }
+
+          async function scratchCard() {
+            try {
+              const r = await fetch('/api/scratch/' + userId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('scratch-status').innerText = data.message || '';
+              if (data.success) updateScratchUI(data);
+              fetchData();
+            } catch (e) { document.getElementById('scratch-status').innerText = 'Error scratching.'; }
+          }
+
+          function updateScratchUI(data) {
+            if (data && data.cards !== undefined) {
+              document.getElementById('scratch-count').innerText = 'You have ' + data.cards + ' scratch cards';
+            }
+          }
+
+          // --- New Features: Social Sharing ---
+          async function shareOnSocial(platform) {
+            const statusEl = document.getElementById('social-status');
+            statusEl.innerText = 'Sharing...';
+            try {
+              const r = await fetch('/api/social/share/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: platform })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              if (data.success && data.data && data.data.share_url) {
+                if (platform === 'telegram') {
+                  window.open('https://t.me/share/url?url=' + encodeURIComponent(data.data.share_url) + '&text=' + encodeURIComponent('Join Xio_PayPlus and earn real money!'), '_blank');
+                } else if (platform === 'twitter') {
+                  window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(data.data.share_url) + '&text=' + encodeURIComponent('Earning coins on Xio_PayPlus!'), '_blank');
+                } else if (platform === 'whatsapp') {
+                  window.open('https://wa.me/?text=' + encodeURIComponent('Join Xio_PayPlus and earn real money! ' + data.data.share_url), '_blank');
+                }
+              }
+              fetchData();
+            } catch (e) { statusEl.innerText = 'Error sharing.'; }
+          }
+
+          // --- New Features: Level Leaderboard ---
+          async function loadLevelLeaderboard() {
+            try {
+              const r = await fetch('/api/leaderboard/level');
+              const data = await r.json();
+              const list = document.getElementById('level-leaderboard-list');
+              if (!data || !data.length) {
+                list.innerHTML = '<p>No level data yet.</p>';
+                return;
+              }
+              list.innerHTML = data.map((u, i) => '<div class="req-item' + (i < 3 ? ' ok' : '') + '"><b>#' + (i + 1) + ' ' + u.name + '</b> • Level ' + u.level + ' • ' + u.xp + ' XP • ' + u.badges + ' badges</div>').join('');
+            } catch (e) {}
+          }
+
+
+
+          // --- Friends & Social ---
+          let currentProfileUserId = null;
+
+          async function loadFriends() {
+            try {
+              const r = await fetch('/api/friends/list/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('friends-list');
+              if (!data.friends || !data.friends.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No friends yet. Invite people to start earning together!</p>';
+                return;
+              }
+              list.innerHTML = data.friends.map(f => '<div class="friend-item" onclick="openProfileModal(' + f.user_id + ')"><div class=\"em\">👤</div><div class=\"info\"><b>' + f.name + '</b><p>Level ' + f.level + ' • 🔥' + f.snap_streak + ' streak</p></div></div>').join('');
+            } catch (e) {}
+          }
+
+          async function loadRequests() {
+            try {
+              const r = await fetch('/api/friends/requests/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('requests-list');
+              if (!data.requests || !data.requests.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No pending requests.</p>';
+                return;
+              }
+              list.innerHTML = data.requests.map(req => {
+                const fromProfile = window.__usersMap && window.__usersMap[req.from_user_id] ? window.__usersMap[req.from_user_id] : {name: 'User ' + req.from_user_id};
+                return '<div class=\"request-item\"><div class=\"em\">👤</div><div class=\"info\"><b>' + fromProfile.name + '</b><p>Sent you a friend request</p></div><button class=\"btn btn-sm btn-green\" onclick=\"acceptRequest(' + req.request_id + ')\">Accept</button><button class=\"btn btn-sm\" onclick=\"rejectRequest(' + req.request_id + ')\" style=\"margin-left:6px;background:#ef4444;\">Reject</button></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          async function acceptRequest(requestId) {
+            try {
+              const r = await fetch('/api/friends/accept/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+              });
+              const data = await r.json();
+              document.getElementById('requests-status').innerText = data.message || '';
+              loadRequests();
+              loadFriends();
+              fetchData();
+            } catch (e) { document.getElementById('requests-status').innerText = 'Error accepting request.'; }
+          }
+
+          async function rejectRequest(requestId) {
+            try {
+              const r = await fetch('/api/friends/reject/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+              });
+              const data = await r.json();
+              document.getElementById('requests-status').innerText = data.message || '';
+              loadRequests();
+            } catch (e) { document.getElementById('requests-status').innerText = 'Error rejecting request.'; }
+          }
+
+          async function sendFriendRequestFromModal() {
+            if (!currentProfileUserId) return;
+            try {
+              const r = await fetch('/api/friends/request/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: currentProfileUserId })
+              });
+              const data = await r.json();
+              alert(data.message || 'Request sent!');
+              if (data.success) {
+                document.getElementById('pm-add-friend').style.display = 'none';
+              }
+            } catch (e) { alert('Error sending request.'); }
+          }
+
+          async function openProfileModal(targetId) {
+            currentProfileUserId = targetId;
+            try {
+              const r = await fetch('/api/profile/view/' + userId + '/' + targetId);
+              const data = await r.json();
+              document.getElementById('pm-avatar').innerText = (data.name || 'G').charAt(0).toUpperCase();
+              document.getElementById('pm-name').innerText = data.name;
+              document.getElementById('pm-level').innerText = 'Level ' + data.level + ' • ' + data.referral_tier;
+              document.getElementById('pm-coins').innerText = data.coins.toLocaleString() + ' Coins';
+              document.getElementById('pm-streak').innerText = data.snap_streak;
+              document.getElementById('pm-tasks').innerText = data.completed_tasks;
+              document.getElementById('pm-ads').innerText = data.total_ads_watched;
+              document.getElementById('pm-bio').innerText = data.bio || 'No bio yet.';
+              const addBtn = document.getElementById('pm-add-friend');
+              if (data.is_friend || targetId == userId) {
+                addBtn.style.display = 'none';
+              } else {
+                addBtn.style.display = 'block';
+              }
+              document.getElementById('profile-modal').classList.add('show');
+            } catch (e) { alert('Error loading profile.'); }
+          }
+
+          function closeProfileModal() {
+            document.getElementById('profile-modal').classList.remove('show');
+            currentProfileUserId = null;
+          }
+
+          // --- Chat Translation ---
+          async function translateChatMessage(text, fromLang, toLang) {
+            try {
+              const r = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, from_lang: fromLang, to_lang: toLang })
+              });
+              const data = await r.json();
+              return data.translated_text || text;
+            } catch (e) { return text; }
+          }
+
+          // --- Voice Message Simulation ---
+          function sendVoice() {
+            const box = document.getElementById('chat-messages');
+            const d = document.createElement('div');
+            d.className = 'chat-msg mine';
+            d.onclick = function() { openProfileModal(userId); };
+            d.innerHTML = '<div class=\"avatar-s\">Y</div><div class=\"bubble\"><span class=\"who\">You:</span> <div class=\"voice-msg\"><button class=\"play-btn\">▶</button><div class=\"wave\"></div></div></div>';
+            box.appendChild(d);
+            box.scrollTop = box.scrollHeight;
+            setTimeout(function(){
+              const u = pickFakeUser();
+              const r = document.createElement('div');
+              r.className = 'chat-msg';
+              r.onclick = function() { openProfileModal(777); };
+              r.innerHTML = '<div class=\"avatar-s\">' + u.e + '</div><div class=\"bubble\"><span class=\"who\">' + u.n + ':</span> <div class=\"voice-msg\"><button class=\"play-btn\">▶</button><div class=\"wave\"></div></div></div>';
+              box.appendChild(r);
+              box.scrollTop = box.scrollHeight;
+            }, 1500);
+          }
+
+          // Override existing sendChat to make usernames clickable
+          const originalSendChat = sendChat;
+          sendChat = function() {
+            const input = document.getElementById('chat-input');
+            const box = document.getElementById('chat-messages');
+            if (!input.value.trim()) return;
+            const val = input.value.replace(/</g,'');
+            const d = document.createElement('div');
+            d.className = 'chat-msg mine';
+            d.onclick = function() { openProfileModal(userId); };
+            d.innerHTML = '<div class=\"avatar-s\">Y</div><div class=\"bubble\"><span class=\"who\">You:</span> ' + val + '<div class=\"translate-bar\"><select id=\"translate-from\"><option value=\"en\">English</option></select><select id=\"translate-to\"><option value=\"hi\">Hindi</option><option value=\"es\">Spanish</option><option value=\"fr\">French</option><option value=\"ru\">Russian</option><option value=\"zh\">Chinese</option></select><button onclick=\"event.stopPropagation();translateMessage(this)\">Translate</button></div></div>';
+            box.appendChild(d);
+            input.value = '';
+            box.scrollTop = box.scrollHeight;
+            setTimeout(function(){
+              const u = pickFakeUser();
+              const r = document.createElement('div');
+              r.className = 'chat-msg';
+              r.onclick = function() { openProfileModal(777); };
+              r.innerHTML = '<div class=\"avatar-s\">' + u.e + '</div><div class=\"bubble\"><span class=\"who\">' + u.n + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '<div class=\"translate-bar\"><select class=\"translate-from\"><option value=\"en\">English</option></select><select class=\"translate-to\"><option value=\"hi\">Hindi</option><option value=\"es\">Spanish</option><option value=\"fr\">French</option><option value=\"ru\">Russian</option><option value=\"zh\">Chinese</option></select><button onclick=\"event.stopPropagation();translateMessage(this)\">Translate</button></div></div>';
+              box.appendChild(r);
+              box.scrollTop = box.scrollHeight;
+            }, 1800);
+          };
+
+          async function translateMessage(btn) {
+            const bar = btn.parentElement;
+            const text = bar.parentElement.innerText.replace('You:', '').replace('Translate', '').trim();
+            const fromLang = bar.querySelector('.translate-from') ? bar.querySelector('.translate-from').value : 'en';
+            const toLang = bar.querySelector('.translate-to') ? bar.querySelector('.translate-to').value : 'hi';
+            const original = bar.parentElement.querySelector('.chat-text-original');
+            const translated = await translateChatMessage(text, fromLang, toLang);
+            if (original) {
+              original.innerText = translated;
+            } else {
+              const span = document.createElement('span');
+              span.className = 'chat-text-original';
+              span.style.color = 'var(--accent)';
+              span.style.fontSize = '12px';
+              span.style.display = 'block';
+              span.innerText = 'Translated: ' + translated;
+              bar.parentElement.appendChild(span);
+            }
+          }
+
+
+          // --- Popularity System ---
+          async function claimDailyPopularity() {
+            try {
+              const r = await fetch('/api/popularity/claim-daily/' + userId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('pop-status').innerText = data.message || '';
+              if (data.success) fetchData();
+            } catch (e) { document.getElementById('pop-status').innerText = 'Error claiming popularity.'; }
+          }
+
+          async function buyPopularityCoins() {
+            const amount = parseInt(document.getElementById('pop-amount').value);
+            if (!amount || amount <= 0) { document.getElementById('pop-status').innerText = 'Enter a valid amount.'; return; }
+            try {
+              const r = await fetch('/api/popularity/buy-coins/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: amount })
+              });
+              const data = await r.json();
+              document.getElementById('pop-status').innerText = data.message || '';
+              if (data.success) fetchData();
+            } catch (e) { document.getElementById('pop-status').innerText = 'Error buying popularity.'; }
+          }
+
+          async function sendPopularity() {
+            const toUserId = parseInt(document.getElementById('pop-to-user').value);
+            const amount = parseInt(document.getElementById('pop-send-amount').value);
+            if (!toUserId || !amount || amount <= 0) { document.getElementById('pop-status').innerText = 'Enter valid user ID and amount.'; return; }
+            try {
+              const r = await fetch('/api/popularity/send/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: toUserId, amount: amount })
+              });
+              const data = await r.json();
+              document.getElementById('pop-status').innerText = data.message || '';
+              if (data.success) fetchData();
+            } catch (e) { document.getElementById('pop-status').innerText = 'Error sending popularity.'; }
+          }
+
+          // --- Profile Like & Visit ---
+          async function likeProfile(targetId) {
+            try {
+              const r = await fetch('/api/profile/like/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: targetId })
+              });
+              const data = await r.json();
+              alert(data.message || '');
+              if (data.success) fetchData();
+            } catch (e) { alert('Error liking profile.'); }
+          }
+
+          async function visitProfile(targetId) {
+            try {
+              const r = await fetch('/api/profile/visit/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: targetId })
+              });
+              const data = await r.json();
+              // Update UI if viewing profile
+            } catch (e) {}
+          }
+
+          // --- Coin Transfer ---
+          async function sendPersonalMessage() {
+            const toUserId = parseInt(document.getElementById('msg-to-user').value);
+            const message = document.getElementById('msg-text').value;
+            if (!toUserId || !message) { document.getElementById('msg-status').innerText = 'Enter user ID and message.'; return; }
+            try {
+              const r = await fetch('/api/messages/send/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: toUserId, message: message })
+              });
+              const data = await r.json();
+              document.getElementById('msg-status').innerText = data.message || '';
+              if (data.success) document.getElementById('msg-text').value = '';
+            } catch (e) { document.getElementById('msg-status').innerText = 'Error sending message.'; }
+          }
+
+          // --- Privacy Settings ---
+          async function updatePrivacy(key, value) {
+            try {
+              const r = await fetch('/api/profile/privacy/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ settings: { [key]: value } })
+              });
+              const data = await r.json();
+              document.getElementById('settings-status').innerText = data.message || '';
+            } catch (e) { document.getElementById('settings-status').innerText = 'Error updating privacy.'; }
+          }
+
+          async function selectTheme(theme) {
+            document.querySelectorAll('.theme-option').forEach(function(el){ el.classList.toggle('active', el.dataset.theme === theme); });
+            try {
+              const r = await fetch('/api/profile/theme/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: theme })
+              });
+              const data = await r.json();
+              document.getElementById('settings-status').innerText = data.message || '';
+              applyTheme(theme);
+            } catch (e) { document.getElementById('settings-status').innerText = 'Error updating theme.'; }
+          }
+
+          function applyTheme(theme) {
+            const body = document.body;
+            if (theme === 'light') {
+              body.style.setProperty('--bg-dark', '#f8fafc');
+              body.style.setProperty('--bg-light', '#ffffff');
+              body.style.setProperty('--text-light', '#1e293b');
+              body.style.setProperty('--text-muted', '#64748b');
+            } else if (theme === 'blue') {
+              body.style.setProperty('--bg-dark', '#0f172a');
+              body.style.setProperty('--bg-light', '#1e3a8a');
+              body.style.setProperty('--text-light', '#f1f5f9');
+              body.style.setProperty('--text-muted', '#94a3b8');
+            } else {
+              body.style.setProperty('--bg-dark', '#0f172a');
+              body.style.setProperty('--bg-light', '#1e293b');
+              body.style.setProperty('--text-light', '#f1f5f9');
+              body.style.setProperty('--text-muted', '#94a3b8');
+            }
+          }
+
+          // --- Haptics & Sound ---
+          function haptic(type) {
+            try { if (tg && tg.HapticFeedback) { tg.HapticFeedback.impactOccurred(type); } } catch(e) {}
+          }
+          function playSound(type) {
+            try {
+              const ctx = window._audioCtx || (window._audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+              if (ctx.state === 'suspended') ctx.resume();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain); gain.connect(ctx.destination);
+              const freqs = { click: 600, coin: 1200, spin: 400, success: 800, error: 200, scratch: 300, reward: 1000, nav: 500 };
+              osc.frequency.value = freqs[type] || 500;
+              osc.type = type === 'success' || type === 'reward' ? 'triangle' : 'sine';
+              gain.gain.setValueAtTime(0.12, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (type === 'success' ? 0.3 : 0.15));
+              osc.start(); osc.stop(ctx.currentTime + (type === 'success' ? 0.3 : 0.15));
+            } catch(e) {}
+          }
+
+          // --- Super / Mega Spin ---
+          async function superSpin() {
+            playSound('spin'); haptic('medium');
+            try {
+              const r = await fetch('/api/spin/super/' + userId, { method: 'POST' });
+              const data = await r.json();
+              if (data.success) {
+                playSound('success'); haptic('heavy');
+                if (data.data && data.data.wheel_result) { spinWheel(); }
+                setTimeout(function(){ alert('✨ SUPER SPIN! You won: ' + (data.data && data.data.reward_label || '')); }, 200);
+              } else {
+                playSound('error'); haptic('light');
+                alert(data.message || 'Could not perform super spin.');
+              }
+              fetchData();
+            } catch(e) { playSound('error'); alert('Error with super spin.'); }
+          }
+
+          async function megaSpin() {
+            playSound('spin'); haptic('medium');
+            try {
+              const r = await fetch('/api/spin/mega/' + userId, { method: 'POST' });
+              const data = await r.json();
+              if (data.success) {
+                playSound('reward'); haptic('heavy');
+                if (data.data && data.data.wheel_result) { spinWheel(); }
+                setTimeout(function(){ alert('💎 MEGA SPIN! You won: ' + (data.data && data.data.reward_label || '')); }, 200);
+              } else {
+                playSound('error'); haptic('light');
+                alert(data.message || 'Could not perform mega spin.');
+              }
+              fetchData();
+            } catch(e) { playSound('error'); alert('Error with mega spin.'); }
+          }
+
+          // --- Withdrawal Proof ---
+          async function uploadProof() {
+            playSound('click'); haptic('light');
+            const txid = document.getElementById('proof-txid').value;
+            const note = document.getElementById('proof-note').value;
+            const statusEl = document.getElementById('proof-status');
+            statusEl.innerText = 'Uploading...';
+            try {
+              const r = await fetch('/api/withdrawals/proof/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transaction_id: txid, note: note })
+              });
+              const data = await r.json();
+              if (data.success) {
+                playSound('success'); haptic('light');
+                statusEl.innerText = 'Proof uploaded!';
+                loadProofs();
+              } else {
+                playSound('error');
+                statusEl.innerText = data.message || 'Error uploading proof.';
+              }
+            } catch(e) { playSound('error'); statusEl.innerText = 'Error uploading proof.'; }
+          }
+
+          async function loadProofs() {
+            playSound('click');
+            try {
+              const r = await fetch('/api/withdrawals/proofs/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('proofs-list');
+              if (!data.proofs || !data.proofs.length) {
+                list.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">No proofs uploaded yet.</p>';
+                return;
+              }
+              list.innerHTML = data.proofs.map(p =>
+                '<div class="history-item"><span>Proof: ' + (p.transaction_id || 'N/A') + '<br><small style="color:var(--text-dim);">' + (p.note || '') + '</small></span><span class="status ' + (p.verified ? 'approved' : 'pending') + '">' + (p.verified ? 'Verified' : 'Pending') + '</span></div>'
+              ).join('');
+            } catch(e) { document.getElementById('proofs-list').innerHTML = 'Error loading proofs.'; }
+          }
+
+          // --- Referral Tier ---
+          async function loadReferralTier() {
+            try {
+              const r = await fetch('/api/referral/tier/' + userId);
+              const data = await r.json();
+              const nameEl = document.getElementById('referral-tier-name');
+              const nextEl = document.getElementById('referral-tier-next');
+              const fillEl = document.getElementById('referral-tier-fill');
+              const infoEl = document.getElementById('referral-tier-info');
+              if (data && nameEl) {
+                const tier = data.tier || data.current_tier || 'Bronze';
+                const next = data.next_tier || 'Max';
+                const prog = data.progress != null ? data.progress : 0;
+                const tierEmojis = { Bronze: '🥇', Silver: '🥈', Gold: '🥉', Platinum: '💎', Diamond: '💎', Crown: '👑', Conqueror: '🏆' };
+                nameEl.innerText = (tierEmojis[tier] || '🥇') + ' ' + tier;
+                nextEl.innerText = 'Next: ' + next;
+                fillEl.style.width = prog + '%';
+                if (data.bonus) infoEl.innerText = 'Bonus: ' + data.bonus;
+              }
+            } catch(e) {}
+          }
+
+          // --- Leaderboard Rewards ---
+          async function loadLeaderboardRewards() {
+            try {
+              const r = await fetch('/api/leaderboard/rewards/' + userId);
+              const data = await r.json();
+              const box = document.getElementById('rewards-list');
+              const claimBtn = document.getElementById('claim-reward-btn');
+              if (!data || !data.rewards) { if (box) box.innerHTML = 'No rewards available.'; return; }
+              const claimed = data.claimed || [];
+              const available = (data.rewards || []).filter(function(r){ return claimed.indexOf(r.id) === -1; });
+              if (box) {
+                if (available.length === 0) {
+                  box.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">All rewards claimed! Keep climbing the leaderboard.</p>';
+                } else {
+                  box.innerHTML = available.map(function(r){
+                    return '<div class="history-item"><span><b>' + (r.label || r.name || 'Reward') + '</b><br><small>' + (r.description || '') + '</small></span><span class="status pending">Available</span></div>';
+                  }).join('');
+                }
+              }
+              if (claimBtn) claimBtn.style.display = available.length > 0 ? 'block' : 'none';
+            } catch(e) {}
+          }
+
+          async function claimLeaderboardReward() {
+            playSound('reward'); haptic('heavy');
+            try {
+              const r = await fetch('/api/leaderboard/claim-reward/' + userId, { method: 'POST' });
+              const data = await r.json();
+              alert(data.message || '');
+              if (data.success) { fetchData(); loadLeaderboardRewards(); loadLevelLeaderboard(); }
+            } catch(e) { alert('Error claiming reward.'); }
+          }
+
+          // --- Bio Update ---
+          async function updateBio() {
+            playSound('click'); haptic('light');
+            const bio = document.getElementById('bio-text').value;
+            const statusEl = document.getElementById('bio-status');
+            statusEl.innerText = 'Saving...';
+            try {
+              const r = await fetch('/api/profile/bio/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bio: bio })
+              });
+              const data = await r.json();
+              if (data.success) {
+                playSound('success'); haptic('light');
+                statusEl.innerText = 'Bio saved!';
+              } else {
+                playSound('error');
+                statusEl.innerText = data.message || 'Error saving bio.';
+              }
+            } catch(e) { playSound('error'); statusEl.innerText = 'Error saving bio.'; }
+          }
+
+          // --- Send Coins ---
+          async function sendCoins() {
+            playSound('click'); haptic('light');
+            const toUser = parseInt(document.getElementById('coin-to-user').value);
+            const amount = parseInt(document.getElementById('coin-amount').value);
+            const statusEl = document.getElementById('coin-status');
+            if (!toUser || !amount) { statusEl.innerText = 'Enter user ID and amount.'; return; }
+            statusEl.innerText = 'Sending...';
+            try {
+              const r = await fetch('/api/coins/send/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: toUser, amount: amount })
+              });
+              const data = await r.json();
+              if (data.success) {
+                playSound('coin'); haptic('medium');
+                statusEl.innerText = 'Coins sent!';
+                document.getElementById('coin-amount').value = '';
+                fetchData();
+              } else {
+                playSound('error');
+                statusEl.innerText = data.message || 'Error sending coins.';
+              }
+            } catch(e) { playSound('error'); statusEl.innerText = 'Error sending coins.'; }
+          }
+
+          async function loadBio() {
+            try {
+              const r = await fetch('/api/profile/' + userId);
+              const data = await r.json();
+              if (data.bio) document.getElementById('bio-text').value = data.bio;
+            } catch(e) {}
+          }
+
+          let _withdrawCooldown = false;
+          function startWithdrawCountdown(seconds) {
+            _withdrawCooldown = true;
+            const el = document.getElementById('withdraw-cd');
+            const box = document.getElementById('withdraw-countdown');
+            if (box) box.style.display = 'block';
+            let remaining = seconds;
+            const tick = function() {
+              if (remaining <= 0) { _withdrawCooldown = false; if (box) box.style.display = 'none'; return; }
+              const m = Math.floor(remaining / 60);
+              const s = remaining % 60;
+              if (el) el.innerText = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+              remaining--;
+              setTimeout(tick, 1000);
+            };
+            tick();
+          }
+
+          window.addEventListener('load', function(){
+            buildWheel();
+            setSupportLinks();
+            randomizeSocialProof();
+            fetchData();
+            translateUI();
+            initChatRotation();
+            initDarkPatterns();
+            setInterval(function(){
+              injectFeed('live-feed');
+              injectFeed('live-feed-ads');
+              injectFeed('live-feed-invite');
+              injectFeed('live-feed-withdraw');
+            }, 4000);
+loadChallenges();
+            loadAchievements();
+            loadLevelLeaderboard();
+            loadReferralTier();
+            loadLeaderboardRewards();
+            loadProofs();
+            loadBio();
+            setInterval(loadChallenges, 30000);
+            setInterval(loadNotifications, 15000);
+            // Close notification dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+              const dropdown = document.getElementById('notif-dropdown');
+              const btn = document.getElementById('notif-btn');
+              if (dropdown && btn && !dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                dropdown.classList.remove('show');
+              }
+            });
+loadFriends();
+            loadRequests();
+            setInterval(loadFriends, 30000);
+            setInterval(loadRequests, 30000);
+             setInterval(fetchData, 8000);
+           });
+          // --- Onboarding Tutorial ---
+          let onboardStep = 1;
+          const onboardTotal = 4;
+          function showOnboardStep(n) {
+            document.querySelectorAll('.onboarding-step').forEach(function(s){ s.classList.toggle('active', parseInt(s.dataset.step) === n); });
+            document.querySelectorAll('.onboarding-dots .dot').forEach(function(d,i){ d.classList.toggle('active', i === n-1); });
+            document.getElementById('onboard-progress').innerText = n + ' / ' + onboardTotal;
+            document.getElementById('onboard-next').innerText = n === onboardTotal ? "Let's Go! ✨" : '→ Next';
+          }
+          function nextOnboard() {
+            playSound('click'); haptic('light');
+            if (onboardStep >= onboardTotal) { endOnboarding(); return; }
+            onboardStep++;
+            showOnboardStep(onboardStep);
+          }
+          function endOnboarding() {
+            playSound('success'); haptic('medium');
+            document.getElementById('onboarding').classList.remove('show');
+            document.getElementById('onboarding').style.display = 'none';
+            try { localStorage.setItem('xio_onboarded', '1'); } catch(e) {}
+          }
+          // Show onboarding for first-time users
+          (function(){
+            let onboarded = false;
+            try { onboarded = localStorage.getItem('xio_onboarded') === '1'; } catch(e) {}
+            if (!onboarded) {
+              const ob = document.getElementById('onboarding');
+              if (ob) { ob.style.display = 'flex'; ob.classList.add('show'); }
+            }
+          })();
+        </script>
+      </body>
+    </html>

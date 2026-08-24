@@ -198,8 +198,23 @@ The repo has a working starter with all core features implemented and tested (72
 
 ### Backend
 - `app/core.py` — BotEngine (main logic, all features)
-- `app/routes.py` — Flask API blueprint
-- `app/mini_app.py` — Flask app factory + HTML/JS
+- `app/routes/` — Flask API blueprints package (13 isolated modules)
+  - `_helpers.py` — shared rate-limit, auth decorators, safe-int
+  - `auth.py` — login, Telegram HMAC auth
+  - `webhooks.py` — Telegram webhook status + handler
+  - `ads.py` — ad config, watch, verify, redeem-more
+  - `tasks.py` — tasks, challenges, achievements, scratch, streak, referral tier
+  - `social.py` — friends, profile, chat, messages, translate, likes, visits, privacy, theme
+  - `popularity.py` — claim/buy/send popularity
+  - `withdrawals.py` — withdraw, proofs, transaction history
+  - `spin.py` — normal/super/mega spin
+  - `shop.py` — catalog, redeem, coin exchange
+  - `notifications.py` — list + mark-read
+  - `leaderboard.py` — global, level, rewards
+  - `admin.py` — all admin endpoints + admin dashboard UI
+  - `misc.py` — health, bonus, dashboard, engagement, support, help, XP, search, discover
+- `app/routes.py` — backward-compatible shim (`from app.routes import bp`)
+- `app/mini_app.py` — thin Flask app factory (reads HTML from `app/templates/mini_app.html`)
 - `app/telegram_bot.py` — Telegram service layer
 - `app/ads.py` — Ads manager
 - `app/admin.py` — Admin panel service
@@ -209,11 +224,17 @@ The repo has a working starter with all core features implemented and tested (72
 - `app/config.py` — App configuration
 
 ### Frontend
-- Single-page app in `mini_app.py` HTML string
+- `app/templates/mini_app.html` — main mini-app HTML/JS (extracted from Python)
+- `app/templates/admin.html` — admin dashboard HTML/JS (extracted from Python)
 - CSS custom properties for theming
 - Vanilla JS with fetch API
 - Telegram WebApp SDK integration
 - localStorage for theme/language persistence
+
+### Design Principles
+- **Error isolation**: each route module is imported independently; one broken module does not crash the app
+- **Single responsibility**: each blueprint covers one feature domain
+- **Template separation**: HTML lives in `app/templates/`, not embedded in Python strings
 
 ### Database
 - MongoDB (primary) with mongomock fallback

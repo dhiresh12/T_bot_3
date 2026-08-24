@@ -1,0 +1,70 @@
+"""Flask blueprint: webhooks endpoints."""
+from __future__ import annotations
+
+from app.routes._helpers import (
+    _check_rate_limit,
+    _safe_int,
+    _get_user_id_from_request,
+    _require_auth_post,
+    _require_auth_get,
+)
+from flask import Blueprint, current_app, jsonify, request
+
+bp = Blueprint("webhooks", __name__)
+
+
+
+@bp.get("/api/webhook/status")
+def webhook_status() -> tuple[dict, int]:
+    """Reports whether the Telegram webhook is registered and the bot token is set."""
+    from app.core import _resolve_mini_app_url
+    from app.telegram_bot import TelegramBotService
+    service = TelegramBotService(engine=current_app.config.get("engine"))
+    result: dict[str, Any] = {
+        "mini_app_url": _resolve_mini_app_url(),
+        "mini_app_url_env": os.getenv("MINI_APP_URL"),
+        "render_external_url": os.getenv("RENDER_EXTERNAL_URL"),
+    }
+    if not service.token:
+        result.update({
+            "token_set": False,
+            "webhook_url": None,
+            "message": "TELEGRAM_BOT_TOKEN is not set on the server. Add it in Render -> Environment to enable the bot.",
+        })
+        return jsonify(result), 200
+    if requests is None:
+        result.update({"token_set": True, "error": "requests module not installed"})
+        return jsonify(result), 200
+    try:
+        info = requests.post(
+            f"{service.api_url}/getWebhookInfo", timeout=15
+        ).json()
+    except Exception as exc:  # noqa: BLE001
+        result.update({"token_set": True, "error": str(exc)})
+        return jsonify(result), 200
+    result.update({
+        "token_set": True,
+        "webhook_url": info.get("result", {}).get("url"),
+        "pending_update_count": info.get("result", {}).get("pending_update_count", 0),
+        "message": "Webhook configured." if info.get("result", {}).get("url") else "No webhook URL set yet.",
+    })
+    return jsonify(result), 200
+
+
+
+@bp.post("/webhook")
+def telegram_webhook() -> tuple[dict, int]:
+    """
+    This is the main entry point for Telegram updates.
+    Telegram will send a POST request to this endpoint.
+    """
+    update = request.get_json(silent=True)
+    if not update:
+        return jsonify({"status": "error", "message": "Invalid JSON"}), 400
+
+    # We create a new service instance for each request to ensure it's stateless,
+    # but it uses the shared engine from the app context.
+    engine = current_app.config["engine"]
+    telegram_service = TelegramBotService(engine=engine)
+    telegram_service.handle_update(update) # The service sends the reply via API call
+    return jsonify({"status": "ok"}), 200
