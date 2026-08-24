@@ -1,7 +1,10 @@
-from app.mini_app import app
+from app.core import BotEngine
+from app.mini_app import create_app
 
 
 def test_bonus_endpoint_updates_wallet():
+    engine = BotEngine(storage_path="/tmp/bot3-miniapp-bonus.json")
+    app = create_app(engine)
     client = app.test_client()
     response = client.post("/api/bonus/777", json={"name": "Nadia"})
     assert response.status_code == 200
@@ -15,17 +18,20 @@ def test_bonus_endpoint_updates_wallet():
 
 
 def test_homepage_exposes_dashboard_and_action_hooks():
+    engine = BotEngine(storage_path="/tmp/bot3-miniapp-home.json")
+    app = create_app(engine)
     client = app.test_client()
     response = client.get("/")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    # The current mini-app UI exposes these dashboard and action hooks.
     assert "/api/dashboard" in html
     assert "Spin for a Gift!" in html
     assert "Withdraw Funds" in html
 
 
 def test_homepage_contains_interactive_dashboard_controls():
+    engine = BotEngine(storage_path="/tmp/bot3-miniapp-controls.json")
+    app = create_app(engine)
     client = app.test_client()
     response = client.get("/")
     assert response.status_code == 200
