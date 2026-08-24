@@ -12,7 +12,20 @@ def engine(tmp_path):
 @pytest.fixture
 def client(engine):
     app = create_app(engine)
-    return app.test_client()
+    client = app.test_client()
+    engine._test_client = client
+    return client
+
+
+@pytest.fixture
+def auth_headers(engine, client):
+    def _auth(user_id):
+        engine.register_user(user_id, "TestUser")
+        r = client.post("/api/auth/login", json={"user_id": user_id, "name": "TestUser"})
+        assert r.status_code == 200
+        token = r.get_json()["token"]
+        return {"X-User-Token": token}
+    return _auth
 
 
 def test_send_and_accept_friend_request(engine):

@@ -15,6 +15,17 @@ def client(engine):
     return app.test_client()
 
 
+@pytest.fixture
+def auth_headers(engine, client):
+    def _auth(user_id):
+        engine.register_user(user_id, "TestUser")
+        r = client.post("/api/auth/login", json={"user_id": user_id, "name": "TestUser"})
+        assert r.status_code == 200
+        token = r.get_json()["token"]
+        return {"X-User-Token": token}
+    return _auth
+
+
 def test_claim_daily_popularity(engine):
     user_id = 7001
     engine.register_user(user_id, "PopUser")
@@ -155,8 +166,9 @@ def test_send_personal_message(engine):
     assert p2.unread_notifications >= 1
 
 
-def test_dashboard_includes_popularity(client):
-    response = client.get("/api/dashboard/7070")
+def test_dashboard_includes_popularity(client, auth_headers):
+    headers = auth_headers(7070)
+    response = client.get("/api/dashboard/7070", headers=headers)
     assert response.status_code == 200
     data = response.get_json()
     assert "popularity_points" in data
@@ -167,38 +179,44 @@ def test_dashboard_includes_popularity(client):
     assert "unread_messages" in data
 
 
-def test_popularity_api_endpoints(client):
-    client.post("/api/popularity/claim-daily/7080", method="POST")
-    response = client.post("/api/popularity/buy-coins/7080", json={"amount": 5}, method="POST")
+def test_popularity_api_endpoints(client, auth_headers):
+    headers = auth_headers(7080)
+    client.post("/api/popularity/claim-daily/7080", headers=headers)
+    response = client.post("/api/popularity/buy-coins/7080", json={"amount": 5}, headers=headers)
     assert response.status_code == 200
 
-    response = client.post("/api/popularity/send/7080", json={"to_user_id": 7081, "amount": 10}, method="POST")
-    assert response.status_code == 200
-
-
-def test_like_and_visit_api_endpoints(client):
-    response = client.post("/api/profile/like/7090", json={"target_id": 7091}, method="POST")
-    assert response.status_code == 200
-
-    response = client.post("/api/profile/visit/7090", json={"target_id": 7091}, method="POST")
+    headers2 = auth_headers(7080)
+    response = client.post("/api/popularity/send/7080", json={"to_user_id": 7081, "amount": 10}, headers=headers2)
     assert response.status_code == 200
 
 
-def test_send_coins_api_endpoint(client):
-    response = client.post("/api/coins/send/7100", json={"to_user_id": 7101, "amount": 50}, method="POST")
+def test_like_and_visit_api_endpoints(client, auth_headers):
+    headers = auth_headers(7090)
+    response = client.post("/api/profile/like/7090", json={"target_id": 7091}, headers=headers)
+    assert response.status_code == 200
+
+    response = client.post("/api/profile/visit/7090", json={"target_id": 7091}, headers=headers)
     assert response.status_code == 200
 
 
-def test_privacy_and_theme_api_endpoints(client):
-    response = client.post("/api/profile/privacy/7110", json={"settings": {"show_wallet": False}}, method="POST")
+def test_send_coins_api_endpoint(client, auth_headers):
+    headers = auth_headers(7100)
+    response = client.post("/api/coins/send/7100", json={"to_user_id": 7101, "amount": 50}, headers=headers)
     assert response.status_code == 200
 
-    response = client.post("/api/profile/theme/7110", json={"theme": "light"}, method="POST")
+
+def test_privacy_and_theme_api_endpoints(client, auth_headers):
+    headers = auth_headers(7110)
+    response = client.post("/api/profile/privacy/7110", json={"settings": {"show_wallet": False}}, headers=headers)
+    assert response.status_code == 200
+
+    response = client.post("/api/profile/theme/7110", json={"theme": "light"}, headers=headers)
     assert response.status_code == 200
     data = response.get_json()
     assert data["theme"] == "light"
 
 
-def test_personal_messaging_api_endpoint(client):
-    response = client.post("/api/messages/send/7120", json={"to_user_id": 7121, "message": "Hi!"}, method="POST")
+def test_personal_messaging_api_endpoint(client, auth_headers):
+    headers = auth_headers(7120)
+    response = client.post("/api/messages/send/7120", json={"to_user_id": 7121, "message": "Hi!"}, headers=headers)
     assert response.status_code == 200

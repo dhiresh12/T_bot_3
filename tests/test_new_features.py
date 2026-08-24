@@ -15,6 +15,17 @@ def client(engine):
     return app.test_client()
 
 
+@pytest.fixture
+def auth_headers(engine, client):
+    def _auth(user_id):
+        engine.register_user(user_id, "TestUser")
+        r = client.post("/api/auth/login", json={"user_id": user_id, "name": "TestUser"})
+        assert r.status_code == 200
+        token = r.get_json()["token"]
+        return {"X-User-Token": token}
+    return _auth
+
+
 def test_level_progression_and_xp(engine):
     user_id = 5001
     engine.register_user(user_id, "LevelTest")
@@ -156,8 +167,9 @@ def test_leaderboard_rewards(engine):
     assert "available" in info
 
 
-def test_dashboard_includes_new_features(client):
-    response = client.get("/api/dashboard/6001")
+def test_dashboard_includes_new_features(client, auth_headers):
+    headers = auth_headers(6001)
+    response = client.get("/api/dashboard/6001", headers=headers)
     assert response.status_code == 200
     data = response.get_json()
     assert "level" in data
@@ -171,49 +183,57 @@ def test_dashboard_includes_new_features(client):
     assert "mega_spins_available" in data
 
 
-def test_challenge_api_endpoint(client):
-    response = client.get("/api/challenges/6010")
+def test_challenge_api_endpoint(client, auth_headers):
+    headers = auth_headers(6010)
+    response = client.get("/api/challenges/6010", headers=headers)
     assert response.status_code == 200
     data = response.get_json()
     assert "challenges" in data
 
 
-def test_achievements_api_endpoint(client):
-    response = client.get("/api/achievements/6011")
+def test_achievements_api_endpoint(client, auth_headers):
+    headers = auth_headers(6011)
+    response = client.get("/api/achievements/6011", headers=headers)
     assert response.status_code == 200
     data = response.get_json()
     assert "achievements" in data
 
 
-def test_scratch_api_endpoint(client):
-    response = client.post("/api/scratch/6012")
+def test_scratch_api_endpoint(client, auth_headers):
+    headers = auth_headers(6012)
+    response = client.post("/api/scratch/6012", headers=headers)
     assert response.status_code == 200
 
 
-def test_notifications_api_endpoint(client):
-    response = client.get("/api/notifications/6013")
+def test_notifications_api_endpoint(client, auth_headers):
+    headers = auth_headers(6013)
+    response = client.get("/api/notifications/6013", headers=headers)
     assert response.status_code == 200
     data = response.get_json()
     assert "notifications" in data
 
 
-def test_social_share_api_endpoint(client):
-    response = client.post("/api/social/share/6014", json={"platform": "telegram"})
+def test_social_share_api_endpoint(client, auth_headers):
+    headers = auth_headers(6014)
+    response = client.post("/api/social/share/6014", json={"platform": "telegram"}, headers=headers)
     assert response.status_code == 200
 
 
-def test_level_leaderboard_api_endpoint(client):
-    response = client.get("/api/leaderboard/level")
+def test_level_leaderboard_api_endpoint(client, auth_headers):
+    headers = auth_headers(9999)
+    response = client.get("/api/leaderboard/level", headers=headers)
     assert response.status_code == 200
 
 
-def test_leaderboard_rewards_api_endpoint(client):
-    response = client.get("/api/leaderboard/rewards/6015")
+def test_leaderboard_rewards_api_endpoint(client, auth_headers):
+    headers = auth_headers(6015)
+    response = client.get("/api/leaderboard/rewards/6015", headers=headers)
     assert response.status_code == 200
 
 
-def test_xp_add_api_endpoint(client):
-    response = client.post("/api/xp/add/6016", json={"amount": 50})
+def test_xp_add_api_endpoint(client, auth_headers):
+    headers = auth_headers(6016)
+    response = client.post("/api/xp/add/6016", json={"amount": 50}, headers=headers)
     assert response.status_code == 200
     data = response.get_json()
     assert data["success"] is True

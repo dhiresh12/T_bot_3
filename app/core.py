@@ -5,6 +5,7 @@ import logging
 import os
 import random
 import threading
+import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 from datetime import datetime, time, timezone
@@ -379,6 +380,7 @@ class BotEngine:
         self.users_collection = self.db.users
 
         self.users: Dict[int, UserProfile] = {}
+        self.sessions: Dict[int, Dict[str, str]] = {}
         # --- Admin configurable values ---
         self.bonus_value = 0.05
         self.admin_key = os.environ["ADMIN_KEY"]
@@ -390,7 +392,7 @@ class BotEngine:
         self.min_withdrawal = 10.0
         self.daily_ads_limit = 20
         self.daily_spin_limit = 1
-        self._user_locks: Dict[int, threading.Lock] = {}
+        self._user_locks: Dict[int, threading.RLock] = {}
         # Gift-based spin economy (spec: gifts with a "open" reveal + golden glow)
         self.spin_gifts = [
             {"name": "🎁 Mystery Gift", "coins": 500, "emoji": "🎁"},
@@ -728,6 +730,22 @@ class BotEngine:
         if user_id not in self._user_locks:
             self._user_locks[user_id] = threading.RLock()
         return self._user_locks[user_id]
+
+    def create_session(self, user_id: int) -> str:
+        token = str(uuid.uuid4())
+        self.sessions[user_id] = {
+            "token": token,
+            "created_at": self._get_utc_now().isoformat(),
+        }
+        return token
+
+    def verify_session(self, user_id: int, token: Optional[str]) -> bool:
+        if not token:
+            return False
+        session = self.sessions.get(user_id)
+        if not session:
+            return False
+        return session.get("token") == token
 
     def register_user(self, user_id: int, name: str, inviter_id: Optional[int] = None) -> UserProfile:
         with self._get_user_lock(user_id):

@@ -11,13 +11,93 @@ except ImportError:  # pragma: no cover - requests unavailable
 
 from app.telegram_bot import TelegramBotService
 from flask import Blueprint, current_app, jsonify, request, render_template_string
+import time
+from collections import defaultdict
+from datetime import datetime, timezone
 
 bp = Blueprint("main", __name__)
+
+_rate_limit_store: dict = defaultdict(list)
+_RATE_LIMIT_WINDOW = 60
+_RATE_LIMIT_MAX = 30
+
+
+def _check_rate_limit(key: str) -> bool:
+    now = time.time()
+    window_start = now - _RATE_LIMIT_WINDOW
+    _rate_limit_store[key] = [t for t in _rate_limit_store[key] if t > window_start]
+    if len(_rate_limit_store[key]) >= _RATE_LIMIT_MAX:
+        return False
+    _rate_limit_store[key].append(now)
+    return True
+
+
+def _get_user_id_from_request() -> tuple[int, str]:
+    user_id = request.view_args.get("user_id") if request.view_args else None
+    if user_id is None:
+        return 0, "Missing user_id"
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return 0, "Invalid user_id"
+    token = request.headers.get("X-User-Token")
+    engine = current_app.config.get("engine")
+    if not engine:
+        return user_id, "ok"
+    if not token:
+        return user_id, "Missing token"
+    if not engine.verify_session(user_id, token):
+        return user_id, "Invalid or expired session"
+    return user_id, "ok"
+
+
+def _require_auth_post(endpoint_name: str):
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            user_id, error = _get_user_id_from_request()
+            if error and error != "ok":
+                return jsonify({"error": f"Unauthorized: {error}"}), 401
+            if not _check_rate_limit(f"post:{user_id}:{endpoint_name}"):
+                return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+            return f(*args, **kwargs)
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return decorator
+
+
+def _require_auth_get(endpoint_name: str, sensitive: bool = False):
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            user_id, error = _get_user_id_from_request()
+            if sensitive and error and error != "ok":
+                return jsonify({"error": f"Unauthorized: {error}"}), 401
+            if sensitive and not _check_rate_limit(f"get:{user_id}:{endpoint_name}"):
+                return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+            return f(*args, **kwargs)
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return decorator
 
 
 @bp.get("/health")
 def health() -> tuple[dict, int]:
     return jsonify({"status": "ok"}), 200
+
+
+@bp.post("/api/auth/login")
+def login() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    user_id = payload.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid user_id"}), 400
+    current_engine.register_user(user_id, payload.get("name", "Guest"))
+    token = current_engine.create_session(user_id)
+    return jsonify({"token": token, "user_id": user_id}), 200
 
 
 @bp.get("/api/webhook/status")
@@ -105,6 +185,7 @@ def sections(user_id: int) -> tuple[dict, int]:
 
 # --- User-facing API Endpoints (Moved from mini_app.py) ---
 
+@_require_auth_post("bonus")
 @bp.post("/api/bonus/<int:user_id>")
 def bonus(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -116,6 +197,7 @@ def bonus(user_id: int) -> tuple[dict, int]:
     return jsonify({"message": reply, "wallet": profile.wallet_bot, "coins": profile.coins}), 200
 
 
+@_require_auth_get("profile", sensitive=True)
 @bp.get("/api/profile/<int:user_id>")
 def profile(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -132,6 +214,7 @@ def profile(user_id: int) -> tuple[dict, int]:
     ), 200
 
 
+@_require_auth_post("watch_ads")
 @bp.post("/api/ads/watch/<int:user_id>")
 def watch_ads(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -141,6 +224,7 @@ def watch_ads(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "wallet": profile.wallet_bot, "coins": profile.coins}), 200
 
 
+@_require_auth_post("complete_task")
 @bp.post("/api/tasks/complete/<int:user_id>/<task_id>")
 def complete_task(user_id: int, task_id: str) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -171,6 +255,7 @@ def help_endpoint(user_id: int) -> tuple[dict, int]:
     return jsonify(current_engine.get_help(language)), 200
 
 
+@_require_auth_get("dashboard", sensitive=True)
 @bp.get("/api/dashboard/<int:user_id>")
 def dashboard(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -210,6 +295,7 @@ def leaderboard() -> tuple[dict, int]:
     return jsonify(current_engine.get_leaderboard()), 200
 
 
+@_require_auth_post("withdraw")
 @bp.post("/api/withdraw/<int:user_id>")
 def withdraw(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -222,6 +308,7 @@ def withdraw(user_id: int) -> tuple[dict, int]:
     return jsonify({"message": message}), 200
 
 
+@_require_auth_post("spin")
 @bp.post("/api/spin/<int:user_id>")
 def spin(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -230,6 +317,7 @@ def spin(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "gift": gift, "value": gift.get("coins", 0) if gift else 0}), 200
 
 
+@_require_auth_post("redeem_more_ads")
 @bp.post("/api/ads/redeem-more-ads/<int:user_id>")
 def redeem_more_ads(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -253,6 +341,7 @@ def challenges(user_id: int) -> tuple[dict, int]:
     return jsonify({"challenges": challenges}), 200
 
 
+@_require_auth_post("complete_challenge")
 @bp.post("/api/challenges/complete/<int:user_id>/<challenge_id>")
 def complete_challenge(user_id: int, challenge_id: str) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -270,6 +359,7 @@ def achievements(user_id: int) -> tuple[dict, int]:
     return jsonify({"achievements": achievements}), 200
 
 
+@_require_auth_post("scratch")
 @bp.post("/api/scratch/<int:user_id>")
 def scratch(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -279,6 +369,7 @@ def scratch(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "coins": profile.coins, "scratch_cards_available": profile.scratch_cards_available, "data": data}), 200
 
 
+@_require_auth_post("claim_scratch")
 @bp.post("/api/scratch/claim-free/<int:user_id>")
 def claim_scratch(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -288,6 +379,7 @@ def claim_scratch(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "scratch_cards_available": profile.scratch_cards_available, "data": data}), 200
 
 
+@_require_auth_post("streak_insurance")
 @bp.post("/api/streak/insurance/<int:user_id>")
 def streak_insurance(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -305,6 +397,7 @@ def referral_tier(user_id: int) -> tuple[dict, int]:
     return jsonify(tier_info), 200
 
 
+@_require_auth_post("super_spin")
 @bp.post("/api/spin/super/<int:user_id>")
 def super_spin(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -314,6 +407,7 @@ def super_spin(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "gift": gift, "coins": profile.coins, "super_spins_available": profile.super_spins_available}), 200
 
 
+@_require_auth_post("mega_spin")
 @bp.post("/api/spin/mega/<int:user_id>")
 def mega_spin(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -323,6 +417,7 @@ def mega_spin(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "gift": gift, "coins": profile.coins, "mega_spins_available": profile.mega_spins_available}), 200
 
 
+@_require_auth_get("notifications", sensitive=True)
 @bp.get("/api/notifications/<int:user_id>")
 def notifications(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -332,6 +427,7 @@ def notifications(user_id: int) -> tuple[dict, int]:
     return jsonify({"notifications": notifs, "unread_count": unread}), 200
 
 
+@_require_auth_post("mark_notifications_read")
 @bp.post("/api/notifications/mark-read/<int:user_id>")
 def mark_notifications_read(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -340,6 +436,7 @@ def mark_notifications_read(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": True, "message": f"Marked {count} notifications as read.", "unread_count": 0}), 200
 
 
+@_require_auth_post("social_share")
 @bp.post("/api/social/share/<int:user_id>")
 def social_share(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -357,6 +454,7 @@ def level_leaderboard() -> tuple[dict, int]:
     return jsonify(current_engine.get_level_leaderboard()), 200
 
 
+@_require_auth_get("leaderboard_rewards", sensitive=True)
 @bp.get("/api/leaderboard/rewards/<int:user_id>")
 def leaderboard_rewards(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -365,6 +463,7 @@ def leaderboard_rewards(user_id: int) -> tuple[dict, int]:
     return jsonify(reward_info), 200
 
 
+@_require_auth_post("claim_leaderboard_reward")
 @bp.post("/api/leaderboard/claim-reward/<int:user_id>")
 def claim_leaderboard_reward(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -374,6 +473,7 @@ def claim_leaderboard_reward(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "coins": profile.coins, "xp": profile.xp, "data": data}), 200
 
 
+@_require_auth_post("add_xp")
 @bp.post("/api/xp/add/<int:user_id>")
 def add_xp(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -394,6 +494,7 @@ def shop_catalog() -> tuple[dict, int]:
     return jsonify(current_engine.get_shop_catalog()), 200
 
 
+@_require_auth_post("shop_redeem")
 @bp.post("/api/shop/redeem/<int:user_id>")
 def shop_redeem(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -407,6 +508,7 @@ def shop_redeem(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "item": item, "coins": profile.coins}), 200
 
 
+@_require_auth_post("exchange_coins")
 @bp.post("/api/shop/exchange-coins/<int:user_id>")
 def exchange_coins(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -419,6 +521,7 @@ def exchange_coins(user_id: int) -> tuple[dict, int]:
 
 # --- Social / Friend / Profile / Translation API Endpoints ---
 
+@_require_auth_post("send_friend_request")
 @bp.post("/api/friends/request/<int:user_id>")
 def send_friend_request(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -432,6 +535,7 @@ def send_friend_request(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message}), 200
 
 
+@_require_auth_post("accept_friend_request")
 @bp.post("/api/friends/accept/<int:user_id>")
 def accept_friend_request(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -444,6 +548,7 @@ def accept_friend_request(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message}), 200
 
 
+@_require_auth_post("reject_friend_request")
 @bp.post("/api/friends/reject/<int:user_id>")
 def reject_friend_request(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -456,6 +561,7 @@ def reject_friend_request(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message}), 200
 
 
+@_require_auth_get("friend_requests", sensitive=True)
 @bp.get("/api/friends/requests/<int:user_id>")
 def friend_requests(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -464,6 +570,7 @@ def friend_requests(user_id: int) -> tuple[dict, int]:
     return jsonify({"requests": requests}), 200
 
 
+@_require_auth_get("friends_list", sensitive=True)
 @bp.get("/api/friends/list/<int:user_id>")
 def friends_list(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -472,6 +579,7 @@ def friends_list(user_id: int) -> tuple[dict, int]:
     return jsonify({"friends": friends}), 200
 
 
+@_require_auth_post("update_bio")
 @bp.post("/api/profile/bio/<int:user_id>")
 def update_bio(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -516,6 +624,7 @@ def chat_history(user_id: int) -> tuple[dict, int]:
     return jsonify({"messages": messages}), 200
 
 
+@_require_auth_post("send_chat_message")
 @bp.post("/api/chat/send/<int:user_id>")
 def send_chat_message(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -537,6 +646,7 @@ def send_chat_message(user_id: int) -> tuple[dict, int]:
 
 # --- Popularity & Social Features API ---
 
+@_require_auth_post("claim_daily_popularity")
 @bp.post("/api/popularity/claim-daily/<int:user_id>")
 def claim_daily_popularity(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -546,6 +656,7 @@ def claim_daily_popularity(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "data": data}), 200
 
 
+@_require_auth_post("buy_popularity_coins")
 @bp.post("/api/popularity/buy-coins/<int:user_id>")
 def buy_popularity_coins(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -559,6 +670,7 @@ def buy_popularity_coins(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "coins": profile.coins, "data": data}), 200
 
 
+@_require_auth_post("buy_popularity_money")
 @bp.post("/api/popularity/buy-money/<int:user_id>")
 def buy_popularity_money(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -572,6 +684,7 @@ def buy_popularity_money(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "wallet_bot": profile.wallet_bot, "data": data}), 200
 
 
+@_require_auth_post("send_popularity")
 @bp.post("/api/popularity/send/<int:user_id>")
 def send_popularity(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -587,6 +700,7 @@ def send_popularity(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "popularity_points": profile.popularity_points, "data": data}), 200
 
 
+@_require_auth_post("like_profile")
 @bp.post("/api/profile/like/<int:user_id>")
 def like_profile(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -600,6 +714,7 @@ def like_profile(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "data": data}), 200
 
 
+@_require_auth_post("visit_profile")
 @bp.post("/api/profile/visit/<int:user_id>")
 def visit_profile(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -613,6 +728,7 @@ def visit_profile(user_id: int) -> tuple[dict, int]:
     return jsonify(data), 200
 
 
+@_require_auth_post("send_coins")
 @bp.post("/api/coins/send/<int:user_id>")
 def send_coins(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -628,6 +744,7 @@ def send_coins(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "coins": profile.coins, "data": data}), 200
 
 
+@_require_auth_post("update_privacy")
 @bp.post("/api/profile/privacy/<int:user_id>")
 def update_privacy(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -638,6 +755,7 @@ def update_privacy(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message}), 200
 
 
+@_require_auth_post("update_theme")
 @bp.post("/api/profile/theme/<int:user_id>")
 def update_theme(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -651,6 +769,7 @@ def update_theme(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": True, "message": f"Theme updated to {theme}.", "theme": theme}), 200
 
 
+@_require_auth_post("send_personal_message")
 @bp.post("/api/messages/send/<int:user_id>")
 def send_personal_message(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -665,6 +784,7 @@ def send_personal_message(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": msg}), 200
 
 
+@_require_auth_get("get_personal_messages", sensitive=True)
 @bp.get("/api/messages/<int:user_id>/with/<int:other_id>")
 def get_personal_messages(user_id: int, other_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -924,7 +1044,10 @@ def admin_edit_user(user_id: int) -> tuple[dict, int]:
 @bp.get("/admin")
 def admin_ui() -> str:
     """Renders the dedicated Admin Dashboard UI."""
-    # In a real app, this route would be protected by admin authentication.
+    admin_key = request.args.get("admin_key") or request.headers.get("X-Admin-Key")
+    engine = current_app.config.get("engine")
+    if not engine or not admin_key or admin_key != engine.admin_key:
+        return "Access Denied", 403
     
     ADMIN_HTML = """
     <!doctype html>
