@@ -342,19 +342,6 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="value">🎟️</div><div class="label">Scratch</div></div>
               <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="value">📊</div><div class="label">History</div></div>
             </div>
-                        <div class="section-title">Quick Access</div>
-            <div class="grid">
-              <div class="grid-card" onclick="showPage('tasks')" style="cursor:pointer;"><div class="value">📋</div><div class="label">Tasks</div></div>
-              <div class="grid-card" onclick="showPage('wallet')" style="cursor:pointer;"><div class="value">💰</div><div class="label">Withdraw</div></div>
-              <div class="grid-card" onclick="showPage('popularity')" style="cursor:pointer;"><div class="value">🔥</div><div class="label">Popularity</div></div>
-              <div class="grid-card" onclick="showPage('notifications')" style="cursor:pointer;"><div class="value">🔔</div><div class="label">Alerts</div></div>
-            </div>
-            <div class="grid">
-              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="value">⚡</div><div class="label">Challenges</div></div>
-              <div class="grid-card" onclick="showPage('achievements')" style="cursor:pointer;"><div class="value">🏆</div><div class="label">Badges</div></div>
-              <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="value">🎟️</div><div class="label">Scratch</div></div>
-              <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="value">📊</div><div class="label">History</div></div>
-            </div>
 
             <div class="section-title" data-translate-key="spin_title">🎁 Daily Gift Spin</div>
             <div class="wheel-container">
@@ -761,14 +748,14 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               return numeric ? numeric : '777';
             } catch (e) { return '777'; }
           }
-          const userId = (function(){
+          var userId = (function(){
             try {
               const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
               if (u && u.id) return u.id;
             } catch (e) {}
             return getOrCreateBrowserId();
           })();
-          const userName = (function(){
+          var userName = (function(){
             try {
               const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
               if (u && u.first_name) return u.first_name;
@@ -1539,7 +1526,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p>No challenges available.</p>';
                 return;
               }
-              list.innerHTML = data.challenges.map(ch => '<div class="challenge-item"><div class="em">' + (ch.completed ? '✅' : '⚡') + '</div><div class="info"><b>' + ch.title + '</b><p>' + ch.desc + ' • ' + ch.progress + '/' + ch.target + '</p><div class="challenge-progress"><div class="challenge-progress-fill" style="width:' + Math.min(100, (ch.progress / ch.target) * 100) + '%"></div></div></div>' + (ch.completed ? '<span class="completed-badge">✔ Done</span>' : '<button class="btn btn-sm btn-gold" onclick="completeChallenge('' + ch.id + '')">Claim</button>') + '</div>').join('');
+              list.innerHTML = data.challenges.map(ch => '<div class="challenge-item"><div class="em">' + (ch.completed ? '✅' : '⚡') + '</div><div class="info"><b>' + ch.title + '</b><p>' + ch.desc + ' • ' + ch.progress + '/' + ch.target + '</p><div class="challenge-progress"><div class="challenge-progress-fill" style="width:' + Math.min(100, (ch.progress / ch.target) * 100) + '%"></div></div></div>' + (ch.completed ? '<span class="completed-badge">✔ Done</span>' : '<button class="btn btn-sm btn-gold" onclick="completeChallenge(' + ch.id + ')">Claim</button>') + '</div>').join('');
             } catch (e) {}
           }
 
@@ -1664,7 +1651,7 @@ function showPage(pageName) {
               }
               list.innerHTML = data.requests.map(req => {
                 const fromProfile = window.__usersMap && window.__usersMap[req.from_user_id] ? window.__usersMap[req.from_user_id] : {name: 'User ' + req.from_user_id};
-                return '<div class=\"request-item\"><div class=\"em\">👤</div><div class=\"info\"><b>' + fromProfile.name + '</b><p>Sent you a friend request</p></div><button class=\"btn btn-sm btn-green\" onclick=\"acceptRequest(\'' + req.request_id + '\')\">Accept</button><button class=\"btn btn-sm\" onclick=\"rejectRequest(\'' + req.request_id + '\')\" style=\"margin-left:6px;background:#ef4444;\">Reject</button></div>';
+                return '<div class=\"request-item\"><div class=\"em\">👤</div><div class=\"info\"><b>' + fromProfile.name + '</b><p>Sent you a friend request</p></div><button class=\"btn btn-sm btn-green\" onclick=\"acceptRequest(' + req.request_id + ')\">Accept</button><button class=\"btn btn-sm\" onclick=\"rejectRequest(' + req.request_id + ')\" style=\"margin-left:6px;background:#ef4444;\">Reject</button></div>';
               }).join('');
             } catch (e) {}
           }
