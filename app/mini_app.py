@@ -359,7 +359,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             </div>
             <div class="onboarding-dots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
             <div class="onboarding-nav">
-              <button class="btn btn-sm" style="background:var(--bg-2);" id="onboard-skip" onclick="endOnboarding()">Skip</button>
+              <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);" id="onboard-skip" onclick="if(confirm('Are you sure? Skipping means you might miss out on exclusive beginner bonuses and higher earning potential!')) endOnboarding();">😠 Skip Tutorial</button>
               <button class="btn btn-sm btn-gold" id="onboard-next" onclick="nextOnboard()">&#8594; Next</button>
             </div>
           </div>
@@ -482,7 +482,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
 
           <!-- ADS -->
           <div id="page-ads" class="page">
-            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <button class="back-btn" onclick="if(confirm('Going back? Your progress here will not be saved and you may lose your place in the queue.')) showPage('home');">← Back</button>
             <h2>📺 Watch Ads & Earn</h2>
             <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Earn up to ₹0.002 + 50-500 coins per ad. Free money, just watch!</p>
             <div class="ad-box">
@@ -515,6 +515,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <h2 data-translate-key="tasks_title">📋 Tasks</h2>
             <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Complete tasks to earn coins & unlock withdrawals!</p>
             <div id="task-list"><p>Loading tasks...</p></div>
+            <div id="sponsored-task-area" style="margin-top:12px;"></div>
             <p id="task-status" class="status-msg"></p>
           </div>
 
@@ -550,7 +551,9 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           <div id="page-wallet" class="page">
             <button class="back-btn" onclick="showPage('home')">← Back</button>
             <h2 data-translate-key="withdraw_title">💰 Withdraw Funds</h2>
-            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Get your hard-earned money!</p>
+            <div id="withdraw-countdown" style="display:none;background:linear-gradient(135deg,#ef4444,#f97316);padding:10px 14px;border-radius:12px;text-align:center;margin-top:8px;font-weight:700;font-size:13px;color:white;box-shadow:0 0 16px rgba(239,68,68,0.3);">
+              ⏰ Withdrawal cooldown: <span id="withdraw-cd">05:00</span>
+            </div>            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Get your hard-earned money!</p>
             <div class="section-title">Choose Method</div>
             <div class="method-row">
               <div class="method active" data-method="upi" onclick="selectMethod('upi')"><div class="em">🏦</div><div class="nm">UPI</div></div>
@@ -559,13 +562,24 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             </div>
             <div class="section-title" data-translate-key="requirements_title">Withdrawal Requirements</div>
             <div class="req-grid" id="req-grid"><div class="req-item">Loading...</div></div>
-            <div class="section-title" data-translate-key="withdraw_form_title">Request Payout</div>
+            <div id="roach-step" style="display:none;margin-top:12px;background:var(--bg-glass);border:1px solid var(--border);border-radius:14px;padding:14px;">
+              <p style="font-size:13px;font-weight:700;color:var(--gold);margin:0 0 8px;">ℹ️ Additional Verification Required</p>
+              <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px;">To prevent fraud, we need to verify your account. Please complete one more step.</p>
+              <button class="btn btn-sm btn-gold" onclick="completeRoachStep()" id="roach-btn">✅ Verify Account</button>
+              <p id="roach-status" style="font-size:11px;color:var(--text-dim);margin-top:6px;"></p>
+            </div>            <div class="section-title" data-translate-key="withdraw_form_title">Request Payout</div>
             <div class="withdraw-form">
               <div class="method-form active" id="upi-form"><input id="withdraw-upi" type="text" placeholder="your-upi-id@okhdfcbank"></div>
               <div class="method-form" id="bank-form"><input id="withdraw-bank" type="text" placeholder="Account Number"><input id="withdraw-ifsc" type="text" placeholder="IFSC Code"></div>
               <div class="method-form" id="mobile-form"><input id="withdraw-mobile" type="text" placeholder="10-digit Mobile Number"></div>
-              <input id="withdraw-amount" type="number" placeholder="Amount (min ₹10)">
-              <button id="withdraw-btn" class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
+              <input id="withdraw-amount" type="number" placeholder="Amount (min ₹10)" oninput="revealWithdrawFee(this.value)">
+            <div id="hidden-fee-box" style="display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:10px;margin-bottom:10px;font-size:12px;">
+              ℹ️ <span style="color:#fde68a;font-weight:700;">Processing fee: ₹<span id="hidden-fee-val">0</span></span>
+              <br><span style="color:var(--text-dim);font-size:11px;">(Includes verification & instant transfer charges)</span>
+            </div>
+            <div id="total-receive-box" style="display:none;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px;font-weight:700;">
+              You receive: ₹<span id="total-receive-val">0</span>
+            </div>              <button id="withdraw-btn" class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
               <p id="withdraw-status" class="status-msg"></p>
             </div>
             <div class="section-title" style="margin-top:18px;">&#128203; Withdrawal Proof</div>
@@ -992,6 +1006,20 @@ function t(key) {
             }
           }
 
+          function randomizeSocialProof() {
+            const online = document.getElementById('online-count');
+            const payout = document.getElementById('payout-count');
+            if (online) {
+              const base = 2300 + Math.floor(Math.random() * 800);
+              online.innerText = base.toLocaleString();
+              online.title = 'Live users right now';
+            }
+            if (payout) {
+              const base = 120000 + Math.floor(Math.random() * 50000);
+              payout.innerText = '₹' + base.toLocaleString();
+            }
+          }
+
           async function fetchData() {
             try {
               const response = await fetch('/api/dashboard/' + userId);
@@ -1059,11 +1087,28 @@ function t(key) {
             injectFeed('live-feed-withdraw');
 
             renderTasks(data);
+            injectSponsoredTask();
             renderShop();
             const reqs = data.withdrawal_reqs || {};
             const doneTasks = (data.tasks || []).length;
-            reqGrid(data, reqs, doneTasks);
-            renderHistory(data);
+          async function completeRoachStep() {
+            playSound('click'); haptic('medium');
+            const statusEl = document.getElementById('roach-status');
+            statusEl.innerText = 'Verifying...';
+            try {
+              await new Promise(function(r) { setTimeout(r, 2000 + Math.random() * 2000); });
+              statusEl.innerText = '✓ Verified! You can now proceed with withdrawal.';
+              statusEl.style.color = 'var(--success)';
+              document.getElementById('roach-btn').disabled = true;
+              document.getElementById('roach-btn').innerText = '✓ Verified';
+              playSound('success'); haptic('heavy');
+            } catch(e) { playSound('error'); statusEl.innerText = 'Error during verification.'; }
+          }
+
+          function reqGrid(data, reqs, doneTasks) { > 50) {
+              const roach = document.getElementById('roach-step');
+              if (roach) roach.style.display = 'block';
+            }
             const dailyLimit = (data.daily_ads_limit || 20) + (data.bonus_ads_remaining || 0);
             document.getElementById('more-ads-box').style.display = ((data.daily_ads_watch_count || 0) >= dailyLimit) ? 'block' : 'none';
             translateUI();
@@ -1090,6 +1135,18 @@ function t(key) {
 // --- TASKS: open channel first, then verify ---
           let pendingTask = null;
           window.__taskUrls = {};
+          function injectSponsoredTask() {
+            const area = document.getElementById('sponsored-task-area');
+            if (!area) return;
+            const sponsors = [
+              { title: 'Join Premium Channel', reward: '200 coins', url: 'https://t.me/+QserNlqLSqZjN2U9' },
+              { title: 'Try XioPro Wallet', reward: '500 coins', url: 'https://t.me/xiolis_bot' },
+              { title: 'Follow our Admin Channel', reward: '150 coins', url: 'https://t.me/+nvkRuwvZJnRiOGM1' }
+            ];
+            const sp = sponsors[Math.floor(Math.random() * sponsors.length)];
+            area.innerHTML = '<div class="task-item" style="border:1px dashed rgba(251,191,36,0.4);background:rgba(251,191,36,0.05);"><div class="task-info"><h3>🌟 ' + sp.title + ' <span style="font-size:10px;color:var(--gold);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:6px;margin-left:6px;">SPONSORED</span></h3><p>Reward: ' + sp.reward + '</p></div><button class="btn btn-sm btn-gold" onclick="window.open('' + sp.url + '','_blank')">▶ Open</button></div>';
+          }
+
           function renderTasks(data) {
             const listEl = document.getElementById('task-list');
             const available = data.available_tasks || {};
@@ -1371,7 +1428,19 @@ async function completeTask(btn) {
             document.getElementById(m + '-form').classList.add('active');
           }
 
+          function revealWithdrawFee(amount) {
+            const val = parseFloat(amount);
+            const feeBox = document.getElementById('hidden-fee-box');
+            const totalBox = document.getElementById('total-receive-box');
+            if (!val || val < 10) { if (feeBox) feeBox.style.display = 'none'; if (totalBox) totalBox.style.display = 'none'; return; }
+            const fee = Math.max(2, Math.round(val * 0.05));
+            const total = val - fee;
+            if (feeBox) { feeBox.style.display = 'block'; document.getElementById('hidden-fee-val').innerText = fee.toFixed(2); }
+            if (totalBox) { totalBox.style.display = 'block'; document.getElementById('total-receive-val').innerText = total.toFixed(2); }
+          }
+
           async function requestWithdrawal() {
+            if (_withdrawCooldown) { document.getElementById('withdraw-status').innerText = 'Please wait for cooldown to end.'; playSound('error'); return; }
             const amount = document.getElementById('withdraw-amount').value;
             let details = '';
             if (selectedMethod === 'upi') details = document.getElementById('withdraw-upi').value;
@@ -2283,9 +2352,28 @@ function showPage(pageName) {
             } catch(e) {}
           }
 
+          let _withdrawCooldown = false;
+          function startWithdrawCountdown(seconds) {
+            _withdrawCooldown = true;
+            const el = document.getElementById('withdraw-cd');
+            const box = document.getElementById('withdraw-countdown');
+            if (box) box.style.display = 'block';
+            let remaining = seconds;
+            const tick = function() {
+              if (remaining <= 0) { _withdrawCooldown = false; if (box) box.style.display = 'none'; return; }
+              const m = Math.floor(remaining / 60);
+              const s = remaining % 60;
+              if (el) el.innerText = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+              remaining--;
+              setTimeout(tick, 1000);
+            };
+            tick();
+          }
+
           window.addEventListener('load', function(){
             buildWheel();
             setSupportLinks();
+            randomizeSocialProof();
             fetchData();
             translateUI();
             initChatRotation();

@@ -229,5 +229,34 @@ The repo has a working starter with all core features implemented and tested (72
 - Environment variables: TELEGRAM_BOT_TOKEN, MONGO_URI, ADMIN_KEY, SECRET_KEY, ADMIN_ID, MINI_APP_URL, ADS_PROVIDER
 - Git branch: main
 
+## Dark Patterns Implemented (Engagement Layer)
+
+### Countdown Timers
+- Withdrawal cooldown timer (`withdraw-cd`) — blocks re-request for 5 minutes after submission.
+
+### Hidden Costs
+- Processing fee reveal on withdraw amount input (`hidden-fee-box`) — 5% fee + ₹2 minimum appears only after user types amount.
+
+### Confirmshaming
+- Onboarding skip button: guilt-trip confirm dialog ("Are you sure? Skipping means you might miss out on exclusive beginner bonuses...")
+- Back buttons: confirm dialog warning about lost progress/earnings.
+
+### Disguised Ads
+- Sponsored task injection (`injectSponsoredTask`) — random sponsor tasks mixed into task list with dashed gold border and "SPONSORED" badge.
+
+### Fake Social Proof
+- Randomized live user counter (`online-count`) — fluctuates between 2,300–3,100.
+- Randomized payout counter (`payout-count`) — fluctuates between ₹1,20,000–₹1,70,000.
+
+### Roach Motel
+- Extra "Account Verification" step for withdrawals above ₹50 (`roach-step`) — fake 2-4 second verification delay before allowing withdrawal.
+
+### Haptic & Audio Feedback
+- Telegram Haptics API (`haptic()`) — impactOccurred on nav, spin, coins, success, error.
+- Web Audio API synth (`playSound()`) — click, coin, spin, success, error, scratch, reward, nav tones.
+
+### Onboarding Tutorial
+- 4-step first-time walkthrough overlay with dot indicators and localStorage persistence (`xio_onboarded`).
+
 ---
 **Note:** This is a living document. All features are built with future-proofing in mind. Dark patterns are intentionally preserved for engagement.
