@@ -1091,30 +1091,25 @@ function t(key) {
             renderShop();
             const reqs = data.withdrawal_reqs || {};
             const doneTasks = (data.tasks || []).length;
-          async function completeRoachStep() {
-            playSound('click'); haptic('medium');
-            const statusEl = document.getElementById('roach-status');
-            statusEl.innerText = 'Verifying...';
-            try {
-              await new Promise(function(r) { setTimeout(r, 2000 + Math.random() * 2000); });
-              statusEl.innerText = '✓ Verified! You can now proceed with withdrawal.';
-              statusEl.style.color = 'var(--success)';
-              document.getElementById('roach-btn').disabled = true;
-              document.getElementById('roach-btn').innerText = '✓ Verified';
-              playSound('success'); haptic('heavy');
-            } catch(e) { playSound('error'); statusEl.innerText = 'Error during verification.'; }
-          }
+                reqGrid(data, reqs, doneTasks);
+                renderHistory(data);
+              }
 
-          function reqGrid(data, reqs, doneTasks) { > 50) {
-              const roach = document.getElementById('roach-step');
-              if (roach) roach.style.display = 'block';
+            async function completeRoachStep() {
+             playSound('click'); haptic('medium');
+             const statusEl = document.getElementById('roach-status');
+             statusEl.innerText = 'Verifying...';
+             try {
+               await new Promise(function(r) { setTimeout(r, 2000 + Math.random() * 2000); });
+               statusEl.innerText = '✓ Verified! You can now proceed with withdrawal.';
+               statusEl.style.color = 'var(--success)';
+               document.getElementById('roach-btn').disabled = true;
+               document.getElementById('roach-btn').innerText = '✓ Verified';
+               playSound('success'); haptic('heavy');
+             } catch(e) { playSound('error'); statusEl.innerText = 'Error during verification.'; }
             }
-            const dailyLimit = (data.daily_ads_limit || 20) + (data.bonus_ads_remaining || 0);
-            document.getElementById('more-ads-box').style.display = ((data.daily_ads_watch_count || 0) >= dailyLimit) ? 'block' : 'none';
-            translateUI();
-          }
 
-          function reqGrid(data, reqs, doneTasks) {
+            function reqGrid(data, reqs, doneTasks) {
             const invites = data.invites || 0;
             const ads = data.completed_ads || 0;
             const items = [
