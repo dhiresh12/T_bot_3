@@ -100,6 +100,36 @@ def login() -> tuple[dict, int]:
     return jsonify({"token": token, "user_id": user_id}), 200
 
 
+@bp.post("/api/auth/telegram")
+def telegram_auth() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    init_data = payload.get("init_data", "")
+    hash_value = payload.get("hash", "")
+    if not init_data or not hash_value:
+        return jsonify({"error": "Missing init_data or hash"}), 400
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not bot_token:
+        return jsonify({"error": "Server misconfigured: missing TELEGRAM_BOT_TOKEN"}), 500
+    if not current_engine.security.verify_telegram_init_data(init_data, hash_value, bot_token):
+        return jsonify({"error": "Invalid Telegram authentication"}), 401
+    try:
+        data_dict = dict(pair.split("=") for pair in init_data.split("&") if "=" in pair)
+    except Exception:
+        return jsonify({"error": "Invalid init_data format"}), 400
+    user_id = data_dict.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Missing user_id in init_data"}), 400
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid user_id"}), 400
+    first_name = data_dict.get("first_name", "TelegramUser")
+    current_engine.register_user(user_id, first_name)
+    token = current_engine.create_session(user_id)
+    return jsonify({"token": token, "user_id": user_id, "name": first_name}), 200
+
+
 @bp.get("/api/webhook/status")
 def webhook_status() -> tuple[dict, int]:
     """Reports whether the Telegram webhook is registered and the bot token is set."""
@@ -327,6 +357,49 @@ def redeem_more_ads(user_id: int) -> tuple[dict, int]:
     success, message = current_engine.redeem_more_ads(user_id, code)
     profile = current_engine.get_profile(user_id)
     return jsonify({"success": success, "message": message, "daily_ads_watch_count": profile.daily_ads_watch_count, "coins": profile.coins}), 200
+
+
+@bp.post("/api/ads/verify")
+def verify_ad() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    ad_unit_id = payload.get("ad_unit_id")
+    user_id = payload.get("user_id")
+    provider_data = payload.get("provider_data")
+    if not ad_unit_id or not user_id:
+        return jsonify({"error": "Missing ad_unit_id or user_id"}), 400
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid user_id"}), 400
+    current_engine.register_user(user_id, "Guest")
+    ads_manager = current_app.config.get("ads_manager")
+    if not ads_manager:
+        ads_manager = current_engine.ads_manager if hasattr(current_engine, "ads_manager") else None
+    if not ads_manager:
+        return jsonify({"error": "Ads manager not configured"}), 500
+    result = ads_manager.verify_ad_completion(ad_unit_id, user_id, provider_data)
+    if result.get("valid"):
+        profile = current_engine.get_profile(user_id)
+        profile.coins += result.get("reward_coins", 0)
+        profile.total_ads_watched += 1
+        profile.daily_ads_watch_count += 1
+        profile.log_activity("ad_verified", {"ad_unit_id": ad_unit_id, "reward_coins": result.get("reward_coins", 0), "reward_money": result.get("reward_money", 0.0)})
+        current_engine._save_user(profile)
+        return jsonify({"success": True, "coins": profile.coins, "reward_coins": result.get("reward_coins", 0), "reward_money": result.get("reward_money", 0.0)}), 200
+    return jsonify({"success": False, "reason": result.get("reason", "invalid"), "reward_coins": 0, "reward_money": 0.0}), 400
+
+
+@bp.get("/api/ads/unit/<int:user_id>")
+def get_ad_unit(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    ads_manager = current_app.config.get("ads_manager")
+    if not ads_manager:
+        return jsonify({"error": "Ads manager not configured"}), 500
+    ad_index = current_engine.get_profile(user_id).total_ads_watched
+    payload = ads_manager.build_verification_payload(user_id, ad_index)
+    return jsonify(payload), 200
 
 
 
@@ -908,6 +981,62 @@ def admin_command_bonus() -> tuple[dict, int]:
     return jsonify({"success": True, "message": f"Bonus value updated to '{current_engine.bonus_value}'."}), 200
 
 
+@bp.post("/api/admin/broadcast")
+def admin_broadcast() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    message = payload.get("message", "")
+    sender_id = payload.get("sender_id")
+    if not message:
+        return jsonify({"error": "Missing 'message' in request body."}), 400
+    try:
+        sender_id = int(sender_id) if sender_id is not None else 0
+    except (TypeError, ValueError):
+        sender_id = 0
+
+    result = current_engine.broadcast_message(message, sender_id)
+    return jsonify(result), 200
+
+
+@bp.post("/api/admin/ban/<int:user_id>")
+def admin_ban_user(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    reason = payload.get("reason", "")
+    success, message = current_engine.ban_user(user_id, reason)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.post("/api/admin/unban/<int:user_id>")
+def admin_unban_user(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+
+    success, message = current_engine.unban_user(user_id)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.post("/api/admin/kick/<int:user_id>")
+def admin_kick_user(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+
+    success, message = current_engine.kick_user(user_id)
+    return jsonify({"success": success, "message": message}), 200
+
+
 @bp.post("/api/admin/backup")
 def admin_backup() -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -1095,7 +1224,7 @@ def admin_ui() -> str:
           <div class="card">
             <input type="text" id="user-search" placeholder="Search by User ID or Name..." onkeyup="filterUsers()" style="width: 98%; margin-bottom: 12px;">
             <table id="users-table">
-              <thead><tr><th>User ID</th><th>Name</th><th>Coins</th><th>Invites</th><th>Admin?</th></tr></thead>
+              <thead><tr><th>User ID</th><th>Name</th><th>Coins</th><th>Invites</th><th>Admin?</th><th>Actions</th></tr></thead>
               <tbody><tr><td colspan="6">Loading...</td></tr></tbody>
             </table>
           </div>
@@ -1193,8 +1322,32 @@ def admin_ui() -> str:
                 <td><input type="number" value="${"{"}user.coins{"}"}" onchange="updateUserField(${"{"}user.user_id{"}"}, 'coins', this.value, 'number')"></td>
                 <td><input type="number" value="${"{"}user.invite_count{"}"}" onchange="updateUserField(${"{"}user.user_id{"}"}, 'invite_count', this.value, 'number')"></td>
                 <td><input type="checkbox" ${"{"}user.is_admin ? 'checked' : ''{"}"} onchange="updateUserField(${"{"}user.user_id{"}"}, 'admin', this.checked, 'boolean')"></td>
+                <td><button class="button" style="background:#ef4444;" onclick="banUser(${"{"}user.user_id{"}"})">Ban</button> <button class="button" style="background:#f59e0b;" onclick="kickUser(${"{"}user.user_id{"}"})">Kick</button></td>
               </tr>
             `).join('');
+          }
+
+          async function banUser(userId) {
+            const reason = prompt('Ban reason:');
+            if (!reason) return;
+            try {
+              const result = await api('/api/admin/ban/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+              });
+              alert(result.message);
+              loadUsers();
+            } catch (e) { alert('Ban failed'); }
+          }
+
+          async function kickUser(userId) {
+            if (!confirm('Are you sure you want to kick this user?')) return;
+            try {
+              const result = await api('/api/admin/kick/' + userId, { method: 'POST' });
+              alert(result.message);
+              loadUsers();
+            } catch (e) { alert('Kick failed'); }
           }
 
           function filterUsers() {
@@ -1291,9 +1444,18 @@ def admin_ui() -> str:
           }
 
           function sendBroadcast() {
-              // This is a placeholder as the backend doesn't have a real broadcast mechanism yet.
-              const message = document.getElementById('broadcast-message').value;
-              document.getElementById('broadcast-status').innerText = `Broadcast functionality is not yet implemented. Message: "${"{"}message{"}"}"`;
+            const message = document.getElementById('broadcast-message').value;
+            if (!message) { alert('Please enter a message.'); return; }
+            api('/api/admin/broadcast', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: message, sender_id: 0 })
+            }).then(result => {
+              document.getElementById('broadcast-status').innerText = result.message || 'Broadcast sent!';
+              document.getElementById('broadcast-message').value = '';
+            }).catch(err => {
+              document.getElementById('broadcast-status').innerText = 'Broadcast failed: ' + err.message;
+            });
           }
 
           async function loadNewUsersChart() {

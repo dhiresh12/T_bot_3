@@ -387,7 +387,9 @@ class BotEngine:
         self.engagement = EngagementLayer()
         self.support = SupportService()
         self.admin_service = AdminPanelService(self)
-        self.security = SecurityManager()  # Phase 2: Integrate SecurityManager
+        self.security = SecurityManager()
+        from app.ads import AdsManager
+        self.ads_manager = AdsManager(provider=os.getenv("ADS_PROVIDER", "admob"))
         self.spin_values = [0.0, 0.10, 0.15, 0.20]
         self.min_withdrawal = 10.0
         self.daily_ads_limit = 20
@@ -1582,6 +1584,64 @@ class BotEngine:
             if activity.get("action") == "personal_message_received" and activity.get("from_user_id") == other_user_id:
                 messages.append(activity)
         return messages
+
+    # --- Ad Verification ---
+
+    def verify_ad_completion(self, user_id: int, ad_unit_id: str, provider_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        result = self.ads_manager.verify_ad_completion(ad_unit_id, user_id, provider_data)
+        if result.get("valid"):
+            profile = self.get_profile(user_id)
+            profile.coins += result.get("reward_coins", 0)
+            profile.total_ads_watched += 1
+            profile.daily_ads_watch_count += 1
+            profile.log_activity("ad_verified", {"ad_unit_id": ad_unit_id, "reward_coins": result.get("reward_coins", 0), "reward_money": result.get("reward_money", 0.0)})
+            self._save_user(profile)
+        return result
+
+    def get_ad_unit(self, user_id: int) -> Dict[str, Any]:
+        ad_index = self.get_profile(user_id).total_ads_watched
+        return self.ads_manager.build_verification_payload(user_id, ad_index)
+
+    # --- User Ban/Kick System ---
+
+    def ban_user(self, user_id: int, reason: str = "") -> tuple[bool, str]:
+        profile = self.get_profile(user_id)
+        profile.admin = False
+        profile.log_activity("ban", {"reason": reason[:200]})
+        self._save_user(profile)
+        return True, f"User {user_id} has been banned."
+
+    def unban_user(self, user_id: int) -> tuple[bool, str]:
+        profile = self.get_profile(user_id)
+        profile.admin = False
+        profile.log_activity("unban", {})
+        self._save_user(profile)
+        return True, f"User {user_id} has been unbanned."
+
+    def kick_user(self, user_id: int) -> tuple[bool, str]:
+        if user_id in self.users:
+            del self.users[user_id]
+            return True, f"User {user_id} has been kicked."
+        return False, f"User {user_id} not found."
+
+    def is_banned(self, user_id: int) -> bool:
+        profile = self.get_profile(user_id)
+        return getattr(profile, "banned", False)
+
+    # --- Broadcast Messaging ---
+
+    def broadcast_message(self, message: str, sender_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(sender_id)
+        if not profile.admin:
+            return {"success": False, "message": "Only admins can broadcast messages.", "sent_count": 0}
+        sent_count = 0
+        for user_id in list(self.users.keys()):
+            try:
+                self.add_notification(user_id, "📢 Broadcast", message[:500], {"type": "broadcast", "from_admin": sender_id})
+                sent_count += 1
+            except Exception:
+                continue
+        return {"success": True, "message": f"Broadcast sent to {sent_count} users.", "sent_count": sent_count}
 
     # --- New Features: Shop effect handlers for new items ---
 

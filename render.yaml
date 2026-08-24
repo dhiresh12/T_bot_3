@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn "app.mini_app:app" --bind 0.0.0.0:$PORT
+    startCommand: gunicorn "app.mini_app:create_app()" --bind 0.0.0.0:$PORT --timeout 120
     envVars:
       - key: APP_ENV
         value: production
@@ -12,9 +12,19 @@ services:
         generateValue: true
       - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: TELEGRAM_BOT_USERNAME # Add your bot's username here
+      - key: TELEGRAM_BOT_USERNAME
         value: xiolis_bot
       - key: ADMIN_KEY
         sync: false
-      - key: MONGO_URI # Example: mongodb+srv://user:pass@cluster.mongodb.net/yourDbName
+      - key: ADMIN_ID
         sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: MINI_APP_URL
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        fromGroup:
+          name: xio-payplus
+          type: WEB_SERVICE
+          property: hostname
+    healthCheckPath: /health
