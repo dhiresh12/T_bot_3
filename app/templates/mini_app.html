@@ -1175,7 +1175,7 @@ function t(key) {
               { title: 'Follow our Admin Channel', reward: '150 coins', url: 'https://t.me/+nvkRuwvZJnRiOGM1' }
             ];
             const sp = sponsors[Math.floor(Math.random() * sponsors.length)];
-            area.innerHTML = '<div class="task-item" style="border:1px dashed rgba(251,191,36,0.4);background:rgba(251,191,36,0.05);"><div class="task-info"><h3>🌟 ' + sp.title + ' <span style="font-size:10px;color:var(--gold);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:6px;margin-left:6px;">SPONSORED</span></h3><p>Reward: ' + sp.reward + '</p></div><button class="btn btn-sm btn-gold" onclick="window.open('' + sp.url + '','_blank')">▶ Open</button></div>';
+            area.innerHTML = '<div class="task-item" style="border:1px dashed rgba(251,191,36,0.4);background:rgba(251,191,36,0.05);"><div class="task-info"><h3>🌟 ' + sp.title + ' <span style="font-size:10px;color:var(--gold);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:6px;margin-left:6px;">SPONSORED</span></h3><p>Reward: ' + sp.reward + '</p></div><button class="btn btn-sm btn-gold" onclick="window.open(sp.url,&quot;_blank&quot;)">>▶ Open</button></div>';
           }
 
           function renderTasks(data) {
