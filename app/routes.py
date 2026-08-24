@@ -230,6 +230,162 @@ def spin(user_id: int) -> tuple[dict, int]:
     return jsonify({"success": success, "message": message, "gift": gift, "value": gift.get("coins", 0) if gift else 0}), 200
 
 
+@bp.post("/api/ads/redeem-more-ads/<int:user_id>")
+def redeem_more_ads(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    code = payload.get("code", "")
+    current_engine.register_user(user_id, "Guest")
+    success, message = current_engine.redeem_more_ads(user_id, code)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "daily_ads_watch_count": profile.daily_ads_watch_count, "coins": profile.coins}), 200
+
+
+
+
+# --- New Features API Endpoints ---
+
+@bp.get("/api/challenges/<int:user_id>")
+def challenges(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    challenges = current_engine.get_daily_challenges(user_id)
+    return jsonify({"challenges": challenges}), 200
+
+
+@bp.post("/api/challenges/complete/<int:user_id>/<challenge_id>")
+def complete_challenge(user_id: int, challenge_id: str) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.complete_daily_challenge(user_id, challenge_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "coins": profile.coins, "xp": profile.xp, "data": data}), 200
+
+
+@bp.get("/api/achievements/<int:user_id>")
+def achievements(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    achievements = current_engine.get_achievements(user_id)
+    return jsonify({"achievements": achievements}), 200
+
+
+@bp.post("/api/scratch/<int:user_id>")
+def scratch(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.scratch_card(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "coins": profile.coins, "scratch_cards_available": profile.scratch_cards_available, "data": data}), 200
+
+
+@bp.post("/api/scratch/claim-free/<int:user_id>")
+def claim_scratch(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.claim_scratch_card(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "scratch_cards_available": profile.scratch_cards_available, "data": data}), 200
+
+
+@bp.post("/api/streak/insurance/<int:user_id>")
+def streak_insurance(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message = current_engine.use_streak_insurance(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "streak_insurance": profile.streak_insurance, "snap_streak": profile.snap_streak}), 200
+
+
+@bp.get("/api/referral/tier/<int:user_id>")
+def referral_tier(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    tier_info = current_engine.process_referral_tier_upgrade(user_id)
+    return jsonify(tier_info), 200
+
+
+@bp.post("/api/spin/super/<int:user_id>")
+def super_spin(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, gift = current_engine.super_spin(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "gift": gift, "coins": profile.coins, "super_spins_available": profile.super_spins_available}), 200
+
+
+@bp.post("/api/spin/mega/<int:user_id>")
+def mega_spin(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, gift = current_engine.mega_spin(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "gift": gift, "coins": profile.coins, "mega_spins_available": profile.mega_spins_available}), 200
+
+
+@bp.get("/api/notifications/<int:user_id>")
+def notifications(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    notifs = current_engine.get_notifications(user_id)
+    unread = current_engine.get_profile(user_id).unread_notifications
+    return jsonify({"notifications": notifs, "unread_count": unread}), 200
+
+
+@bp.post("/api/notifications/mark-read/<int:user_id>")
+def mark_notifications_read(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    count = current_engine.mark_notifications_read(user_id)
+    return jsonify({"success": True, "message": f"Marked {count} notifications as read.", "unread_count": 0}), 200
+
+
+@bp.post("/api/social/share/<int:user_id>")
+def social_share(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    platform = payload.get("platform", "telegram")
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.share_social(user_id, platform)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "coins": profile.coins, "xp": profile.xp, "data": data}), 200
+
+
+@bp.get("/api/leaderboard/level")
+def level_leaderboard() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    return jsonify(current_engine.get_level_leaderboard()), 200
+
+
+@bp.get("/api/leaderboard/rewards/<int:user_id>")
+def leaderboard_rewards(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    reward_info = current_engine.check_leaderboard_rewards(user_id)
+    return jsonify(reward_info), 200
+
+
+@bp.post("/api/leaderboard/claim-reward/<int:user_id>")
+def claim_leaderboard_reward(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.claim_leaderboard_reward(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "coins": profile.coins, "xp": profile.xp, "data": data}), 200
+
+
+@bp.post("/api/xp/add/<int:user_id>")
+def add_xp(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    amount = int(payload.get("amount", 0))
+    current_engine.register_user(user_id, "Guest")
+    if amount <= 0:
+        return jsonify({"error": "Invalid XP amount."}), 400
+    result = current_engine.add_xp(user_id, amount)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": True, "xp": profile.xp, "level": profile.level, "data": result}), 200
+
 # --- Shop API endpoints ---
 
 @bp.get("/api/shop/catalog")
@@ -249,6 +405,134 @@ def shop_redeem(user_id: int) -> tuple[dict, int]:
     success, message, item = current_engine.redeem_shop_item(user_id, item_id)
     profile = current_engine.get_profile(user_id)
     return jsonify({"success": success, "message": message, "item": item, "coins": profile.coins}), 200
+
+
+@bp.post("/api/shop/exchange-coins/<int:user_id>")
+def exchange_coins(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.exchange_coins_to_money(user_id)
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"success": success, "message": message, "wallet_bot": profile.wallet_bot, "coins": profile.coins, "data": data}), 200
+
+
+
+# --- Social / Friend / Profile / Translation API Endpoints ---
+
+@bp.post("/api/friends/request/<int:user_id>")
+def send_friend_request(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    to_user_id = payload.get("to_user_id")
+    if not to_user_id:
+        return jsonify({"error": "Missing 'to_user_id' in request body."}), 400
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(to_user_id, "Guest")
+    success, message = current_engine.send_friend_request(user_id, to_user_id)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.post("/api/friends/accept/<int:user_id>")
+def accept_friend_request(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    request_id = payload.get("request_id")
+    if not request_id:
+        return jsonify({"error": "Missing 'request_id' in request body."}), 400
+    current_engine.register_user(user_id, "Guest")
+    success, message = current_engine.accept_friend_request(user_id, request_id)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.post("/api/friends/reject/<int:user_id>")
+def reject_friend_request(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    request_id = payload.get("request_id")
+    if not request_id:
+        return jsonify({"error": "Missing 'request_id' in request body."}), 400
+    current_engine.register_user(user_id, "Guest")
+    success, message = current_engine.reject_friend_request(user_id, request_id)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.get("/api/friends/requests/<int:user_id>")
+def friend_requests(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    requests = current_engine.get_friend_requests(user_id)
+    return jsonify({"requests": requests}), 200
+
+
+@bp.get("/api/friends/list/<int:user_id>")
+def friends_list(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    friends = current_engine.get_friends(user_id)
+    return jsonify({"friends": friends}), 200
+
+
+@bp.post("/api/profile/bio/<int:user_id>")
+def update_bio(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    bio = payload.get("bio", "")
+    current_engine.register_user(user_id, "Guest")
+    success, message = current_engine.update_bio(user_id, bio)
+    return jsonify({"success": success, "message": message}), 200
+
+
+@bp.get("/api/profile/view/<int:user_id>/<int:target_id>")
+def view_profile(user_id: int, target_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    current_engine.register_user(target_id, "Guest")
+    profile = current_engine.get_public_profile(user_id, target_id)
+    return jsonify(profile), 200
+
+
+@bp.post("/api/translate")
+def translate() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    text = payload.get("text", "")
+    from_lang = payload.get("from_lang", "en")
+    to_lang = payload.get("to_lang", "en")
+    if not text:
+        return jsonify({"error": "Missing 'text' in request body."}), 400
+    result = current_engine.translate_text(text, from_lang, to_lang)
+    return jsonify(result), 200
+
+
+@bp.get("/api/chat/history/<int:user_id>")
+def chat_history(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    profile = current_engine.get_profile(user_id)
+    messages = []
+    for activity in profile.activity_log[-50:]:
+        if activity.get("action") in ["chat_message", "voice_message"]:
+            messages.append(activity)
+    return jsonify({"messages": messages}), 200
+
+
+@bp.post("/api/chat/send/<int:user_id>")
+def send_chat_message(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    message = payload.get("message", "")
+    message_type = payload.get("type", "text")
+    if not message:
+        return jsonify({"error": "Missing 'message' in request body."}), 400
+    current_engine.register_user(user_id, "Guest")
+    profile = current_engine.get_profile(user_id)
+    profile.log_activity("chat_message" if message_type == "text" else "voice_message", {
+        "message": message[:500],
+        "user_id": user_id,
+        "name": profile.name,
+    })
+    current_engine._save_user(profile)
+    return jsonify({"success": True, "message": "Message sent."}), 200
 
 
 # --- Admin API Endpoints (New/Moved) ---
@@ -406,7 +690,7 @@ def admin_approve_withdrawal() -> tuple[dict, int]:
     if not admin_key or admin_key != current_engine.admin_key:
         return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
 
-    admin_id = 1 # We still need an admin ID to log who approved it.
+    admin_id = int(os.getenv("ADMIN_ID", 1))
     payload = request.get_json(silent=True) or {}
     user_id = payload.get("user_id")
     request_id = payload.get("request_id")
@@ -608,13 +892,13 @@ def admin_ui() -> str:
 
         <script>
           async function api(url, options = {}) {
-            const adminKey = localStorage.getItem('adminKey') || 'admin-xio';
-            const defaultOptions = { headers: { 'X-Admin-Key': adminKey } };
-            const mergedOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
-            const response = await fetch(url, mergedOptions);
-            if (!response.ok) throw new Error(`API Error: ${"{"}response.status{"}"}`);
-            return response.json();
-          }
+             const adminKey = localStorage.getItem('adminKey');
+             const defaultOptions = { headers: { 'X-Admin-Key': adminKey } };
+             const mergedOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+             const response = await fetch(url, mergedOptions);
+             if (!response.ok) throw new Error(`API Error: ${"{"}response.status{"}"}`);
+             return response.json();
+           }
 
           async function loadDashboard() {
             const data = await api('/api/admin/dashboard');

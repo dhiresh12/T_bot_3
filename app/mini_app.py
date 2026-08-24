@@ -174,6 +174,77 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           .shop-item .info b { font-size:15px; }
           .shop-item .info p { margin:2px 0 0; font-size:12px; color:var(--text-muted); }
           .shop-item .price { color:var(--gold); font-weight:700; font-size:13px; }
+
+          .challenge-item { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:12px; display:flex; align-items:center; gap:12px; }
+          .challenge-item .em { font-size:28px; }
+          .challenge-item .info { flex:1; }
+          .challenge-item .info b { font-size:14px; }
+          .challenge-item .info p { margin:2px 0 0; font-size:12px; color:var(--text-muted); }
+          .challenge-progress { height:8px; background:rgba(255,255,255,0.1); border-radius:4px; margin-top:8px; overflow:hidden; }
+          .challenge-progress-fill { height:100%; background:linear-gradient(90deg,#84cc16,#facc15); border-radius:4px; transition:width 0.6s; }
+          .achievement-item { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:10px; display:flex; align-items:center; gap:12px; opacity:0.5; }
+          .achievement-item.unlocked { opacity:1; border:1px solid rgba(245,158,11,0.4); }
+          .achievement-item .em { font-size:32px; }
+          .achievement-item .info { flex:1; }
+          .achievement-item .info b { font-size:14px; }
+          .achievement-item .info p { margin:2px 0 0; font-size:12px; color:var(--text-muted); }
+          .scratch-area { text-align:center; padding:30px 16px; background:linear-gradient(135deg,#1e293b,#0f172a); border:1px solid #334155; border-radius:16px; margin-top:8px; }
+          .scratch-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px; }
+          .scratch-card { background:linear-gradient(135deg,#f59e0b,#ef4444); border-radius:14px; padding:20px; text-align:center; cursor:pointer; font-size:36px; transition:transform 0.2s; position:relative; }
+          .scratch-card:hover { transform:scale(1.05); }
+          .scratch-card.revealed { background:var(--bg-light); border:2px solid var(--gold); }
+          .notif-bell { position:relative; }
+          .notif-badge { position:absolute; top:-4px; right:-4px; background:var(--danger); color:white; border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+          .notif-dropdown { display:none; position:absolute; top:50px; right:0; width:320px; background:var(--bg-light); border:1px solid #334155; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,0.5); z-index:200; max-height:400px; overflow-y:auto; }
+          .notif-dropdown.show { display:block; }
+          .notif-item { padding:12px 14px; border-bottom:1px solid #334155; font-size:13px; }
+          .notif-item.unread { background:rgba(59,130,246,0.1); }
+          .notif-item .notif-title { font-weight:700; color:var(--primary); }
+          .notif-item .notif-time { font-size:11px; color:var(--text-muted); }
+          .level-bar { display:flex; align-items:center; gap:8px; margin-top:8px; }
+          .level-bar .level-icon { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#60a5fa); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; }
+          .level-bar .level-info { flex:1; }
+          .level-bar .xp-bar { height:6px; background:rgba(255,255,255,0.2); border-radius:4px; overflow:hidden; }
+          .level-bar .xp-fill { height:100%; background:linear-gradient(90deg,#3b82f6,#84cc16); border-radius:4px; transition:width 0.6s; }
+          .social-share-btn { display:flex; align-items:center; gap:10px; background:var(--bg-light); border:1px solid #334155; border-radius:14px; padding:14px; margin-bottom:10px; cursor:pointer; }
+          .social-share-btn .em { font-size:28px; }
+          .social-share-btn .info { flex:1; }
+          .social-share-btn .info b { font-size:14px; }
+          .social-share-btn .info p { margin:2px 0 0; font-size:12px; color:var(--text-muted); }
+
+
+          .friend-item { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:10px; display:flex; align-items:center; gap:12px; cursor:pointer; }
+          .friend-item .em { font-size:32px; }
+          .friend-item .info { flex:1; }
+          .friend-item .info b { font-size:14px; }
+          .friend-item .info p { margin:2px 0 0; font-size:12px; color:var(--text-muted); }
+          .profile-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:300; align-items:center; justify-content:center; flex-direction:column; padding:20px; }
+          .profile-modal.show { display:flex; }
+          .profile-card { background:var(--bg-light); border-radius:20px; padding:24px; width:100%; max-width:360px; text-align:center; position:relative; }
+          .profile-card .avatar-large { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#60a5fa); display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:700; margin:0 auto 12px; border:3px solid #475569; }
+          .profile-card .name { font-size:20px; font-weight:800; }
+          .profile-card .level { font-size:13px; color:var(--text-muted); margin-top:4px; }
+          .profile-card .coins { font-size:28px; font-weight:800; color:var(--gold); margin-top:12px; }
+          .profile-card .stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:16px; }
+          .profile-card .stat { background:var(--bg-dark); border-radius:12px; padding:10px; }
+          .profile-card .stat .v { font-size:18px; font-weight:700; }
+          .profile-card .stat .l { font-size:11px; color:var(--text-muted); }
+          .profile-card .bio { margin-top:12px; font-size:13px; color:var(--text-muted); font-style:italic; }
+          .close-modal { position:absolute; top:12px; right:16px; color:var(--text-muted); font-size:24px; cursor:pointer; }
+          .chat-msg { cursor:pointer; transition:background 0.2s; border-radius:8px; padding:4px; }
+          .chat-msg:hover { background:rgba(255,255,255,0.05); }
+          .translate-bar { display:flex; gap:6px; margin-top:8px; align-items:center; }
+          .translate-bar select { background:var(--bg-dark); color:white; border:1px solid #334155; border-radius:8px; padding:6px 8px; font-size:12px; }
+          .translate-bar button { background:var(--primary); color:white; border:none; border-radius:8px; padding:6px 12px; font-size:12px; cursor:pointer; }
+          .voice-msg { display:flex; align-items:center; gap:8px; background:var(--bg-dark); padding:8px 12px; border-radius:12px; margin-top:4px; }
+          .voice-msg .play-btn { width:32px; height:32px; border-radius:50%; background:var(--primary); color:white; border:none; cursor:pointer; font-size:14px; }
+          .voice-msg .wave { flex:1; height:20px; background:linear-gradient(90deg, var(--primary), var(--accent)); border-radius:4px; opacity:0.6; }
+          .request-item { background:var(--bg-light); border-radius:14px; padding:14px; margin-bottom:10px; display:flex; align-items:center; gap:12px; }
+          .request-item .info { flex:1; }
+          .request-item .info b { font-size:14px; }
+          .request-item .info p { margin:2px 0 0; font-size:12px; color:var(--text-muted); }
+          .bio-text { font-size:13px; color:var(--text-muted); margin-top:6px; font-style:italic; }
+
           .lang-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
           .lang-chip { background:var(--bg-light); border:1px solid #334155; border-radius:12px; padding:12px; text-align:center; cursor:pointer; font-size:14px; }
           .lang-chip.active { border-color:var(--primary); background:rgba(59,130,246,0.15); }
@@ -184,6 +255,12 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           <div class="brand">Xio_PayPlus<small>Earn • Play • Win</small></div>
           <div class="header-actions">
             <button class="icon-btn" id="shop-btn" onclick="openShop()">🛒</button>
+            <button class="icon-btn" id="notif-btn" onclick="toggleNotifications()">🔔<span class="notif-badge" id="notif-badge" style="display:none;">0</span></button>
+            <div class="notif-dropdown" id="notif-dropdown">
+              <div style="padding:12px 14px;font-weight:700;border-bottom:1px solid #334155;">Notifications</div>
+              <div id="notif-dropdown-list"><p style="padding:12px 14px;color:var(--text-muted);font-size:12px;">No notifications yet</p></div>
+            </div>
+            <button class="icon-btn" id="friends-btn" onclick="showPage('friends'); loadFriends(); loadRequests();">👥</button>
             <button class="icon-btn" id="support-btn" onclick="openSupport()">💬</button>
             <button class="icon-btn" id="lang-btn" onclick="openLang()">🌐</button>
           </div>
@@ -197,6 +274,13 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <div class="user-info">
                 <h1 id="user-name">Guest</h1>
                 <p id="user-id">ID: ...</p>
+                <div class="level-bar">
+                  <div class="level-icon" id="level-icon">1</div>
+                  <div class="level-info">
+                    <div style="font-size:11px;color:var(--text-muted);">Level <span id="level-num">1</span> • <span id="xp-text">0 XP</span></div>
+                    <div class="xp-bar"><div id="xp-fill" class="xp-fill" style="width:0%"></div></div>
+                  </div>
+                </div>
                 <div class="streak-pill" id="streak-pill">🔥 0</div>
               </div>
             </div>
@@ -374,6 +458,113 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             <p id="shop-status" class="status-msg"></p>
           </div>
 
+
+          <!-- CHALLENGES -->
+          <div id="page-challenges" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>⚡ Daily Challenges</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Complete challenges to earn bonus coins & XP!</p>
+            <div id="challenges-list"></div>
+            <p id="challenge-status" class="status-msg"></p>
+          </div>
+
+          <!-- ACHIEVEMENTS -->
+          <div id="page-achievements" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🏆 Achievements</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Unlock badges and earn rewards!</p>
+            <div id="achievements-list"></div>
+          </div>
+
+          <!-- SCRATCH CARDS -->
+          <div id="page-scratch" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🎟️ Scratch Cards</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Scratch to win instant coins!</p>
+            <div class="scratch-area">
+              <div style="font-size:48px;margin-bottom:8px;">🎟️</div>
+              <div style="font-weight:700;font-size:16px;" id="scratch-count">You have 0 scratch cards</div>
+              <button id="claim-scratch-btn" class="btn btn-gold" onclick="claimScratchCard()" style="width:220px;margin-top:12px;">🎁 Claim Free Scratch Card</button>
+              <button id="scratch-btn" class="btn btn-green" onclick="scratchCard()" style="width:220px;margin-top:8px;">✨ Scratch Now</button>
+              <p id="scratch-status" class="status-msg" style="margin-top:10px;"></p>
+            </div>
+          </div>
+
+          <!-- NOTIFICATIONS -->
+          <div id="page-notifications" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>🔔 Notifications</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Stay updated with your earnings!</p>
+            <div id="notifications-list"></div>
+            <button class="btn btn-sm" onclick="markAllNotificationsRead()" style="margin-top:12px;">Mark All as Read</button>
+          </div>
+
+          <!-- SOCIAL SHARE -->
+          <div id="page-social" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📤 Social Share & Earn</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Share on social media and earn coins!</p>
+            <div class="section-title">Share & Earn</div>
+            <div class="social-share-btn" onclick="shareOnSocial('telegram')">
+              <div class="em">✈️</div>
+              <div class="info"><b>Telegram</b><p>Share on Telegram: +200 coins</p></div>
+            </div>
+            <div class="social-share-btn" onclick="shareOnSocial('twitter')">
+              <div class="em">🐦</div>
+              <div class="info"><b>Twitter / X</b><p>Share on Twitter: +200 coins</p></div>
+            </div>
+            <div class="social-share-btn" onclick="shareOnSocial('whatsapp')">
+              <div class="em">💬</div>
+              <div class="info"><b>WhatsApp</b><p>Share on WhatsApp: +200 coins</p></div>
+            </div>
+            <p id="social-status" class="status-msg"></p>
+          </div>
+
+          <!-- LEVEL LEADERBOARD -->
+          <div id="page-levels" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>⭐ Level Leaderboard</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Top players ranked by level & XP!</p>
+            <div id="level-leaderboard-list"></div>
+          </div>
+
+
+          <!-- FRIENDS -->
+          <div id="page-friends" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>👥 Friends</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your friends list</p>
+            <div id="friends-list"></div>
+            <p id="friends-status" class="status-msg"></p>
+          </div>
+
+          <!-- FRIEND REQUESTS -->
+          <div id="page-requests" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📨 Friend Requests</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Pending requests</p>
+            <div id="requests-list"></div>
+            <p id="requests-status" class="status-msg"></p>
+          </div>
+
+          <!-- PROFILE MODAL -->
+          <div id="profile-modal" class="profile-modal" onclick="if(event.target===this)closeProfileModal()">
+            <div class="profile-card">
+              <span class="close-modal" onclick="closeProfileModal()">&times;</span>
+              <div class="avatar-large" id="pm-avatar">?</div>
+              <div class="name" id="pm-name">Guest</div>
+              <div class="level" id="pm-level">Level 1</div>
+              <div class="coins" id="pm-coins">0 Coins</div>
+              <div class="stats">
+                <div class="stat"><div class="v" id="pm-streak">0</div><div class="l">Streak</div></div>
+                <div class="stat"><div class="v" id="pm-tasks">0</div><div class="l">Tasks</div></div>
+                <div class="stat"><div class="v" id="pm-ads">0</div><div class="l">Ads</div></div>
+              </div>
+              <div class="bio" id="pm-bio"></div>
+              <button id="pm-add-friend" class="btn btn-gold" style="width:100%;margin-top:14px;display:none;" onclick="sendFriendRequestFromModal()">➕ Add Friend</button>
+            </div>
+          </div>
+
           <!-- LANGUAGE -->
           <div id="page-lang" class="page">
             <button class="back-btn" onclick="showPage('home')">← Back</button>
@@ -388,7 +579,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           <button class="nav-item active" data-page="home" onclick="showPage('home')"><span class="em">🏠</span><span data-translate-key="nav_home">Home</span></button>
           <button class="nav-item" data-page="ads" onclick="showPage('ads')"><span class="em">▶</span><span data-translate-key="nav_ads">Ads</span></button>
           <button class="nav-item" data-page="tasks" onclick="showPage('tasks')"><span class="em">📋</span><span data-translate-key="nav_tasks">Tasks</span></button>
-          <button class="nav-item" data-page="invite" onclick="showPage('invite')"><span class="em">👥</span><span data-translate-key="nav_invite">Invite</span></button>
+          <button class="nav-item" data-page="friends" onclick="showPage('friends')"><span class="em">👥</span><span>Friends</span></button>
           <button class="nav-item" data-page="wallet" onclick="showPage('wallet')"><span class="em">💰</span><span data-translate-key="nav_wallet">Withdraw</span></button>
         </div>
 
@@ -559,6 +750,23 @@ function t(key) {
             injectFeed('live-feed');
             injectFeed('live-feed-ads');
             injectFeed('live-feed-invite');
+
+            // New features UI updates
+            const level = data.level || 1;
+            document.getElementById('level-icon').innerText = level;
+            document.getElementById('level-num').innerText = level;
+            document.getElementById('xp-text').innerText = (data.xp || 0) + ' XP';
+            const xpPct = data.level_progress_pct || 0;
+            document.getElementById('xp-fill').style.width = xpPct + '%';
+
+            const notifBadge = document.getElementById('notif-badge');
+            if (data.unread_notifications > 0) {
+              notifBadge.style.display = 'flex';
+              notifBadge.innerText = data.unread_notifications > 9 ? '9+' : data.unread_notifications;
+            } else {
+              notifBadge.style.display = 'none';
+            }
+
             injectFeed('live-feed-withdraw');
 
             renderTasks(data);
@@ -567,7 +775,8 @@ function t(key) {
             const doneTasks = (data.tasks || []).length;
             reqGrid(data, reqs, doneTasks);
             renderHistory(data);
-            document.getElementById('more-ads-box').style.display = ((data.completed_ads || 0) >= (reqs.min_ads || 80)) ? 'block' : 'none';
+            const dailyLimit = (data.daily_ads_limit || 20) + (data.bonus_ads_remaining || 0);
+            document.getElementById('more-ads-box').style.display = ((data.daily_ads_watch_count || 0) >= dailyLimit) ? 'block' : 'none';
             translateUI();
           }
 
@@ -760,8 +969,20 @@ async function buyShop(btn) {
           function redeemMoreAds() {
             const code = document.getElementById('more-ads-code').value.trim();
             if (!code) { document.getElementById('more-ads-status').innerText = 'Enter a code first.'; return; }
-            document.getElementById('more-ads-status').innerText = 'Code accepted! 10 bonus ads added.';
-            document.getElementById('more-ads-code').value = '';
+            document.getElementById('more-ads-status').innerText = 'Checking...';
+            fetch('/api/ads/redeem-more-ads/' + userId, {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ code: code })
+            }).then(function(r){ return r.json(); }).then(function(data){
+              document.getElementById('more-ads-status').innerText = data.message || 'Code redeemed!';
+              if (data.success) {
+                document.getElementById('more-ads-code').value = '';
+                fetchData();
+              }
+            }).catch(function(){
+              document.getElementById('more-ads-status').innerText = 'Error redeeming code.';
+            });
           }
 
 async function completeTask(btn) {
@@ -1008,6 +1229,7 @@ function showPage(pageName) {
             if (t) t.classList.add('active');
             document.querySelectorAll('.nav-item').forEach(function(i){ i.classList.toggle('active', i.dataset.page === pageName); });
             if (pageName === 'ads') seedAdsChat();
+            if (pageName === 'friends') { loadFriends(); loadRequests(); }
           }
 
           function seedAdsChat() {
@@ -1052,6 +1274,333 @@ function showPage(pageName) {
             if (a) a.href = supportLinks.admin_channel || 'https://t.me/+nvkRuwvZJnRiOGM1';
           }
 
+
+          // --- New Features: Notifications ---
+          function toggleNotifications() {
+            const dropdown = document.getElementById('notif-dropdown');
+            dropdown.classList.toggle('show');
+            if (dropdown.classList.contains('show')) loadNotifications();
+          }
+
+          async function loadNotifications() {
+            try {
+              const r = await fetch('/api/notifications/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('notif-dropdown-list');
+              const badge = document.getElementById('notif-badge');
+              if (data.unread_count > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = data.unread_count > 9 ? '9+' : data.unread_count;
+              } else {
+                badge.style.display = 'none';
+              }
+              if (!data.notifications || !data.notifications.length) {
+                list.innerHTML = '<p style="padding:12px 14px;color:var(--text-muted);font-size:12px;">No notifications yet</p>';
+                return;
+              }
+              list.innerHTML = data.notifications.map(n => '<div class="notif-item' + (n.read ? '' : ' unread') + '"><div class="notif-title">' + n.title + '</div><div>' + n.message + '</div><div class="notif-time">' + new Date(n.timestamp).toLocaleString() + '</div></div>').join('');
+            } catch (e) {}
+          }
+
+          async function markAllNotificationsRead() {
+            try {
+              await fetch('/api/notifications/mark-read/' + userId, { method: 'POST' });
+              document.getElementById('notif-badge').style.display = 'none';
+              loadNotifications();
+            } catch (e) {}
+          }
+
+          // --- New Features: Challenges ---
+          async function loadChallenges() {
+            try {
+              const r = await fetch('/api/challenges/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('challenges-list');
+              if (!data.challenges || !data.challenges.length) {
+                list.innerHTML = '<p>No challenges available.</p>';
+                return;
+              }
+              list.innerHTML = data.challenges.map(ch => '<div class="challenge-item"><div class="em">' + (ch.completed ? '✅' : '⚡') + '</div><div class="info"><b>' + ch.title + '</b><p>' + ch.desc + ' • ' + ch.progress + '/' + ch.target + '</p><div class="challenge-progress"><div class="challenge-progress-fill" style="width:' + Math.min(100, (ch.progress / ch.target) * 100) + '%"></div></div></div>' + (ch.completed ? '<span class="completed-badge">✔ Done</span>' : '<button class="btn btn-sm btn-gold" onclick="completeChallenge('' + ch.id + '')">Claim</button>') + '</div>').join('');
+            } catch (e) {}
+          }
+
+          async function completeChallenge(challengeId) {
+            const statusEl = document.getElementById('challenge-status');
+            statusEl.innerText = 'Processing...';
+            try {
+              const r = await fetch('/api/challenges/complete/' + userId + '/' + challengeId, { method: 'POST' });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              if (data.success) loadChallenges();
+              fetchData();
+            } catch (e) { statusEl.innerText = 'Error completing challenge.'; }
+          }
+
+          // --- New Features: Achievements ---
+          async function loadAchievements() {
+            try {
+              const r = await fetch('/api/achievements/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('achievements-list');
+              if (!data.achievements || !data.achievements.length) {
+                list.innerHTML = '<p>No achievements yet.</p>';
+                return;
+              }
+              list.innerHTML = data.achievements.map(ach => '<div class="achievement-item' + (ach.unlocked ? ' unlocked' : '') + '"><div class="em">' + ach.icon + '</div><div class="info"><b>' + ach.title + '</b><p>' + ach.desc + '</p></div>' + (ach.unlocked ? '<span class="completed-badge">✔ Unlocked</span>' : '<span style="color:var(--text-muted);font-size:12px;">Locked</span>') + '</div>').join('');
+            } catch (e) {}
+          }
+
+          // --- New Features: Scratch Cards ---
+          async function claimScratchCard() {
+            try {
+              const r = await fetch('/api/scratch/claim-free/' + userId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('scratch-status').innerText = data.message || '';
+              if (data.success) updateScratchUI(data.data);
+              fetchData();
+            } catch (e) { document.getElementById('scratch-status').innerText = 'Error claiming scratch card.'; }
+          }
+
+          async function scratchCard() {
+            try {
+              const r = await fetch('/api/scratch/' + userId, { method: 'POST' });
+              const data = await r.json();
+              document.getElementById('scratch-status').innerText = data.message || '';
+              if (data.success) updateScratchUI(data);
+              fetchData();
+            } catch (e) { document.getElementById('scratch-status').innerText = 'Error scratching.'; }
+          }
+
+          function updateScratchUI(data) {
+            if (data && data.cards !== undefined) {
+              document.getElementById('scratch-count').innerText = 'You have ' + data.cards + ' scratch cards';
+            }
+          }
+
+          // --- New Features: Social Sharing ---
+          async function shareOnSocial(platform) {
+            const statusEl = document.getElementById('social-status');
+            statusEl.innerText = 'Sharing...';
+            try {
+              const r = await fetch('/api/social/share/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: platform })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              if (data.success && data.data && data.data.share_url) {
+                if (platform === 'telegram') {
+                  window.open('https://t.me/share/url?url=' + encodeURIComponent(data.data.share_url) + '&text=' + encodeURIComponent('Join Xio_PayPlus and earn real money!'), '_blank');
+                } else if (platform === 'twitter') {
+                  window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(data.data.share_url) + '&text=' + encodeURIComponent('Earning coins on Xio_PayPlus!'), '_blank');
+                } else if (platform === 'whatsapp') {
+                  window.open('https://wa.me/?text=' + encodeURIComponent('Join Xio_PayPlus and earn real money! ' + data.data.share_url), '_blank');
+                }
+              }
+              fetchData();
+            } catch (e) { statusEl.innerText = 'Error sharing.'; }
+          }
+
+          // --- New Features: Level Leaderboard ---
+          async function loadLevelLeaderboard() {
+            try {
+              const r = await fetch('/api/leaderboard/level');
+              const data = await r.json();
+              const list = document.getElementById('level-leaderboard-list');
+              if (!data || !data.length) {
+                list.innerHTML = '<p>No level data yet.</p>';
+                return;
+              }
+              list.innerHTML = data.map((u, i) => '<div class="req-item' + (i < 3 ? ' ok' : '') + '"><b>#' + (i + 1) + ' ' + u.name + '</b> • Level ' + u.level + ' • ' + u.xp + ' XP • ' + u.badges + ' badges</div>').join('');
+            } catch (e) {}
+          }
+
+
+
+          // --- Friends & Social ---
+          let currentProfileUserId = null;
+
+          async function loadFriends() {
+            try {
+              const r = await fetch('/api/friends/list/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('friends-list');
+              if (!data.friends || !data.friends.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No friends yet. Invite people to start earning together!</p>';
+                return;
+              }
+              list.innerHTML = data.friends.map(f => '<div class="friend-item" onclick="openProfileModal(' + f.user_id + ')"><div class=\"em\">👤</div><div class=\"info\"><b>' + f.name + '</b><p>Level ' + f.level + ' • 🔥' + f.snap_streak + ' streak</p></div></div>').join('');
+            } catch (e) {}
+          }
+
+          async function loadRequests() {
+            try {
+              const r = await fetch('/api/friends/requests/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('requests-list');
+              if (!data.requests || !data.requests.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No pending requests.</p>';
+                return;
+              }
+              list.innerHTML = data.requests.map(req => {
+                const fromProfile = window.__usersMap && window.__usersMap[req.from_user_id] ? window.__usersMap[req.from_user_id] : {name: 'User ' + req.from_user_id};
+                return '<div class=\"request-item\"><div class=\"em\">👤</div><div class=\"info\"><b>' + fromProfile.name + '</b><p>Sent you a friend request</p></div><button class=\"btn btn-sm btn-green\" onclick=\"acceptRequest(\'' + req.request_id + '\')\">Accept</button><button class=\"btn btn-sm\" onclick=\"rejectRequest(\'' + req.request_id + '\')\" style=\"margin-left:6px;background:#ef4444;\">Reject</button></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          async function acceptRequest(requestId) {
+            try {
+              const r = await fetch('/api/friends/accept/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+              });
+              const data = await r.json();
+              document.getElementById('requests-status').innerText = data.message || '';
+              loadRequests();
+              loadFriends();
+              fetchData();
+            } catch (e) { document.getElementById('requests-status').innerText = 'Error accepting request.'; }
+          }
+
+          async function rejectRequest(requestId) {
+            try {
+              const r = await fetch('/api/friends/reject/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+              });
+              const data = await r.json();
+              document.getElementById('requests-status').innerText = data.message || '';
+              loadRequests();
+            } catch (e) { document.getElementById('requests-status').innerText = 'Error rejecting request.'; }
+          }
+
+          async function sendFriendRequestFromModal() {
+            if (!currentProfileUserId) return;
+            try {
+              const r = await fetch('/api/friends/request/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: currentProfileUserId })
+              });
+              const data = await r.json();
+              alert(data.message || 'Request sent!');
+              if (data.success) {
+                document.getElementById('pm-add-friend').style.display = 'none';
+              }
+            } catch (e) { alert('Error sending request.'); }
+          }
+
+          async function openProfileModal(targetId) {
+            currentProfileUserId = targetId;
+            try {
+              const r = await fetch('/api/profile/view/' + userId + '/' + targetId);
+              const data = await r.json();
+              document.getElementById('pm-avatar').innerText = (data.name || 'G').charAt(0).toUpperCase();
+              document.getElementById('pm-name').innerText = data.name;
+              document.getElementById('pm-level').innerText = 'Level ' + data.level + ' • ' + data.referral_tier;
+              document.getElementById('pm-coins').innerText = data.coins.toLocaleString() + ' Coins';
+              document.getElementById('pm-streak').innerText = data.snap_streak;
+              document.getElementById('pm-tasks').innerText = data.completed_tasks;
+              document.getElementById('pm-ads').innerText = data.total_ads_watched;
+              document.getElementById('pm-bio').innerText = data.bio || 'No bio yet.';
+              const addBtn = document.getElementById('pm-add-friend');
+              if (data.is_friend || targetId == userId) {
+                addBtn.style.display = 'none';
+              } else {
+                addBtn.style.display = 'block';
+              }
+              document.getElementById('profile-modal').classList.add('show');
+            } catch (e) { alert('Error loading profile.'); }
+          }
+
+          function closeProfileModal() {
+            document.getElementById('profile-modal').classList.remove('show');
+            currentProfileUserId = null;
+          }
+
+          // --- Chat Translation ---
+          async function translateChatMessage(text, fromLang, toLang) {
+            try {
+              const r = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, from_lang: fromLang, to_lang: toLang })
+              });
+              const data = await r.json();
+              return data.translated_text || text;
+            } catch (e) { return text; }
+          }
+
+          // --- Voice Message Simulation ---
+          function sendVoice() {
+            const box = document.getElementById('chat-messages');
+            const d = document.createElement('div');
+            d.className = 'chat-msg mine';
+            d.onclick = function() { openProfileModal(userId); };
+            d.innerHTML = '<div class=\"avatar-s\">Y</div><div class=\"bubble\"><span class=\"who\">You:</span> <div class=\"voice-msg\"><button class=\"play-btn\">▶</button><div class=\"wave\"></div></div></div>';
+            box.appendChild(d);
+            box.scrollTop = box.scrollHeight;
+            setTimeout(function(){
+              const u = pickFakeUser();
+              const r = document.createElement('div');
+              r.className = 'chat-msg';
+              r.onclick = function() { openProfileModal(777); };
+              r.innerHTML = '<div class=\"avatar-s\">' + u.e + '</div><div class=\"bubble\"><span class=\"who\">' + u.n + ':</span> <div class=\"voice-msg\"><button class=\"play-btn\">▶</button><div class=\"wave\"></div></div></div>';
+              box.appendChild(r);
+              box.scrollTop = box.scrollHeight;
+            }, 1500);
+          }
+
+          // Override existing sendChat to make usernames clickable
+          const originalSendChat = sendChat;
+          sendChat = function() {
+            const input = document.getElementById('chat-input');
+            const box = document.getElementById('chat-messages');
+            if (!input.value.trim()) return;
+            const val = input.value.replace(/</g,'');
+            const d = document.createElement('div');
+            d.className = 'chat-msg mine';
+            d.onclick = function() { openProfileModal(userId); };
+            d.innerHTML = '<div class=\"avatar-s\">Y</div><div class=\"bubble\"><span class=\"who\">You:</span> ' + val + '<div class=\"translate-bar\"><select id=\"translate-from\"><option value=\"en\">English</option></select><select id=\"translate-to\"><option value=\"hi\">Hindi</option><option value=\"es\">Spanish</option><option value=\"fr\">French</option><option value=\"ru\">Russian</option><option value=\"zh\">Chinese</option></select><button onclick=\"event.stopPropagation();translateMessage(this)\">Translate</button></div></div>';
+            box.appendChild(d);
+            input.value = '';
+            box.scrollTop = box.scrollHeight;
+            setTimeout(function(){
+              const u = pickFakeUser();
+              const r = document.createElement('div');
+              r.className = 'chat-msg';
+              r.onclick = function() { openProfileModal(777); };
+              r.innerHTML = '<div class=\"avatar-s\">' + u.e + '</div><div class=\"bubble\"><span class=\"who\">' + u.n + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '<div class=\"translate-bar\"><select class=\"translate-from\"><option value=\"en\">English</option></select><select class=\"translate-to\"><option value=\"hi\">Hindi</option><option value=\"es\">Spanish</option><option value=\"fr\">French</option><option value=\"ru\">Russian</option><option value=\"zh\">Chinese</option></select><button onclick=\"event.stopPropagation();translateMessage(this)\">Translate</button></div></div>';
+              box.appendChild(r);
+              box.scrollTop = box.scrollHeight;
+            }, 1800);
+          };
+
+          async function translateMessage(btn) {
+            const bar = btn.parentElement;
+            const text = bar.parentElement.innerText.replace('You:', '').replace('Translate', '').trim();
+            const fromLang = bar.querySelector('.translate-from') ? bar.querySelector('.translate-from').value : 'en';
+            const toLang = bar.querySelector('.translate-to') ? bar.querySelector('.translate-to').value : 'hi';
+            const original = bar.parentElement.querySelector('.chat-text-original');
+            const translated = await translateChatMessage(text, fromLang, toLang);
+            if (original) {
+              original.innerText = translated;
+            } else {
+              const span = document.createElement('span');
+              span.className = 'chat-text-original';
+              span.style.color = 'var(--accent)';
+              span.style.fontSize = '12px';
+              span.style.display = 'block';
+              span.innerText = 'Translated: ' + translated;
+              bar.parentElement.appendChild(span);
+            }
+          }
+
+
           window.addEventListener('load', function(){
             buildWheel();
             setSupportLinks();
@@ -1065,6 +1614,25 @@ function showPage(pageName) {
               injectFeed('live-feed-invite');
               injectFeed('live-feed-withdraw');
             }, 4000);
+loadChallenges();
+            loadAchievements();
+            loadLevelLeaderboard();
+            setInterval(loadChallenges, 30000);
+            setInterval(loadNotifications, 15000);
+            // Close notification dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+              const dropdown = document.getElementById('notif-dropdown');
+              const btn = document.getElementById('notif-btn');
+              if (dropdown && btn && !dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                dropdown.classList.remove('show');
+              }
+            });
+loadFriends();
+            loadRequests();
+            setInterval(loadFriends, 30000);
+            setInterval(loadRequests, 30000);
+            setInterval(fetchData, 8000);
+            setInterval(fetchData, 8000);
             setInterval(fetchData, 8000);
           });
         </script>
