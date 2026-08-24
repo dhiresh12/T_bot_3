@@ -337,6 +337,7 @@
               <div id="notif-dropdown-list"><p style="padding:12px 14px;color:var(--text-muted);font-size:12px;">No notifications yet</p></div>
             </div>
             <button class="icon-btn" id="friends-btn" onclick="showPage('friends'); loadFriends(); loadRequests();">👥</button>
+            <button class="icon-btn" id="popularity-btn" onclick="showPage('popularity')">🔥</button>
             <button class="icon-btn" id="support-btn" onclick="openSupport()">💬</button>
             <button class="icon-btn" id="lang-btn" onclick="openLang()">🌐</button>
           </div>
@@ -459,10 +460,11 @@
             <div class="grid">
               <div class="grid-card" onclick="showPage('tasks')" style="cursor:pointer;"><div class="value">📋</div><div class="label">Tasks</div></div>
               <div class="grid-card" onclick="showPage('wallet')" style="cursor:pointer;"><div class="value">💰</div><div class="label">Withdraw</div></div>
+              <div class="grid-card" onclick="showPage('popularity')" style="cursor:pointer;"><div class="value">🔥</div><div class="label">Popularity</div></div>
               <div class="grid-card" onclick="showPage('notifications')" style="cursor:pointer;"><div class="value">🔔</div><div class="label">Alerts</div></div>
-              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="value">⚡</div><div class="label">Challenges</div></div>
             </div>
             <div class="grid">
+              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="value">⚡</div><div class="label">Challenges</div></div>
               <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="value">🎟️</div><div class="label">Scratch</div></div>
               <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="value">📊</div><div class="label">History</div></div>
             </div>
@@ -1506,7 +1508,7 @@ async function completeTask(btn) {
             const amount = document.getElementById('withdraw-amount').value.trim();
             let details = '';
             if (selectedMethod === 'upi') details = document.getElementById('withdraw-upi').value.trim();
-            if (selectedMethod === 'bank') details = document.getElementById('withdraw-bank').value.trim() + (document.getEleme
+            if (selectedMethod === 'bank') details = document.getElementById('withdraw-bank').value.trim() + (document.getElementById('withdraw-bank-ifsc') ? document.getElementById('withdraw-bank-ifsc').value.trim() : '');
             if (selectedMethod === 'mobile') details = document.getElementById('withdraw-mobile').value.trim();
             const statusEl = document.getElementById('withdraw-status');
             if (!amount || !details) { statusEl.innerText = 'Please fill all details.'; return; }
@@ -1518,7 +1520,7 @@ async function completeTask(btn) {
             const cleanAmount = Number(numAmount.toFixed(2));
             const cleanDetails = details.replace(/[<>"']/g, '').slice(0, 200);
             try {
-              const r = await fetch('/api/withdraw/' + userId, { method: 'POST', headers: {'Content-Type':'application/jso
+              const r = await fetch('/api/withdraw/' + userId, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount: cleanAmount, method: selectedMethod, details: cleanDetails }) });
               const data = await r.json();
               statusEl.innerText = data.message || '';
               fetchData();
