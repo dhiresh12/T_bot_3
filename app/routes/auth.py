@@ -1,5 +1,6 @@
 """Flask blueprint: auth endpoints."""
 from __future__ import annotations
+import os
 
 from app.routes._helpers import (
     _check_rate_limit,

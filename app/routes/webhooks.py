@@ -1,6 +1,14 @@
 """Flask blueprint: webhooks endpoints."""
 from __future__ import annotations
 
+import os
+from typing import Any
+
+try:
+    import requests
+except ImportError:  # pragma: no cover - requests unavailable
+    requests = None
+
 from app.routes._helpers import (
     _check_rate_limit,
     _safe_int,
@@ -65,6 +73,7 @@ def telegram_webhook() -> tuple[dict, int]:
     # We create a new service instance for each request to ensure it's stateless,
     # but it uses the shared engine from the app context.
     engine = current_app.config["engine"]
+    from app.telegram_bot import TelegramBotService
     telegram_service = TelegramBotService(engine=engine)
     telegram_service.handle_update(update) # The service sends the reply via API call
     return jsonify({"status": "ok"}), 200

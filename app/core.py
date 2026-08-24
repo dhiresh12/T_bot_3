@@ -387,7 +387,7 @@ class BotEngine:
         self.sessions: Dict[int, Dict[str, str]] = {}
         # --- Admin configurable values ---
         self.bonus_value = 0.05
-        self.admin_key = os.environ["ADMIN_KEY"]
+        self.admin_key = os.getenv("ADMIN_KEY", "dev-admin-key-change-in-production")
         self.engagement = EngagementLayer()
         self.support = SupportService()
         self.admin_service = AdminPanelService(self)
