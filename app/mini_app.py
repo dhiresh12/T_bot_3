@@ -329,6 +329,32 @@ def create_app(engine: BotEngine | None = None) -> Flask:
               <div class="grid-card"><div id="invites-count" class="value">0</div><div class="label" data-translate-key="invites">Invites</div></div>
               <div class="grid-card"><div id="tasks-count" class="value">0</div><div class="label" data-translate-key="tasks_done">Tasks Done</div></div>
             </div>
+            <div class="section-title">Quick Access</div>
+            <div class="grid">
+              <div class="grid-card" onclick="showPage('tasks')" style="cursor:pointer;"><div class="value">📋</div><div class="label">Tasks</div></div>
+              <div class="grid-card" onclick="showPage('wallet')" style="cursor:pointer;"><div class="value">💰</div><div class="label">Withdraw</div></div>
+              <div class="grid-card" onclick="showPage('popularity')" style="cursor:pointer;"><div class="value">🔥</div><div class="label">Popularity</div></div>
+              <div class="grid-card" onclick="showPage('notifications')" style="cursor:pointer;"><div class="value">🔔</div><div class="label">Alerts</div></div>
+            </div>
+            <div class="grid">
+              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="value">⚡</div><div class="label">Challenges</div></div>
+              <div class="grid-card" onclick="showPage('achievements')" style="cursor:pointer;"><div class="value">🏆</div><div class="label">Badges</div></div>
+              <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="value">🎟️</div><div class="label">Scratch</div></div>
+              <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="value">📊</div><div class="label">History</div></div>
+            </div>
+                        <div class="section-title">Quick Access</div>
+            <div class="grid">
+              <div class="grid-card" onclick="showPage('tasks')" style="cursor:pointer;"><div class="value">📋</div><div class="label">Tasks</div></div>
+              <div class="grid-card" onclick="showPage('wallet')" style="cursor:pointer;"><div class="value">💰</div><div class="label">Withdraw</div></div>
+              <div class="grid-card" onclick="showPage('popularity')" style="cursor:pointer;"><div class="value">🔥</div><div class="label">Popularity</div></div>
+              <div class="grid-card" onclick="showPage('notifications')" style="cursor:pointer;"><div class="value">🔔</div><div class="label">Alerts</div></div>
+            </div>
+            <div class="grid">
+              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="value">⚡</div><div class="label">Challenges</div></div>
+              <div class="grid-card" onclick="showPage('achievements')" style="cursor:pointer;"><div class="value">🏆</div><div class="label">Badges</div></div>
+              <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="value">🎟️</div><div class="label">Scratch</div></div>
+              <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="value">📊</div><div class="label">History</div></div>
+            </div>
 
             <div class="section-title" data-translate-key="spin_title">🎁 Daily Gift Spin</div>
             <div class="wheel-container">
@@ -683,13 +709,37 @@ def create_app(engine: BotEngine | None = None) -> Flask:
           </div>
         </div>
 
+          <!-- MORE / ALL PAGES -->
+          <div id="page-more" class="page">
+            <button class="back-btn" onclick="showPage('home')">← Back</button>
+            <h2>📋 All Features</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Tap any feature to open</p>
+            <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px;">
+              <div class="grid-card" onclick="showPage('tasks')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📋</div><div class="label">Tasks</div></div>
+              <div class="grid-card" onclick="showPage('wallet')" style="cursor:pointer;"><div class="em" style="font-size:28px;">💰</div><div class="label">Withdraw</div></div>
+              <div class="grid-card" onclick="showPage('popularity')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🔥</div><div class="label">Popularity</div></div>
+              <div class="grid-card" onclick="showPage('notifications')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🔔</div><div class="label">Notifications</div></div>
+              <div class="grid-card" onclick="showPage('messages')" style="cursor:pointer;"><div class="em" style="font-size:28px;">💬</div><div class="label">Messages</div></div>
+              <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📊</div><div class="label">History</div></div>
+              <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⚡</div><div class="label">Challenges</div></div>
+              <div class="grid-card" onclick="showPage('achievements')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🏆</div><div class="label">Badges</div></div>
+              <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🎟️</div><div class="label">Scratch</div></div>
+              <div class="grid-card" onclick="showPage('levels')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⭐</div><div class="label">Levels</div></div>
+              <div class="grid-card" onclick="showPage('shop')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🛒</div><div class="label">Shop</div></div>
+              <div class="grid-card" onclick="showPage('support')" style="cursor:pointer;"><div class="em" style="font-size:28px;">💬</div><div class="label">Support</div></div>
+              <div class="grid-card" onclick="showPage('settings')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⚙️</div><div class="label">Settings</div></div>
+              <div class="grid-card" onclick="showPage('invite')" style="cursor:pointer;"><div class="em" style="font-size:28px;">👥</div><div class="label">Invite</div></div>
+              <div class="grid-card" onclick="showPage('social')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📤</div><div class="label">Social</div></div>
+            </div>
+          </div>
+
         <!-- Bottom Navigation -->
         <div class="nav">
           <button class="nav-item active" data-page="home" onclick="showPage('home')"><span class="em">🏠</span><span data-translate-key="nav_home">Home</span></button>
           <button class="nav-item" data-page="ads" onclick="showPage('ads')"><span class="em">▶</span><span data-translate-key="nav_ads">Ads</span></button>
           <button class="nav-item" data-page="friends" onclick="showPage('friends')"><span class="em">👥</span><span>Friends</span></button>
           <button class="nav-item" data-page="discover" onclick="showPage('discover')"><span class="em">🔍</span><span>Discover</span></button>
-          <button class="nav-item" data-page="settings" onclick="showPage('settings')"><span class="em">⚙️</span><span>Settings</span></button>
+          <button class="nav-item" data-page="more" onclick="showPage('more')"><span class="em">📋</span><span>More</span></button>
         </div>
 
         <script>
@@ -1350,6 +1400,7 @@ function showPage(pageName) {
             if (pageName === 'popularity') fetchData();
             if (pageName === 'settings') loadPrivacySettings();
             if (pageName === 'transactions') loadTransactions();
+            if (pageName === 'more') {}
             if (pageName === 'discover') {
               fetch('/api/users/discover/' + userId).then(r => r.json()).then(data => {
                 const trending = document.getElementById('trending-users');
