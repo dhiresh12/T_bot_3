@@ -30,6 +30,11 @@ def register_all_blueprints(app) -> None:
         "app.routes.leaderboard",
         "app.routes.admin",
         "app.routes.misc",
+        "app.routes.streaks",
+        "app.routes.events",
+        "app.routes.security",
+        "app.routes.achievements_share",
+        "app.routes.analytics",
     ]
     for module_name in modules:
         try:

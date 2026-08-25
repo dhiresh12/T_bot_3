@@ -4,8 +4,19 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{{app_name}}</title>
+        <meta name="theme-color" content="#6366f1">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <link rel="manifest" href="/manifest.json">
         <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://telegram.org https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://telegram.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none';">
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <script>
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
+            });
+          }
+        </script>
         <style>
           :root {
             --bg-0: #0a0e1a;
@@ -294,6 +305,37 @@
         .onboarding-dots .dot.active{background:var(--primary);width:24px;border-radius:4px;box-shadow:0 0 8px var(--primary-glow);}
         .onboarding-nav{display:flex;gap:10px;justify-content:center;}
         .onboarding-progress{position:absolute;top:16px;right:20px;font-size:11px;color:var(--text-dim);font-weight:700;}
+        .toast-container{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;width:calc(100% - 32px);max-width:420px;pointer-events:none;}
+        .toast{padding:12px 16px;border-radius:14px;font-size:13px;font-weight:600;color:white;backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);box-shadow:0 8px 24px rgba(0,0,0,0.4);animation:toastIn 0.35s cubic-bezier(0.22,1,0.36,1);pointer-events:auto;display:flex;align-items:center;gap:10px;justify-content:space-between;}
+        .toast.success{background:rgba(16,185,129,0.92);}
+        .toast.error{background:rgba(239,68,68,0.92);}
+        .toast.info{background:rgba(59,130,246,0.92);}
+        .toast.warning{background:rgba(245,158,11,0.92);}
+        .toast-close{background:none;border:none;color:white;font-size:16px;cursor:pointer;padding:0 2px;}
+        @keyframes toastIn{from{opacity:0;transform:translateY(-12px) scale(0.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+        .streak-rewards-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px;}
+        .streak-reward-item{background:var(--bg-glass);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:14px;padding:10px;text-align:center;font-size:11px;color:var(--text-dim);transition:all 0.2s;}
+        .streak-reward-item.claimed{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.08);color:var(--success);}
+        .streak-reward-item .day{font-size:18px;font-weight:800;color:var(--gold);}
+        .event-banner{margin-top:12px;background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(249,115,22,0.15));border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px;animation:flash 2s infinite;}
+        .event-banner .em{font-size:32px;}
+        .event-banner .info{flex:1;}
+        .event-banner .info b{font-size:14px;display:block;margin-bottom:2px;}
+        .event-banner .info p{margin:0;font-size:12px;color:var(--text-dim);}
+        .pin-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(12px);}
+        .pin-modal.show{display:flex;}
+        .pin-card{background:linear-gradient(135deg,#1e293b,#111827);border:1px solid var(--border);border-radius:24px;padding:28px 24px;width:100%;max-width:340px;text-align:center;}
+        .pin-dots{display:flex;gap:10px;justify-content:center;margin:16px 0;}
+        .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all 0.2s;}
+        .pin-dot.filled{background:var(--primary);border-color:var(--primary);box-shadow:0 0 8px var(--primary-glow);}
+        .pin-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+        .pin-key{background:var(--bg-2);border:1px solid var(--border);border-radius:14px;padding:14px;font-size:20px;font-weight:700;color:white;cursor:pointer;transition:all 0.2s;}
+        .pin-key:hover{background:rgba(99,102,241,0.15);border-color:var(--primary);}
+        .pin-key:active{transform:scale(0.95);}
+        .achievement-share{display:flex;align-items:center;gap:8px;margin-top:8px;}
+        .achievement-share button{background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:11px;color:var(--text);cursor:pointer;transition:all 0.2s;}
+        .achievement-share button:hover{border-color:var(--primary);background:rgba(99,102,241,0.1);}
+        .share-toast{background:rgba(52,211,153,0.95);color:white;padding:10px 14px;border-radius:12px;font-size:12px;font-weight:700;margin-top:8px;text-align:center;animation:toastIn 0.35s;}
         </style>
       </head>
       <body>
@@ -907,16 +949,53 @@
               <div class="grid-card" onclick="showPage('settings')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⚙️</div><div class="label">Settings</div></div>
               <div class="grid-card" onclick="showPage('invite')" style="cursor:pointer;"><div class="em" style="font-size:28px;">👥</div><div class="label">Invite</div></div>
               <div class="grid-card" onclick="showPage('social')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📤</div><div class="label">Social</div></div>
+              <div class="grid-card" onclick="showPage('streak')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🔥</div><div class="label">Streak</div></div>
             </div>
           </div>
+        <div class="toast-container" id="toast-container"></div>
 
-        <!-- Bottom Navigation -->
+        <div class="pin-modal" id="pin-modal">
+          <div class="pin-card">
+            <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">Enter PIN to confirm withdrawal</div>
+            <div class="pin-dots" id="pin-dots"><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span></div>
+            <div id="pin-status" style="font-size:12px;color:var(--text-dim);min-height:18px;"></div>
+            <div class="pin-keys">
+              <button class="pin-key" onclick="pinPress(1)">1</button><button class="pin-key" onclick="pinPress(2)">2</button><button class="pin-key" onclick="pinPress(3)">3</button>
+              <button class="pin-key" onclick="pinPress(4)">4</button><button class="pin-key" onclick="pinPress(5)">5</button><button class="pin-key" onclick="pinPress(6)">6</button>
+              <button class="pin-key" onclick="pinPress(7)">7</button><button class="pin-key" onclick="pinPress(8)">8</button><button class="pin-key" onclick="pinPress(9)">9</button>
+              <button class="pin-key" onclick="pinPress(0)">0</button><button class="pin-key" onclick="pinClear()" style="color:var(--danger);">C</button><button class="pin-key" onclick="pinDelete()" style="color:var(--gold);">⌫</button>
+            </div>
+            <button class="btn btn-sm" style="margin-top:14px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);" onclick="closePinModal()">Cancel</button>
+          </div>
+        </div>
+
+        <!-- STREAK REWARDS -->
+        <div id="page-streak" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>🔥 Daily Streak Rewards</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Claim your daily login reward. Miss a day and your streak resets!</p>
+          <div id="streak-rewards-box" style="background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:18px;padding:14px;margin-top:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:800;font-size:16px;">Current Streak: <span id="streak-current">0</span> days</span>
+              <button id="claim-streak-btn" class="btn btn-sm btn-gold" onclick="claimDailyStreak()">🎁 Claim Today</button>
+            </div>
+            <div class="streak-rewards-grid" id="streak-rewards-grid"></div>
+            <p id="streak-status" class="status-msg" style="margin-top:10px;"></p>
+          </div>
+        </div>
+
+        <div class="event-banner" id="event-banner" style="display:none;">
+          <div class="em" id="event-banner-em">🎉</div>
+          <div class="info"><b id="event-banner-title">Limited Time Event</b><p id="event-banner-desc">Earn bonus rewards!</p></div>
+          <button class="btn btn-sm btn-gold" id="event-banner-btn" onclick="claimEventReward()">Claim</button>
+        </div>
         <div class="nav">
           <button class="nav-item active" data-page="home" onclick="showPage('home')"><span class="em">🏠</span><span data-translate-key="nav_home">Home</span></button>
           <button class="nav-item" data-page="ads" onclick="showPage('ads')"><span class="em">▶</span><span data-translate-key="nav_ads">Ads</span></button>
           <button class="nav-item" data-page="friends" onclick="showPage('friends')"><span class="em">👥</span><span>Friends</span></button>
           <button class="nav-item" data-page="discover" onclick="showPage('discover')"><span class="em">🔍</span><span>Discover</span></button>
           <button class="nav-item" data-page="more" onclick="showPage('more')"><span class="em">📋</span><span>More</span></button>
+          <button class="nav-item" data-page="streak" onclick="showPage('streak')"><span class="em">🔥</span><span>Streak</span></button>
         </div>
 
         <script>
@@ -1519,10 +1598,37 @@ async function completeTask(btn) {
             if (selectedMethod === 'mobile' && !/^\d{10}$/.test(details)) { statusEl.innerText = 'Please enter a valid 10-digit mobile number.'; return; }
             const cleanAmount = Number(numAmount.toFixed(2));
             const cleanDetails = details.replace(/[<>"']/g, '').slice(0, 200);
+            const payload = { amount: cleanAmount, method: selectedMethod, details: cleanDetails };
+            const pinRequired = await checkPinRequired();
+            if (pinRequired) {
+              _pendingWithdrawal = payload;
+              openPinModal();
+              return;
+            }
+            await executeWithdrawal(payload);
+          }
+
+          async function checkPinRequired() {
             try {
-              const r = await fetch('/api/withdraw/' + userId, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount: cleanAmount, method: selectedMethod, details: cleanDetails }) });
+              const r = await fetch('/api/security/pin-status/' + userId);
+              const data = await r.json();
+              return data.pin_set || false;
+            } catch (e) { return false; }
+          }
+
+          async function executeWithdrawal(payload) {
+            const statusEl = document.getElementById('withdraw-status');
+            statusEl.innerText = 'Processing...';
+            try {
+              const r = await fetch('/api/withdraw/' + userId, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
               const data = await r.json();
               statusEl.innerText = data.message || '';
+              if (data.success) {
+                playSound('success'); haptic('heavy');
+                showToast('Withdrawal request submitted!', 'success');
+              } else {
+                playSound('error');
+              }
               fetchData();
             } catch (e) { statusEl.innerText = 'Withdrawal error. Please try again.'; }
           }
@@ -1671,6 +1777,8 @@ function showPage(pageName) {
                 }
               }).catch(function(e){});
             }
+            if (pageName === 'streak') loadStreakRewards();
+            if (pageName === 'notifications') loadNotificationsPage();
           }
 
           async function searchUsers() {
@@ -2439,6 +2547,218 @@ function showPage(pageName) {
             };
             tick();
           }
+
+          // --- Toast Notifications ---
+          function showToast(message, type) {
+            type = type || 'info';
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.innerHTML = '<span>' + message + '</span><button class="toast-close" onclick="this.parentElement.remove()">×</button>';
+            container.appendChild(toast);
+            setTimeout(function(){ if (toast.parentElement) toast.remove(); }, 3500);
+          }
+
+          // --- Streak Rewards ---
+          async function loadStreakRewards() {
+            try {
+              const r = await fetch('/api/streak/info/' + userId);
+              const data = await r.json();
+              const grid = document.getElementById('streak-rewards-grid');
+              const currentEl = document.getElementById('streak-current');
+              const claimBtn = document.getElementById('claim-streak-btn');
+              const statusEl = document.getElementById('streak-status');
+              if (currentEl) currentEl.innerText = data.streak || 0;
+              if (claimBtn) claimBtn.style.display = data.claimed_today ? 'none' : 'inline-block';
+              if (statusEl && data.claimed_today) statusEl.innerText = '✅ Already claimed today!';
+              const rewards = [0, 50, 100, 200, 350, 500, 750, 1000, 1500, 2000, 3000];
+              let html = '';
+              for (let i = 0; i < rewards.length; i++) {
+                const claimed = i < (data.streak || 0);
+                html += '<div class="streak-reward-item' + (claimed ? ' claimed' : '') + '"><div class="day">' + (i + 1) + '</div><div>' + rewards[i] + ' coins</div></div>';
+              }
+              if (grid) grid.innerHTML = html;
+            } catch (e) {}
+          }
+
+          async function claimDailyStreak() {
+            const statusEl = document.getElementById('streak-status');
+            statusEl.innerText = 'Claiming...';
+            try {
+              const r = await fetch('/api/streak/claim/' + userId, { method: 'POST' });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              if (data.success) {
+                showToast('🔥 Streak: +' + (data.data && data.data.coins ? data.data.coins : 0) + ' coins', 'success');
+                loadStreakRewards();
+                fetchData();
+              } else {
+                showToast(data.message || 'Already claimed', 'warning');
+              }
+            } catch (e) { statusEl.innerText = 'Error claiming streak.'; }
+          }
+
+          // --- Event Banner ---
+          async function loadEventBanner() {
+            try {
+              const r = await fetch('/api/events/active');
+              const data = await r.json();
+              const banner = document.getElementById('event-banner');
+              if (banner && data && data.active) {
+                document.getElementById('event-banner-title').innerText = data.title || 'Limited Event';
+                document.getElementById('event-banner-desc').innerText = data.description || 'Claim exclusive rewards!';
+                document.getElementById('event-banner-em').innerText = data.emoji || '🎉';
+                banner.style.display = 'flex';
+                window.__activeEventId = data.event_id;
+              } else if (banner) {
+                banner.style.display = 'none';
+              }
+            } catch (e) {}
+          }
+
+          async function claimEventReward() {
+            try {
+              const r = await fetch('/api/events/claim/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event_id: window.__activeEventId })
+              });
+              const data = await r.json();
+              if (data.success) {
+                showToast('🎉 Event reward claimed!', 'success');
+                loadEventBanner();
+                fetchData();
+              } else {
+                showToast(data.message || 'Event not available', 'warning');
+              }
+            } catch (e) { showToast('Error claiming event reward', 'error'); }
+          }
+
+          // --- PIN Lock ---
+          let _pinValue = '';
+          let _pendingWithdrawal = null;
+          function pinPress(n) {
+            if (_pinValue.length >= 6) return;
+            _pinValue += n;
+            updatePinDots();
+            if (_pinValue.length >= 4) {
+              setTimeout(verifyPinAndWithdraw, 300);
+            }
+          }
+          function pinClear() { _pinValue = ''; updatePinDots(); }
+          function pinDelete() { _pinValue = _pinValue.slice(0, -1); updatePinDots(); }
+          function updatePinDots() {
+            const dots = document.querySelectorAll('#pin-dots .pin-dot');
+            dots.forEach(function(dot, i) { dot.classList.toggle('filled', i < _pinValue.length); });
+          }
+          function openPinModal() {
+            _pinValue = '';
+            updatePinDots();
+            document.getElementById('pin-status').innerText = '';
+            document.getElementById('pin-modal').classList.add('show');
+          }
+          function closePinModal() {
+            document.getElementById('pin-modal').classList.remove('show');
+            _pendingWithdrawal = null;
+            _pinValue = '';
+          }
+          async function verifyPinAndWithdraw() {
+            const statusEl = document.getElementById('pin-status');
+            statusEl.innerText = 'Verifying...';
+            try {
+              const r = await fetch('/api/security/verify-pin/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: _pinValue })
+              });
+              const data = await r.json();
+              if (data.success) {
+                statusEl.innerText = '✓ PIN correct';
+                document.getElementById('pin-modal').classList.remove('show');
+                if (_pendingWithdrawal) {
+                  executeWithdrawal(_pendingWithdrawal);
+                  _pendingWithdrawal = null;
+                }
+              } else {
+                statusEl.innerText = '✗ Wrong PIN';
+                statusEl.style.color = 'var(--danger)';
+                _pinValue = '';
+                updatePinDots();
+                setTimeout(function(){ statusEl.style.color = 'var(--text-dim)'; }, 1500);
+              }
+            } catch (e) { statusEl.innerText = 'Error verifying PIN'; }
+          }
+
+          // --- Achievement Share ---
+          async function shareAchievement(achievementId) {
+            try {
+              const r = await fetch('/api/achievements/share/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ achievement_id: achievementId })
+              });
+              const data = await r.json();
+              if (data.success) {
+                showToast('🎁 Shared! +' + (data.data && data.data.coins ? data.data.coins : 20) + ' coins', 'success');
+                fetchData();
+              } else {
+                showToast(data.message || 'Already shared', 'warning');
+              }
+            } catch (e) { showToast('Error sharing', 'error'); }
+          }
+
+          // --- PWA Install ---
+          let deferredPrompt = null;
+          window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(function() {
+              if (deferredPrompt && confirm('Install Xio_PayPlus as an app for faster access?')) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
+              }
+            }, 30000);
+          });
+
+          // --- A/B Variant Helper ---
+          async function getABVariant(testName) {
+            try {
+              const r = await fetch('/api/ab/variant/' + userId + '?test=' + testName);
+              const data = await r.json();
+              return data.variant || 'default';
+            } catch (e) { return 'default'; }
+          }
+
+          // --- Notification Polling ---
+          async function pollNotifications() {
+            try {
+              const r = await fetch('/api/notifications/unread-count/' + userId);
+              const data = await r.json();
+              const badge = document.getElementById('notif-badge');
+              if (data.count > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = data.count > 9 ? '9+' : data.count;
+                if (data.new) playSound('reward');
+              } else {
+                badge.style.display = 'none';
+              }
+            } catch (e) {}
+          }
+          setInterval(pollNotifications, 30000);
+
+          // --- Notifications Page ---
+          async function loadNotificationsPage() {
+            await loadNotifications();
+          }
+
+          // --- Offline Queue ---
+          window.addEventListener('online', function() {
+            showToast('Back online! Syncing...', 'success');
+            fetch('/api/offline/sync/' + userId, { method: 'POST' }).catch(function() {});
+          });
+          window.addEventListener('offline', function() {
+            showToast('You are offline. Actions will sync later.', 'warning');
+          });
 
           window.addEventListener('load', function(){
             buildWheel();

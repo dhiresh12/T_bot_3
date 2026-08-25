@@ -132,67 +132,132 @@ The repo has a working starter with all core features implemented and tested (72
 
 ## New Features Added (Latest Update)
 
-### Social & Interaction System
-- **Friend Requests**: Send, accept, reject friend requests with notifications.
-- **Profile Views**: View any user's public profile (coins visible, wallet hidden unless friend).
-- **Profile Likes**: Like any profile, see like count, get notified.
-- **Profile Visitors**: Track who visited your profile, see visitor count.
-- **Personal Messages**: Send private messages to any user, get notified.
-- **Bio**: Update your profile bio (visible to friends only).
-- **User Search**: Search users by name or ID.
-- **User Discovery**: See trending users and new users.
+### Phase 10 — Daily Streak Rewards
+- **Daily login streak system** with escalating rewards: Day 1: 50 coins, Day 2: 100 coins, Day 3: 200 coins, Day 4: 350 coins, Day 5: 500 coins, Day 6: 750 coins, Day 7: 1000 coins, Day 8: 1500 coins, Day 9: 2000 coins, Day 10+: 3000 coins.
+- Miss a day and streak resets to 0 (dark pattern: creates urgency to return daily).
+- Streak rewards page with visual calendar grid showing claimed/unclaimed days.
+- Backend: `claim_daily_login_reward()`, `get_daily_login_streak_info()` in `BotEngine`.
+- API: `/api/streak/info/<user_id>`, `/api/streak/claim/<user_id>`.
 
-### Popularity System
-- **Daily Free Popularity**: Claim 10 free popularity points every day.
-- **Buy Popularity**: Purchase popularity with coins (100 coins = 1 point) or money (₹0.01 = 1 point).
-- **Send Popularity**: Send popularity points to friends (like gifting).
-- **Popularity Levels**: Newcomer 🌱 → Rising 📈 → Popular ⭐ → Influencer 🔥 → Celebrity 👑.
-- **Shop Items**: Small/Large popularity packs available in shop.
+### Phase 11 — Limited-Time Events
+- **Rotating event system** with admin-configurable start/end times.
+- Event banner on home page with countdown and exclusive rewards.
+- One-time claim per user per event.
+- Backend: `get_active_event()`, `claim_event_reward()` in `BotEngine`.
+- API: `/api/events/active`, `/api/events/claim/<user_id>`.
 
-### Coin Transfer & Transactions
-- Send coins to any user directly.
-- Receive notifications when coins are received.
-- **Transaction history** with type filtering (ad_reward, task_reward, coin_exchange, coins_sent, coins_received, popularity_sent, popularity_received, admin_credit).
-- Activity log tracks all transfers.
+### Phase 12 — PIN Lock for Withdrawals
+- **Optional 4-6 digit PIN** for withdrawal confirmation.
+- PIN required before any withdrawal request if set.
+- PIN hash stored securely (SHA256, never plaintext).
+- PIN setup UI with numeric keypad modal.
+- Backend: `set_pin()`, `verify_pin()` in `BotEngine`.
+- API: `/api/security/set-pin/<user_id>`, `/api/security/verify-pin/<user_id>`, `/api/security/pin-status/<user_id>`.
+- Withdrawal route now checks PIN before processing.
 
-### Privacy & Settings
-- **Privacy Controls**: Toggle visibility of wallet, coins, popularity, bio, activity, friends.
-- **Dark Themes**: Choose between Dark (default), Light, and Blue themes.
-- **Theme Persistence**: Saved in localStorage.
+### Phase 13 — A/B Testing Framework
+- Lightweight A/B testing for optimizing engagement.
+- Variants for: withdrawal countdown duration, fee structure, onboarding flow.
+- User assigned to variant based on user_id hash.
+- Backend: `get_ab_variant()` in `BotEngine`.
+- API: `/api/ab/variant/<user_id>?test=<test_name>`.
 
-### Admin Features
-- **Broadcast Messaging**: Send messages to all users at once.
-- **Ban/Kick System**: Ban users with reason, kick users from database.
-- **Admin Send Coins**: Manually credit coins to any user.
-- **Withdrawal Proofs**: Users can upload proof of payment for withdrawals.
+### Phase 14 — Achievement Sharing Rewards
+- Share achievements to social platforms (Telegram, Twitter, WhatsApp).
+- First share per achievement awards 20 coins + 10 XP.
+- 24-hour cooldown between share rewards.
+- Backend: `record_share_reward()` in `BotEngine`.
+- API: `/api/achievements/share/<user_id>`.
 
-### Security Hardening
-- **Session Authentication**: `/api/auth/login` with X-User-Token header.
-- **Telegram HMAC Auth**: `/api/auth/telegram` for production-grade auth.
-- **Rate Limiting**: 30 requests/minute per user per endpoint.
-- **Admin Key**: No hardcoded fallback, must be set via env var.
-- **Secret Key**: Required in production, no dev default.
-- **Per-User Locks**: threading.RLock prevents race conditions on all state changes.
-- **CSRF Protection**: Admin API only accepts X-Admin-Key header (no body fallback).
-- **Admin Route Protected**: /admin dashboard now requires admin key.
-- **PII Leak Fixed**: admin_view_user only returns safe fields.
-- **Withdrawal Approval**: Validates request belongs to specified user_id.
-- **redeem_more_ads Bug Fixed**: Now extends bonus ads limit instead of consuming counter.
-- **Scratch Card Dates Decoupled**: Separate last_scratch_claimed_at field.
-- **Predictable IDs**: UUID-based IDs for notifications and friend requests.
+### Phase 15 — Admin Analytics v2
+- Enhanced admin analytics dashboard with:
+  - Real-time active users count.
+  - User retention rate (today vs yesterday).
+  - Total wallet balance across all users.
+  - Top performing tasks by completion count.
+  - Daily registration trends (last 7 days).
+  - Pending withdrawal count.
+- Backend: `get_admin_analytics_v2()` in `BotEngine`.
+- API: `/api/admin/analytics/v2` (admin-only).
 
-### Ad Integration
-- **AdMob/AdSense/AdInPlay support** via AdsManager.
-- **Ad unit ID generation** for each user/ad.
-- **Ad completion verification** with duplicate prevention.
-- **Callback endpoint** `/api/ads/verify` for real ad providers.
-- **Ad stats endpoint** `/api/ads/unit/<user_id>` for frontend widget.
+### Phase 16 — Toast Notification System
+- Toast notifications for all API calls (success, error, info, warning).
+- Auto-dismiss after 3.5 seconds with swipe-to-dismiss.
+- Used for: withdrawal success, streak claims, event rewards, errors.
+- Pure CSS/JS, no dependencies.
 
-### Deployment
-- **Render-ready** configuration with `render.yaml`.
-- **Procfile** with gunicorn config.
-- **requirements.txt** with all dependencies.
-- **DEPLOY.md** with step-by-step deployment guide.
+### Phase 17 — Real-Time Notification Polling
+- Background polling every 30 seconds for unread notification count.
+- Badge counter auto-updates without page refresh.
+- Haptic + sound feedback on new notification.
+- Backend: `/api/notifications/unread-count/<user_id>`.
+
+### Phase 18 — PWA + Offline Support
+- **Service Worker** for offline caching (`app/static/sw.js`).
+- **Web App Manifest** for "Add to Home Screen" (`/manifest.json`).
+- Offline action queue: actions performed offline sync when back online.
+- Install prompt shown after 30 seconds for eligible browsers.
+- Backend: `queue_offline_action()`, `process_offline_actions()` in `BotEngine`.
+- API: `/api/offline/sync/<user_id>`.
+
+### Phase 19 — Notification Delivery Receipts
+- Track notification delivery status (sent, delivered, read).
+- Backend: `record_notification_receipt()` in `BotEngine`.
+- Stored in `profile.notification_receipts`.
+
+### Phase 20 — Webhook Retry Queue
+- Failed webhook deliveries retry up to 3 times with 2-second delay.
+- Dead-letter queue for manual review of permanently failed notifications.
+- Backend: `self.webhook_retry_attempts`, `self.webhook_retry_delay_seconds`, `self.webhook_dead_letter_queue` in `BotEngine.__init__`.
+
+## Dark Patterns Implemented (Engagement Layer)
+
+### Countdown Timers
+- Withdrawal cooldown timer (`withdraw-cd`) — blocks re-request for 5 minutes after submission.
+- **A/B tested variants**: 3min, 5min, 10min countdowns.
+
+### Hidden Costs
+- Processing fee reveal on withdraw amount input (`hidden-fee-box`) — 5% fee + ₹2 minimum appears only after user types amount.
+- **A/B tested variants**: 5% fee/2min cooldown, 7% fee/0min cooldown, 3% fee/5min cooldown.
+
+### Confirmshaming
+- Onboarding skip button: guilt-trip confirm dialog ("Are you sure? Skipping means you might miss out on exclusive beginner bonuses...")
+- Back buttons: confirm dialog warning about lost progress/earnings.
+- **A/B tested variants**: short, medium, long onboarding flows.
+
+### Disguised Ads
+- Sponsored task injection (`injectSponsoredTask`) — random sponsor tasks mixed into task list with dashed gold border and "SPONSORED" badge.
+
+### Fake Social Proof
+- Randomized live user counter (`online-count`) — fluctuates between 2,300–3,100.
+- Randomized payout counter (`payout-count`) — fluctuates between ₹1,20,000–₹1,70,000.
+
+### Roach Motel
+- Extra "Account Verification" step for withdrawals above ₹50 (`roach-step`) — fake 2-4 second verification delay before allowing withdrawal.
+
+### Streak Anxiety
+- Daily streak rewards with reset on miss — escalating rewards (50→3000 coins) create strong incentive to return daily.
+- Streak freeze available in shop to reduce churn.
+
+### Event Urgency
+- Limited-time event banners with countdown timers and exclusive rewards.
+- Creates FOMO (fear of missing out) around event participation.
+
+### PIN Lock Friction
+- Optional PIN adds perceived security but also creates extra step before withdrawal.
+- Dark pattern: increases psychological investment and trust.
+
+### Share Reward Loop
+- Share achievements for coins/XP — creates viral marketing loop.
+- Cooldown prevents abuse but encourages daily sharing.
+
+### Toast Feedback
+- Immediate feedback on all actions creates dopamine loop.
+- Success toasts reinforce positive behavior.
+
+---
+
+**Note:** This is a living document. All features are built with future-proofing in mind. Dark patterns are intentionally preserved for engagement.
 
 ## Architecture
 

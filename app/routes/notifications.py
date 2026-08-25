@@ -24,6 +24,15 @@ def notifications(user_id: int) -> tuple[dict, int]:
     return jsonify({"notifications": notifs, "unread_count": unread}), 200
 
 
+@_require_auth_get("notifications_unread_count")
+@bp.get("/api/notifications/unread-count/<int:user_id>")
+def notifications_unread_count(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    profile = current_engine.get_profile(user_id)
+    return jsonify({"count": profile.unread_notifications, "new": profile.unread_notifications > 0}), 200
+
+
 @_require_auth_post("mark_notifications_read")
 
 

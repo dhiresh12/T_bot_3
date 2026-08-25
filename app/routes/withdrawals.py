@@ -22,9 +22,16 @@ def withdraw(user_id: int) -> tuple[dict, int]:
     amount = float(payload.get("amount", current_engine.min_withdrawal))
     method = payload.get("method", "upi")
     details = payload.get("details", "")
+    pin = str(payload.get("pin", "")).strip()
     current_engine.register_user(user_id, "Guest")
+    profile = current_engine.get_profile(user_id)
+    if profile.pin_set:
+        if not pin:
+            return jsonify({"success": False, "message": "PIN required", "require_pin": True}), 403
+        if not current_engine.verify_pin(user_id, pin):
+            return jsonify({"success": False, "message": "Invalid PIN", "require_pin": True}), 403
     message = current_engine.request_withdrawal(user_id, amount, method, details)
-    return jsonify({"message": message}), 200
+    return jsonify({"success": True, "message": message}), 200
 
 
 @_require_auth_post("spin")

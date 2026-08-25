@@ -200,3 +200,66 @@ def discover_users(user_id: int) -> tuple[dict, int]:
 
 
 # --- Admin Dashboard UI ---
+
+
+# --- A/B Testing ---
+
+@_require_auth_get("ab_variant")
+@bp.get("/api/ab/variant/<int:user_id>")
+def ab_variant(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    test_name = request.args.get("test", "default")
+    variant = current_engine.get_ab_variant(user_id, test_name)
+    return jsonify({"variant": variant}), 200
+
+
+# --- Offline Sync ---
+
+@_require_auth_post("offline_sync")
+@bp.post("/api/offline/sync/<int:user_id>")
+def offline_sync(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    synced = current_engine.process_offline_actions(user_id)
+    return jsonify({"success": True, "synced": synced}), 200
+
+
+# --- A/B Testing ---
+
+@_require_auth_get("ab_variant")
+@bp.get("/api/ab/variant/<int:user_id>")
+def ab_variant(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    test_name = request.args.get("test", "default")
+    variant = current_engine.get_ab_variant(user_id, test_name)
+    return jsonify({"variant": variant}), 200
+
+
+# --- Offline Sync ---
+
+@_require_auth_post("offline_sync")
+@bp.post("/api/offline/sync/<int:user_id>")
+def offline_sync(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    synced = current_engine.process_offline_actions(user_id)
+    return jsonify({"success": True, "synced": synced}), 200
+
+# --- PWA Manifest ---
+
+@bp.get("/manifest.json")
+def pwa_manifest() -> tuple[dict, int]:
+    return jsonify({
+        "name": "Xio_PayPlus",
+        "short_name": "XioPay",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0a0e1a",
+        "theme_color": "#6366f1",
+        "icons": [
+            {"src": "https://cdn.jsdelivr.net/npm/@xio/icon@1.0.0/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "https://cdn.jsdelivr.net/npm/@xio/icon@1.0.0/icon-512.png", "sizes": "512x512", "type": "image/png"}
+        ]
+    }), 200

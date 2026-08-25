@@ -356,6 +356,27 @@ class UserProfile:  # Phase 1: Expanded UserProfile
     withdrawal_proofs: List[Dict[str, Any]] = field(default_factory=list)
     # --- Transaction history ---
     transactions: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Daily login streak rewards ---
+    daily_login_streak: int = 0
+    last_login_date: Optional[str] = None
+    streak_freeze_available: int = 0
+    # --- Limited-time events ---
+    event_points: int = 0
+    claimed_event_rewards: List[str] = field(default_factory=list)
+    active_event_id: Optional[str] = None
+    # --- PIN lock for withdrawals ---
+    pin_hash: Optional[str] = None
+    pin_set: bool = False
+    # --- A/B testing ---
+    ab_variant: str = "default"
+    # --- Achievement sharing rewards ---
+    shared_achievements: List[str] = field(default_factory=list)
+    last_share_reward_at: Optional[str] = None
+    # --- Notification delivery receipts ---
+    notification_receipts: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Offline / PWA queue ---
+    offline_actions: List[Dict[str, Any]] = field(default_factory=list)
+    pwa_installed: bool = False
 
     def log_activity(self, action: str, details: Optional[Dict] = None):
         """Helper to log user activity."""
@@ -492,6 +513,35 @@ class BotEngine:
             "bonus_ready": {"title": "Bonus Ready", "message": "Your daily bonus is ready to claim!", "icon": "💰"},
             "scratch_ready": {"title": "Scratch Card Ready", "message": "You have a free scratch card waiting!", "icon": "🎟️"},
         }
+
+        # --- New features config ---
+        # Daily login streak rewards (dark pattern: escalating rewards keep users returning)
+        self.daily_streak_rewards = [0, 50, 100, 200, 350, 500, 750, 1000, 1500, 2000, 3000]
+        # Limited-time events
+        self.active_events: List[Dict[str, Any]] = []
+        self.event_rewards = {
+            "weekend_double": {"coins": 200, "xp": 50, "label": "Weekend Double Coins"},
+            "festival_scratch": {"coins": 0, "xp": 0, "label": "Festival Scratch Card", "item": "festival_scratch"},
+            "referral_tournament": {"coins": 500, "xp": 100, "label": "Referral Tournament Bonus"},
+        }
+        # A/B testing variants
+        self.ab_variants = {
+            "withdrawal_countdown": ["3min", "5min", "10min"],
+            "fee_structure": ["5pct_2min", "7pct_0min", "3pct_5min"],
+            "onboarding_flow": ["short", "medium", "long"],
+        }
+        # Share reward config
+        self.share_reward_coins = 20
+        self.share_reward_xp = 10
+        self.share_reward_cooldown_hours = 24
+        # PIN lock config
+        self.pin_required_for_withdrawal = True
+        self.pin_min_length = 4
+        self.pin_max_length = 6
+        # Webhook retry config
+        self.webhook_retry_attempts = 3
+        self.webhook_retry_delay_seconds = 2
+        self.webhook_dead_letter_queue: List[Dict[str, Any]] = []
 
         # --- Popularity system ---
         self.popularity_levels = [
@@ -2182,3 +2232,179 @@ class BotEngine:
         ranked = sorted(self.users.values(), key=lambda p: p.wallet_bot, reverse=True)
         return [(profile.name + (" 🏆" if profile.has_profile_badge else ""), profile.wallet_bot) for profile in ranked if profile.wallet_bot > 0]
 
+
+    def claim_daily_login_reward(self, user_id: int) -> tuple[bool, str, Dict[str, Any]]:
+        """Claim daily login streak reward. Streak increments each day; misses reset to 0."""
+        import datetime as dt
+        profile = self.get_profile(user_id)
+        today = dt.datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d")
+        if profile.last_login_date == today:
+            return False, "Already claimed today!", {"streak": profile.daily_login_streak}
+        yesterday = (dt.datetime.now(timezone.utc).replace(tzinfo=None) - dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        if profile.last_login_date != yesterday:
+            profile.daily_login_streak = 0
+        profile.daily_login_streak += 1
+        profile.last_login_date = today
+        reward_idx = min(profile.daily_login_streak - 1, len(self.daily_streak_rewards) - 1)
+        coins = self.daily_streak_rewards[reward_idx]
+        profile.coins += coins
+        profile.log_activity("daily_login_reward", {"streak": profile.daily_login_streak, "coins": coins})
+        self._save_user(profile)
+        return True, f"Day {profile.daily_login_streak} streak! +{coins} coins", {"streak": profile.daily_login_streak, "coins": coins}
+
+    def get_daily_login_streak_info(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        today = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d")
+        claimed_today = profile.last_login_date == today
+        next_reward_idx = min(profile.daily_login_streak, len(self.daily_streak_rewards) - 1)
+        next_reward = self.daily_streak_rewards[next_reward_idx]
+        return {
+            "streak": profile.daily_login_streak,
+            "claimed_today": claimed_today,
+            "next_reward": next_reward,
+            "streak_freeze_available": profile.streak_freeze_available,
+        }
+
+    def get_active_event(self) -> Optional[Dict[str, Any]]:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for event in self.active_events:
+            if event.get("start") and event.get("end"):
+                try:
+                    start = datetime.fromisoformat(event["start"])
+                    end = datetime.fromisoformat(event["end"])
+                    if start <= now <= end:
+                        return event
+                except Exception:
+                    continue
+        return None
+
+    def claim_event_reward(self, user_id: int, event_id: str) -> tuple[bool, str, Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        if event_id in profile.claimed_event_rewards:
+            return False, "Already claimed!", {}
+        event = next((e for e in self.active_events if e.get("id") == event_id), None)
+        if not event:
+            return False, "Event not found", {}
+        reward = event.get("reward", {})
+        coins = reward.get("coins", 0)
+        xp = reward.get("xp", 0)
+        item = reward.get("item")
+        profile.coins += coins
+        if xp:
+            self._add_xp_internal(profile, xp)
+        if item:
+            profile.inventory.append({"item": item, "claimed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()})
+        profile.claimed_event_rewards.append(event_id)
+        profile.log_activity("event_reward_claim", {"event_id": event_id, "coins": coins, "xp": xp})
+        self._save_user(profile)
+        return True, f"Event reward claimed! +{coins} coins, +{xp} XP", {"coins": coins, "xp": xp, "item": item}
+
+    def set_pin(self, user_id: int, pin: str) -> tuple[bool, str]:
+        profile = self.get_profile(user_id)
+        if not (self.pin_min_length <= len(pin) <= self.pin_max_length):
+            return False, f"PIN must be {self.pin_min_length}-{self.pin_max_length} digits."
+        if not pin.isdigit():
+            return False, "PIN must contain only digits."
+        import hashlib
+        profile.pin_hash = hashlib.sha256(pin.encode()).hexdigest()
+        profile.pin_set = True
+        profile.log_activity("pin_set", {})
+        self._save_user(profile)
+        return True, "PIN set successfully."
+
+    def verify_pin(self, user_id: int, pin: str) -> bool:
+        profile = self.get_profile(user_id)
+        if not profile.pin_set:
+            return True
+        import hashlib
+        return profile.pin_hash == hashlib.sha256(pin.encode()).hexdigest()
+
+    def record_notification_receipt(self, user_id: int, notification_id: str, status: str) -> None:
+        profile = self.get_profile(user_id)
+        profile.notification_receipts.append({
+            "notification_id": notification_id,
+            "status": status,
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        })
+        self._save_user(profile)
+
+    def queue_offline_action(self, user_id: int, action: str, payload: Dict[str, Any]) -> None:
+        profile = self.get_profile(user_id)
+        profile.offline_actions.append({
+            "action": action,
+            "payload": payload,
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "synced": False,
+        })
+        self._save_user(profile)
+
+    def process_offline_actions(self, user_id: int) -> int:
+        profile = self.get_profile(user_id)
+        synced = 0
+        for action in profile.offline_actions:
+            if action.get("synced"):
+                continue
+            action["synced"] = True
+            synced += 1
+        profile.offline_actions = [a for a in profile.offline_actions if not a.get("synced")]
+        self._save_user(profile)
+        return synced
+
+    def get_ab_variant(self, user_id: int, test_name: str) -> str:
+        profile = self.get_profile(user_id)
+        if not hasattr(profile, "ab_variant") or not profile.ab_variant:
+            variants = self.ab_variants.get(test_name, ["default"])
+            profile.ab_variant = variants[user_id % len(variants)]
+            self._save_user(profile)
+        return profile.ab_variant
+
+    def record_share_reward(self, user_id: int, achievement_id: str) -> tuple[bool, str, Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        if profile.last_share_reward_at:
+            last = datetime.fromisoformat(profile.last_share_reward_at)
+            if (now - last).total_seconds() < self.share_reward_cooldown_hours * 3600:
+                return False, "Share reward cooldown active. Try again later.", {}
+        if achievement_id in profile.shared_achievements:
+            return False, "Already rewarded for sharing this achievement.", {}
+        profile.shared_achievements.append(achievement_id)
+        profile.last_share_reward_at = now.isoformat()
+        profile.coins += self.share_reward_coins
+        self._add_xp_internal(profile, self.share_reward_xp)
+        profile.log_activity("share_reward", {"achievement_id": achievement_id, "coins": self.share_reward_coins})
+        self._save_user(profile)
+        return True, f"Shared! +{self.share_reward_coins} coins, +{self.share_reward_xp} XP", {"coins": self.share_reward_coins, "xp": self.share_reward_xp}
+
+    def get_admin_analytics_v2(self) -> Dict[str, Any]:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        today = now.strftime("%Y-%m-%d")
+        total_users = len(self.users)
+        active_today = sum(1 for p in self.users.values() if p.last_activity_at and p.last_activity_at.startswith(today))
+        total_wallet = sum(p.wallet_bot + p.wallet_app for p in self.users.values())
+        total_coins = sum(p.coins for p in self.users.values())
+        pending_withdrawals = sum(len(p.withdrawals) for p in self.users.values())
+        task_counts: Dict[str, int] = {}
+        for p in self.users.values():
+            for tid in p.completed_tasks:
+                task_counts[tid] = task_counts.get(tid, 0) + 1
+        top_tasks = sorted(task_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        daily_regs: Dict[str, int] = {}
+        for p in self.users.values():
+            if p.registered_at:
+                day = p.registered_at[:10]
+                daily_regs[day] = daily_regs.get(day, 0) + 1
+        yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+        active_yesterday = sum(1 for p in self.users.values() if p.last_activity_at and p.last_activity_at.startswith(yesterday))
+        retention = round((active_today / active_yesterday) * 100, 1) if active_yesterday else 0.0
+        return {
+            "total_users": total_users,
+            "active_today": active_today,
+            "active_yesterday": active_yesterday,
+            "retention_rate": retention,
+            "total_wallet_balance": round(total_wallet, 2),
+            "total_coins": total_coins,
+            "pending_withdrawals": pending_withdrawals,
+            "top_tasks": [{"task_id": t, "completions": c} for t, c in top_tasks],
+            "daily_registrations": [{"date": d, "count": c} for d, c in sorted(daily_regs.items())],
+            "generated_at": now.isoformat(),
+        }

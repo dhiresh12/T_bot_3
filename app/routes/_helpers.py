@@ -12,11 +12,11 @@ _RATE_LIMIT_WINDOW = 60
 _RATE_LIMIT_MAX = 30
 
 
-def _check_rate_limit(key: str) -> bool:
+def _check_rate_limit(key: str, limit: int = _RATE_LIMIT_MAX, window: int = _RATE_LIMIT_WINDOW) -> bool:
     now = time.time()
-    window_start = now - _RATE_LIMIT_WINDOW
+    window_start = now - window
     _rate_limit_store[key] = [t for t in _rate_limit_store[key] if t > window_start]
-    if len(_rate_limit_store[key]) >= _RATE_LIMIT_MAX:
+    if len(_rate_limit_store[key]) >= limit:
         return False
     _rate_limit_store[key].append(now)
     return True
