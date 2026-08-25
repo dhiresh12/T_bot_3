@@ -224,29 +224,6 @@ def offline_sync(user_id: int) -> tuple[dict, int]:
     synced = current_engine.process_offline_actions(user_id)
     return jsonify({"success": True, "synced": synced}), 200
 
-
-# --- A/B Testing ---
-
-@_require_auth_get("ab_variant")
-@bp.get("/api/ab/variant/<int:user_id>")
-def ab_variant(user_id: int) -> tuple[dict, int]:
-    current_engine = current_app.config["engine"]
-    current_engine.register_user(user_id, "Guest")
-    test_name = request.args.get("test", "default")
-    variant = current_engine.get_ab_variant(user_id, test_name)
-    return jsonify({"variant": variant}), 200
-
-
-# --- Offline Sync ---
-
-@_require_auth_post("offline_sync")
-@bp.post("/api/offline/sync/<int:user_id>")
-def offline_sync(user_id: int) -> tuple[dict, int]:
-    current_engine = current_app.config["engine"]
-    current_engine.register_user(user_id, "Guest")
-    synced = current_engine.process_offline_actions(user_id)
-    return jsonify({"success": True, "synced": synced}), 200
-
 # --- PWA Manifest ---
 
 @bp.get("/manifest.json")
@@ -263,3 +240,26 @@ def pwa_manifest() -> tuple[dict, int]:
             {"src": "https://cdn.jsdelivr.net/npm/@xio/icon@1.0.0/icon-512.png", "sizes": "512x512", "type": "image/png"}
         ]
     }), 200
+
+# --- Dark Pattern Analytics ---
+
+@bp.get("/api/admin/dark-pattern-analytics")
+def dark_pattern_analytics() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied"}), 403
+    data = current_engine.get_dark_pattern_analytics()
+    return jsonify(data), 200
+
+@bp.post("/api/analytics/track")
+def track_event() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    user_id = payload.get("user_id")
+    event_type = payload.get("event_type")
+    if not user_id or not event_type:
+        return jsonify({"error": "Missing user_id or event_type"}), 400
+    current_engine.register_user(user_id, "Guest")
+    current_engine.track_dark_pattern_event(user_id, event_type, payload.get("metadata"))
+    return jsonify({"success": True}), 200

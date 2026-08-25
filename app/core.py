@@ -8,7 +8,7 @@ import threading
 import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timezone, timedelta
 
 try:
     from pymongo import MongoClient
@@ -516,7 +516,7 @@ class BotEngine:
 
         # --- New features config ---
         # Daily login streak rewards (dark pattern: escalating rewards keep users returning)
-        self.daily_streak_rewards = [0, 50, 100, 200, 350, 500, 750, 1000, 1500, 2000, 3000]
+        self.daily_streak_rewards = [50, 100, 200, 350, 500, 750, 1000, 1500, 2000, 3000, 5000]
         # Limited-time events
         self.active_events: List[Dict[str, Any]] = []
         self.event_rewards = {
@@ -542,6 +542,8 @@ class BotEngine:
         self.webhook_retry_attempts = 3
         self.webhook_retry_delay_seconds = 2
         self.webhook_dead_letter_queue: List[Dict[str, Any]] = []
+        # --- Dark pattern analytics ---
+        self.dark_pattern_events: List[Dict[str, Any]] = []
 
         # --- Popularity system ---
         self.popularity_levels = [
@@ -653,6 +655,14 @@ class BotEngine:
                 "desc": "Keep your streak alive for 1 day.",
                 "price": 1500,
                 "effect": "streak_shield",
+            },
+            {
+                "id": "streak_freeze",
+                "name": "Streak Freeze",
+                "emoji": "❄️",
+                "desc": "Protect your streak for 1 missed day.",
+                "price": 800,
+                "effect": "streak_freeze",
             },
             {
                 "id": "fire_double",
@@ -976,6 +986,11 @@ class BotEngine:
         inviter_profile.popularity += 2
         inviter_profile.wallet_bot += self.invite_referral_reward  # ₹0.005
         inviter_profile.coins += random.randint(100, 200)
+        event = self.get_active_event()
+        if event and event.get("id") == "referral_tournament":
+            bonus = event.get("reward", {}).get("coins", 0)
+            inviter_profile.coins += bonus
+            inviter_profile.log_activity("referral_tournament_bonus", {"bonus": bonus})
         inviter_profile.log_activity("user_invited", {"new_user_id": new_user_id, "reward": self.invite_referral_reward})
         self._save_user(inviter_profile)
 
@@ -1741,6 +1756,9 @@ class BotEngine:
             elif effect == "streak_shield":
                 profile.inventory.append({"type": "streak_shield", "item": item["id"]})
                 reward_message = f"🛡️ {item['name']} active! Your streak is protected for a day."
+            elif effect == "streak_freeze":
+                profile.inventory.append({"type": "streak_freeze", "item": item["id"]})
+                reward_message = f"❄️ {item['name']} active! Your streak is frozen for 1 missed day."
             elif effect == "profile_badge":
                 profile.inventory.append({"type": "profile_badge", "item": item["id"]})
                 profile.has_profile_badge = True
@@ -2242,6 +2260,19 @@ class BotEngine:
             return False, "Already claimed today!", {"streak": profile.daily_login_streak}
         yesterday = (dt.datetime.now(timezone.utc).replace(tzinfo=None) - dt.timedelta(days=1)).strftime("%Y-%m-%d")
         if profile.last_login_date != yesterday:
+            # Check for streak shield/freeze in inventory
+            shield_idx = next((i for i, inv in enumerate(profile.inventory) if inv.get("type") in ("streak_shield", "streak_freeze")), None)
+            if shield_idx is not None:
+                profile.inventory.pop(shield_idx)
+                profile.log_activity("streak_shield_consumed", {})
+                profile.last_login_date = today
+                profile.daily_login_streak += 1
+                reward_idx = min(profile.daily_login_streak - 1, len(self.daily_streak_rewards) - 1)
+                coins = self.daily_streak_rewards[reward_idx]
+                profile.coins += coins
+                profile.log_activity("daily_login_reward", {"streak": profile.daily_login_streak, "coins": coins, "shield_used": True})
+                self._save_user(profile)
+                return True, f"🛡️ Shield used! Day {profile.daily_login_streak} streak! +{coins} coins", {"streak": profile.daily_login_streak, "coins": coins, "shield_used": True}
             profile.daily_login_streak = 0
         profile.daily_login_streak += 1
         profile.last_login_date = today
@@ -2352,10 +2383,9 @@ class BotEngine:
 
     def get_ab_variant(self, user_id: int, test_name: str) -> str:
         profile = self.get_profile(user_id)
-        if not hasattr(profile, "ab_variant") or not profile.ab_variant:
-            variants = self.ab_variants.get(test_name, ["default"])
-            profile.ab_variant = variants[user_id % len(variants)]
-            self._save_user(profile)
+        variants = self.ab_variants.get(test_name, ["default"])
+        profile.ab_variant = variants[user_id % len(variants)]
+        self._save_user(profile)
         return profile.ab_variant
 
     def record_share_reward(self, user_id: int, achievement_id: str) -> tuple[bool, str, Dict[str, Any]]:
@@ -2407,4 +2437,33 @@ class BotEngine:
             "top_tasks": [{"task_id": t, "completions": c} for t, c in top_tasks],
             "daily_registrations": [{"date": d, "count": c} for d, c in sorted(daily_regs.items())],
             "generated_at": now.isoformat(),
+        }
+
+    def track_dark_pattern_event(self, user_id: int, event_type: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+        profile = self.get_profile(user_id)
+        event = {
+            "user_id": user_id,
+            "event_type": event_type,
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "metadata": metadata or {},
+        }
+        self.dark_pattern_events.append(event)
+        profile.activity_log.append({"action": "dark_pattern_event", "event_type": event_type, "timestamp": event["timestamp"]})
+        self._save_user(profile)
+
+    def get_dark_pattern_analytics(self) -> Dict[str, Any]:
+        event_counts: Dict[str, int] = {}
+        user_events: Dict[int, int] = {}
+        for event in self.dark_pattern_events:
+            et = event.get("event_type", "unknown")
+            event_counts[et] = event_counts.get(et, 0) + 1
+            uid = event.get("user_id")
+            if uid is not None:
+                user_events[uid] = user_events.get(uid, 0) + 1
+        top_events = sorted(event_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+        return {
+            "total_events": len(self.dark_pattern_events),
+            "event_counts": top_events,
+            "users_tracked": len(user_events),
+            "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }

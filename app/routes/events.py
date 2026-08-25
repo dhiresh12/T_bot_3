@@ -19,12 +19,11 @@ def active_event() -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
     event = current_engine.get_active_event()
     if event:
-        return jsonify({"active": True, "event_id": event.get("id"), "title": event.get("title"), "description": event.get("description"), "emoji": event.get("emoji"), "reward": event.get("reward")}), 200
+        return jsonify({"active": True, "event_id": event.get("id"), "title": event.get("title"), "description": event.get("description"), "emoji": event.get("emoji"), "reward": event.get("reward"), "end": event.get("end")}), 200
     return jsonify({"active": False}), 200
 
 
 @_require_auth_post("claim_event")
-@_check_rate_limit("claim_event", limit=1, window=3600)
 @bp.post("/api/events/claim/<int:user_id>")
 def claim_event(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]

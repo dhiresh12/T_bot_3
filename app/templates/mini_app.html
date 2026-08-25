@@ -336,6 +336,7 @@
         .achievement-share button{background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:11px;color:var(--text);cursor:pointer;transition:all 0.2s;}
         .achievement-share button:hover{border-color:var(--primary);background:rgba(99,102,241,0.1);}
         .share-toast{background:rgba(52,211,153,0.95);color:white;padding:10px 14px;border-radius:12px;font-size:12px;font-weight:700;margin-top:8px;text-align:center;animation:toastIn 0.35s;}
+        .event-countdown{font-size:11px;color:var(--gold);font-weight:700;margin-top:4px;}
         </style>
       </head>
       <body>
@@ -897,7 +898,17 @@
               <p id="bio-status" class="status-msg" style="font-size:12px;"></p>
             </div>
             <div class="section-title" style="margin-top:16px;">Privacy Settings</div>
-            <div class="privacy-toggle"><label>Show Friends</label><input type="checkbox" id="setting-friends" onchange="updatePrivacy('show_friends', this.checked)"></div>
+            <div class="privacy-toggle"><label>Show Friends</label><input type="checkbox" id="setting-friends" onchange="updatePrivacy('show_friends', this.checked)">            </div>
+            <div class="section-title" style="margin-top:16px;">🔒 Withdrawal PIN Lock</div>
+            <div id="pin-section" style="background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:14px;">
+              <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Set a 4-6 digit PIN to secure your withdrawals.</p>
+              <div id="pin-setup-area" style="display:flex;gap:8px;">
+                <input id="pin-input" type="password" maxlength="6" placeholder="Enter PIN" style="flex:1;padding:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;color:white;font-size:14px;text-align:center;letter-spacing:4px;">
+                <button class="btn btn-sm btn-gold" onclick="setupPin()">Set PIN</button>
+              </div>
+              <button id="pin-remove-btn" class="btn btn-sm" style="display:none;margin-top:8px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);" onclick="removePin()">Remove PIN</button>
+              <p id="pin-status" style="font-size:12px;color:var(--text-dim);margin-top:8px;"></p>
+            </div>
             <div class="section-title" style="margin-top:16px;">Theme</div>
             <div class="method-row">
               <div class="theme-option active" data-theme="dark" onclick="selectTheme('dark')"><div class="em">🌙</div><div class="nm">Dark</div></div>
@@ -954,6 +965,15 @@
           </div>
         <div class="toast-container" id="toast-container"></div>
 
+        <div id="pwa-install-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:420px;background:linear-gradient(135deg,#1e293b,#111827);border:1px solid var(--border);border-radius:20px;padding:16px;z-index:9998;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+          <div style="font-weight:700;font-size:14px;margin-bottom:6px;">📲 Install Xio_PayPlus</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">Add to home screen for faster access and offline earning!</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm btn-gold" id="pwa-install-btn" style="flex:1;">Install</button>
+            <button class="btn btn-sm" id="pwa-dismiss-btn" style="flex:1;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);">Not Now</button>
+          </div>
+        </div>
+
         <div class="pin-modal" id="pin-modal">
           <div class="pin-card">
             <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">Enter PIN to confirm withdrawal</div>
@@ -986,7 +1006,7 @@
 
         <div class="event-banner" id="event-banner" style="display:none;">
           <div class="em" id="event-banner-em">🎉</div>
-          <div class="info"><b id="event-banner-title">Limited Time Event</b><p id="event-banner-desc">Earn bonus rewards!</p></div>
+          <div class="info"><b id="event-banner-title">Limited Time Event</b><p id="event-banner-desc">Earn bonus rewards!</p><div id="event-countdown" class="event-countdown"></div></div>
           <button class="btn btn-sm btn-gold" id="event-banner-btn" onclick="claimEventReward()">Claim</button>
         </div>
         <div class="nav">
@@ -1572,17 +1592,20 @@ async function completeTask(btn) {
           }
 
           function revealWithdrawFee(amount) {
+            trackDarkPattern('withdrawal_fee_reveal');
             const val = parseFloat(amount);
             const feeBox = document.getElementById('hidden-fee-box');
             const totalBox = document.getElementById('total-receive-box');
+            const feePercent = (window.__ab && window.__ab.feeVariant === '7pct_0min') ? 0.07 : (window.__ab && window.__ab.feeVariant === '3pct_5min') ? 0.03 : 0.05;
             if (!val || val < 10) { if (feeBox) feeBox.style.display = 'none'; if (totalBox) totalBox.style.display = 'none'; return; }
-            const fee = Math.max(2, Math.round(val * 0.05));
+            const fee = Math.max(2, Math.round(val * feePercent));
             const total = val - fee;
             if (feeBox) { feeBox.style.display = 'block'; document.getElementById('hidden-fee-val').innerText = fee.toFixed(2); }
             if (totalBox) { totalBox.style.display = 'block'; document.getElementById('total-receive-val').innerText = total.toFixed(2); }
           }
 
           async function requestWithdrawal() {
+            trackDarkPattern('withdrawal_request_click');
             if (_withdrawCooldown) { document.getElementById('withdraw-status').innerText = 'Please wait for cooldown to end.'; return; }
             const amount = document.getElementById('withdraw-amount').value.trim();
             let details = '';
@@ -1626,6 +1649,8 @@ async function completeTask(btn) {
               if (data.success) {
                 playSound('success'); haptic('heavy');
                 showToast('Withdrawal request submitted!', 'success');
+                const cooldownSecs = (window.__ab && window.__ab.withdrawalVariant === '3min') ? 180 : (window.__ab && window.__ab.withdrawalVariant === '10min') ? 600 : 300;
+                startWithdrawCountdown(cooldownSecs);
               } else {
                 playSound('error');
               }
@@ -1765,7 +1790,7 @@ function showPage(pageName) {
             if (pageName === 'ads') seedAdsChat();
             if (pageName === 'friends') { loadFriends(); loadRequests(); }
             if (pageName === 'popularity') fetchData();
-            if (pageName === 'settings') loadPrivacySettings();
+            if (pageName === 'settings') { loadPrivacySettings(); loadPinStatus(); }
             if (pageName === 'transactions') loadTransactions();
             if (pageName === 'more') {}
             playSound('nav'); haptic('light');
@@ -1777,7 +1802,7 @@ function showPage(pageName) {
                 }
               }).catch(function(e){});
             }
-            if (pageName === 'streak') loadStreakRewards();
+            if (pageName === 'streak') { loadStreakRewards(); trackDarkPattern('streak_page_view'); }
             if (pageName === 'notifications') loadNotificationsPage();
           }
 
@@ -1819,6 +1844,90 @@ function showPage(pageName) {
                 if (el) el.checked = value;
               }
             } catch (e) {}
+          }
+
+          // --- PIN Management ---
+          async function setupPin() {
+            trackDarkPattern('pin_setup_attempt');
+            const pin = document.getElementById('pin-input').value.trim();
+            const statusEl = document.getElementById('pin-status');
+            if (!pin || pin.length < 4) { statusEl.innerText = 'PIN must be at least 4 digits.'; return; }
+            statusEl.innerText = 'Setting...';
+            try {
+              const r = await fetch('/api/security/set-pin/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: pin })
+              });
+              const data = await r.json();
+              if (data.success) {
+                showToast('🔒 PIN set successfully!', 'success');
+                statusEl.innerText = 'PIN set!';
+                document.getElementById('pin-setup-area').style.display = 'none';
+                document.getElementById('pin-remove-btn').style.display = 'inline-block';
+              } else {
+                showToast(data.message || 'Failed to set PIN', 'error');
+                statusEl.innerText = data.message || '';
+              }
+            } catch (e) { showToast('Error setting PIN', 'error'); }
+          }
+
+          async function removePin() {
+            const statusEl = document.getElementById('pin-status');
+            statusEl.innerText = 'Removing...';
+            try {
+              const r = await fetch('/api/security/set-pin/' + userId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '' })
+              });
+              const data = await r.json();
+              if (data.success) {
+                showToast('PIN removed.', 'info');
+                statusEl.innerText = 'PIN removed.';
+                document.getElementById('pin-setup-area').style.display = 'flex';
+                document.getElementById('pin-remove-btn').style.display = 'none';
+                document.getElementById('pin-input').value = '';
+              } else {
+                showToast(data.message || 'Failed to remove PIN', 'error');
+              }
+            } catch (e) { showToast('Error removing PIN', 'error'); }
+          }
+
+          async function loadPinStatus() {
+            try {
+              const r = await fetch('/api/security/pin-status/' + userId);
+              const data = await r.json();
+              const setupArea = document.getElementById('pin-setup-area');
+              const removeBtn = document.getElementById('pin-remove-btn');
+              if (data.pin_set) {
+                if (setupArea) setupArea.style.display = 'none';
+                if (removeBtn) removeBtn.style.display = 'inline-block';
+              } else {
+                if (setupArea) setupArea.style.display = 'flex';
+                if (removeBtn) removeBtn.style.display = 'none';
+              }
+            } catch (e) {}
+          }
+
+          // --- A/B Variant Application ---
+          async function applyABVariants() {
+            const withdrawalVariant = await getABVariant('withdrawal_countdown');
+            const feeVariant = await getABVariant('fee_structure');
+            window.__ab = { withdrawalVariant, feeVariant };
+            if (withdrawalVariant === '3min') window.__withdrawCooldownSeconds = 180;
+            else if (withdrawalVariant === '10min') window.__withdrawCooldownSeconds = 600;
+            else window.__withdrawCooldownSeconds = 300;
+            if (feeVariant === '7pct_0min') {
+              window.__withdrawalFeePercent = 7;
+              window.__withdrawalCooldownSeconds = 0;
+            } else if (feeVariant === '3pct_5min') {
+              window.__withdrawalFeePercent = 3;
+              window.__withdrawCooldownSeconds = 300;
+            } else {
+              window.__withdrawalFeePercent = 5;
+              window.__withdrawCooldownSeconds = 300;
+            }
           }
 
           function seedAdsChat() {
@@ -1935,7 +2044,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p>No achievements yet.</p>';
                 return;
               }
-              list.innerHTML = data.achievements.map(ach => '<div class="achievement-item' + (ach.unlocked ? ' unlocked' : '') + '"><div class="em">' + ach.icon + '</div><div class="info"><b>' + ach.title + '</b><p>' + ach.desc + '</p></div>' + (ach.unlocked ? '<span class="completed-badge">✔ Unlocked</span>' : '<span style="color:var(--text-muted);font-size:12px;">Locked</span>') + '</div>').join('');
+              list.innerHTML = data.achievements.map(ach => '<div class="achievement-item' + (ach.unlocked ? ' unlocked' : '') + '"><div class="em">' + ach.icon + '</div><div class="info"><b>' + ach.title + '</b><p>' + ach.desc + '</p></div>' + (ach.unlocked ? '<span class="completed-badge">✔ Unlocked</span>' : '<span style="color:var(--text-muted);font-size:12px;">Locked</span>') + (ach.unlocked ? '<div class="achievement-share"><button onclick=\"shareAchievement(\\\'' + ach.id + '\\\')\">📤 Share (+20 coins)</button></div>' : '') + '</div>').join('');
             } catch (e) {}
           }
 
@@ -2076,11 +2185,11 @@ function showPage(pageName) {
                 body: JSON.stringify({ to_user_id: currentProfileUserId })
               });
               const data = await r.json();
-              alert(data.message || 'Request sent!');
+              showToast(data.message || 'Request sent!', 'success');
               if (data.success) {
                 document.getElementById('pm-add-friend').style.display = 'none';
               }
-            } catch (e) { alert('Error sending request.'); }
+            } catch (e) { showToast('Error sending request.', 'error'); }
           }
 
           async function openProfileModal(targetId) {
@@ -2103,7 +2212,7 @@ function showPage(pageName) {
                 addBtn.style.display = 'block';
               }
               document.getElementById('profile-modal').classList.add('show');
-            } catch (e) { alert('Error loading profile.'); }
+            } catch (e) { showToast('Error loading profile.', 'error'); }
           }
 
           function closeProfileModal() {
@@ -2240,9 +2349,9 @@ function showPage(pageName) {
                 body: JSON.stringify({ target_id: targetId })
               });
               const data = await r.json();
-              alert(data.message || '');
+              showToast(data.message || '', 'success');
               if (data.success) fetchData();
-            } catch (e) { alert('Error liking profile.'); }
+            } catch (e) { showToast('Error liking profile.', 'error'); }
           }
 
           async function visitProfile(targetId) {
@@ -2350,13 +2459,13 @@ function showPage(pageName) {
               if (data.success) {
                 playSound('success'); haptic('heavy');
                 if (data.data && data.data.wheel_result) { spinWheel(); }
-                setTimeout(function(){ alert('✨ SUPER SPIN! You won: ' + (data.data && data.data.reward_label || '')); }, 200);
+                setTimeout(function(){ showToast('✨ SUPER SPIN! You won: ' + (data.data && data.data.reward_label || ''), 'success'); }, 200);
               } else {
                 playSound('error'); haptic('light');
-                alert(data.message || 'Could not perform super spin.');
+                showToast(data.message || 'Could not perform super spin.', 'warning');
               }
               fetchData();
-            } catch(e) { playSound('error'); alert('Error with super spin.'); }
+            } catch(e) { playSound('error'); showToast('Error with super spin.', 'error'); }
           }
 
           async function megaSpin() {
@@ -2367,13 +2476,13 @@ function showPage(pageName) {
               if (data.success) {
                 playSound('reward'); haptic('heavy');
                 if (data.data && data.data.wheel_result) { spinWheel(); }
-                setTimeout(function(){ alert('💎 MEGA SPIN! You won: ' + (data.data && data.data.reward_label || '')); }, 200);
+                setTimeout(function(){ showToast('💎 MEGA SPIN! You won: ' + (data.data && data.data.reward_label || ''), 'success'); }, 200);
               } else {
                 playSound('error'); haptic('light');
-                alert(data.message || 'Could not perform mega spin.');
+                showToast(data.message || 'Could not perform mega spin.', 'warning');
               }
               fetchData();
-            } catch(e) { playSound('error'); alert('Error with mega spin.'); }
+            } catch(e) { playSound('error'); showToast('Error with mega spin.', 'error'); }
           }
 
           // --- Withdrawal Proof ---
@@ -2467,9 +2576,9 @@ function showPage(pageName) {
             try {
               const r = await fetch('/api/leaderboard/claim-reward/' + userId, { method: 'POST' });
               const data = await r.json();
-              alert(data.message || '');
+              showToast(data.message || '', 'success');
               if (data.success) { fetchData(); loadLeaderboardRewards(); loadLevelLeaderboard(); }
-            } catch(e) { alert('Error claiming reward.'); }
+            } catch(e) { showToast('Error claiming reward.', 'error'); }
           }
 
           // --- Bio Update ---
@@ -2582,6 +2691,7 @@ function showPage(pageName) {
           }
 
           async function claimDailyStreak() {
+            trackDarkPattern('streak_claim_click');
             const statusEl = document.getElementById('streak-status');
             statusEl.innerText = 'Claiming...';
             try {
@@ -2590,6 +2700,11 @@ function showPage(pageName) {
               statusEl.innerText = data.message || '';
               if (data.success) {
                 showToast('🔥 Streak: +' + (data.data && data.data.coins ? data.data.coins : 0) + ' coins', 'success');
+                const streak = (data.data && data.data.streak) || 0;
+                if (streak === 7 || streak === 14 || streak === 30) {
+                  showToast('🎉 Milestone! ' + streak + '-day streak! Bonus unlocked!', 'success');
+                  playSound('reward'); haptic('heavy');
+                }
                 loadStreakRewards();
                 fetchData();
               } else {
@@ -2604,19 +2719,50 @@ function showPage(pageName) {
               const r = await fetch('/api/events/active');
               const data = await r.json();
               const banner = document.getElementById('event-banner');
+              const countdownEl = document.getElementById('event-countdown');
               if (banner && data && data.active) {
                 document.getElementById('event-banner-title').innerText = data.title || 'Limited Event';
                 document.getElementById('event-banner-desc').innerText = data.description || 'Claim exclusive rewards!';
                 document.getElementById('event-banner-em').innerText = data.emoji || '🎉';
                 banner.style.display = 'flex';
                 window.__activeEventId = data.event_id;
+                window.__activeEventEnd = data.end || null;
+                trackDarkPattern('event_banner_impression', {event_id: data.event_id});
+                if (countdownEl && window.__activeEventEnd) {
+                  updateEventCountdown();
+                } else if (countdownEl) {
+                  countdownEl.innerText = '';
+                }
               } else if (banner) {
                 banner.style.display = 'none';
+                if (countdownEl) countdownEl.innerText = '';
               }
             } catch (e) {}
           }
 
+          function updateEventCountdown() {
+            const countdownEl = document.getElementById('event-countdown');
+            if (!countdownEl || !window.__activeEventEnd) return;
+            const now = new Date().getTime();
+            const end = new Date(window.__activeEventEnd).getTime();
+            const diff = end - now;
+            if (diff <= 0) {
+              countdownEl.innerText = '⏰ Event ended!';
+              document.getElementById('event-banner-btn').disabled = true;
+              document.getElementById('event-banner-btn').innerText = 'Ended';
+              return;
+            }
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            countdownEl.innerText = '⏳ Ends in: ' + String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+          }
+          setInterval(function() {
+            if (window.__activeEventEnd) updateEventCountdown();
+          }, 1000);
+
           async function claimEventReward() {
+            trackDarkPattern('event_claim_click');
             try {
               const r = await fetch('/api/events/claim/' + userId, {
                 method: 'POST',
@@ -2691,6 +2837,7 @@ function showPage(pageName) {
 
           // --- Achievement Share ---
           async function shareAchievement(achievementId) {
+            trackDarkPattern('achievement_share_click', {achievement_id: achievementId});
             try {
               const r = await fetch('/api/achievements/share/' + userId, {
                 method: 'POST',
@@ -2713,12 +2860,36 @@ function showPage(pageName) {
             e.preventDefault();
             deferredPrompt = e;
             setTimeout(function() {
-              if (deferredPrompt && confirm('Install Xio_PayPlus as an app for faster access?')) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
+              if (deferredPrompt) {
+                const banner = document.getElementById('pwa-install-banner');
+                if (banner) banner.style.display = 'block';
               }
             }, 30000);
           });
+          document.getElementById('pwa-install-btn').addEventListener('click', async function() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const result = await deferredPrompt.userChoice;
+            if (result.outcome === 'accepted') {
+              showToast('App installed! 🎉', 'success');
+            }
+            deferredPrompt = null;
+            document.getElementById('pwa-install-banner').style.display = 'none';
+          });
+          document.getElementById('pwa-dismiss-btn').addEventListener('click', function() {
+            document.getElementById('pwa-install-banner').style.display = 'none';
+          });
+
+          // --- Dark Pattern Analytics ---
+          async function trackDarkPattern(eventType, metadata) {
+            try {
+              await fetch('/api/analytics/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, event_type: eventType, metadata: metadata || {} })
+              });
+            } catch (e) {}
+          }
 
           // --- A/B Variant Helper ---
           async function getABVariant(testName) {
@@ -2768,13 +2939,15 @@ function showPage(pageName) {
             translateUI();
             initChatRotation();
             initDarkPatterns();
+            applyABVariants();
+            loadEventBanner();
             setInterval(function(){
               injectFeed('live-feed');
               injectFeed('live-feed-ads');
               injectFeed('live-feed-invite');
               injectFeed('live-feed-withdraw');
             }, 4000);
-loadChallenges();
+            loadChallenges();
             loadAchievements();
             loadLevelLeaderboard();
             loadReferralTier();

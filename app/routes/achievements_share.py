@@ -14,7 +14,6 @@ bp = Blueprint("achievements_share", __name__)
 
 
 @_require_auth_post("share_achievement")
-@_check_rate_limit("share_achievement", limit=3, window=3600)
 @bp.post("/api/achievements/share/<int:user_id>")
 def share_achievement(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]

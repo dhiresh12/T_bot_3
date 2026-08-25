@@ -27,7 +27,6 @@ def set_pin(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_post("verify_pin")
-@_check_rate_limit("verify_pin", limit=5, window=60)
 @bp.post("/api/security/verify-pin/<int:user_id>")
 def verify_pin(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]

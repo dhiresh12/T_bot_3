@@ -23,7 +23,6 @@ def streak_info(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_post("claim_streak")
-@_check_rate_limit("claim_streak", limit=1, window=86400)
 @bp.post("/api/streak/claim/<int:user_id>")
 def claim_streak(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
