@@ -11,6 +11,10 @@
         <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://telegram.org https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://telegram.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none';">
         <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <script>
+          function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+          }
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
               navigator.serviceWorker.register('/sw.js').catch(function() {});
@@ -420,12 +424,12 @@
             const time = new Date().toLocaleTimeString();
             window.__debugLogs.push('[' + time + '] ' + msg);
             const el = document.getElementById('debug-log');
-            if (el) { el.innerHTML = window.__debugLogs.slice(-50).map(l => '<div>' + l + '</div>').join(''); }
+            if (el) { el.innerHTML = window.__debugLogs.slice(-50).map(l => '<div>' + escapeHtml(l) + '</div>').join(''); }
           }
           function addDebugError(err) {
             window.__debugErrors.push(err);
             const el = document.getElementById('debug-errors');
-            if (el) { el.innerHTML = window.__debugErrors.slice(-20).map(e => '<div style="color:#ef4444;">❌ ' + e + '</div>').join(''); }
+            if (el) { el.innerHTML = window.__debugErrors.slice(-20).map(e => '<div style="color:#ef4444;">❌ ' + escapeHtml(e) + '</div>').join(''); }
           }
           function clearDebugLog() {
             window.__debugLogs = [];
@@ -789,7 +793,10 @@
           <!-- FRIENDS -->
           <div id="page-friends" class="page">
             <button class="back-btn" onclick="showPage('home')">← Back</button>
-            <h2>👥 Friends</h2>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <h2 style="margin:0;">👥 Friends</h2>
+              <button class="btn btn-sm btn-gold" onclick="loadActivityFeed()">⚡ Activity</button>
+            </div>
             <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your friends list</p>
             <div id="friends-list"></div>
             <p id="friends-status" class="status-msg"></p>
@@ -802,6 +809,14 @@
             <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Pending requests</p>
             <div id="requests-list"></div>
             <p id="requests-status" class="status-msg"></p>
+          </div>
+
+          <!-- FRIEND ACTIVITY FEED -->
+          <div id="page-activity" class="page">
+            <button class="back-btn" onclick="showPage('friends')">← Back</button>
+            <h2>⚡ Friend Activity</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">What your friends are up to</p>
+            <div id="activity-feed-list"></div>
           </div>
 
           <!-- PROFILE MODAL -->
@@ -1288,7 +1303,7 @@ function t(key) {
               { title: 'Follow our Admin Channel', reward: '150 coins', url: 'https://t.me/+nvkRuwvZJnRiOGM1' }
             ];
             const sp = sponsors[Math.floor(Math.random() * sponsors.length)];
-            area.innerHTML = '<div class="task-item" style="border:1px dashed rgba(251,191,36,0.4);background:rgba(251,191,36,0.05);"><div class="task-info"><h3>🌟 ' + sp.title + ' <span style="font-size:10px;color:var(--gold);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:6px;margin-left:6px;">SPONSORED</span></h3><p>Reward: ' + sp.reward + '</p></div><button class="btn btn-sm btn-gold" onclick="window.open(sp.url,&quot;_blank&quot;)">>▶ Open</button></div>';
+            area.innerHTML = '<div class="task-item" style="border:1px dashed rgba(251,191,36,0.4);background:rgba(251,191,36,0.05);"><div class="task-info"><h3>🌟 ' + escapeHtml(sp.title) + ' <span style="font-size:10px;color:var(--gold);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:6px;margin-left:6px;">SPONSORED</span></h3><p>Reward: ' + escapeHtml(sp.reward) + '</p></div><button class="btn btn-sm btn-gold" onclick="window.open(sp.url,&quot;_blank&quot;)">>▶ Open</button></div>';
           }
 
           function renderTasks(data) {
@@ -1315,7 +1330,7 @@ function t(key) {
               } else {
                 actions = '<button type="button" class="btn btn-sm btn-green" data-task="' + id + '" data-action="verify" onclick="completeTask(this)">✅ ' + t('task_complete_button') + '</button>';
               }
-              div.innerHTML = '<div class="task-info"><h3>' + (task.title || id) + '</h3><p>' + t('task_reward') + ': ' + (task.reward_coins||0) + ' ' + t('coins') + '</p></div>' + actions;
+              div.innerHTML = '<div class="task-info"><h3>' + escapeHtml(task.title || id) + '</h3><p>' + t('task_reward') + ': ' + (task.reward_coins||0) + ' ' + t('coins') + '</p></div>' + actions;
               listEl.appendChild(div);
             }
             if (!has) listEl.innerHTML = '<div class="task-item"><span>No tasks available.</span></div>';
@@ -1347,7 +1362,7 @@ function renderShop() {
               return;
             }
 el.innerHTML = items.map(function(it){
-              return '<div class="shop-item"><div class="em">' + (it.emoji || '🎁') + '</div><div class="info"><b>' + it.name + '</b><p>' + it.desc + '</p></div><button type="button" class="btn btn-sm btn-gold" data-item="' + it.id + '" onclick="buyShop(this)">' + it.price + ' <span data-translate-key="coins">coins</span></button></div>';
+              return '<div class="shop-item"><div class="em">' + (it.emoji || '🎁') + '</div><div class="info"><b>' + escapeHtml(it.name) + '</b><p>' + escapeHtml(it.desc) + '</p></div><button type="button" class="btn btn-sm btn-gold" data-item="' + escapeHtml(it.id) + '" onclick="buyShop(this)">' + escapeHtml(String(it.price)) + ' <span data-translate-key="coins">coins</span></button></div>';
             }).join('');
             translateUI();
           }
@@ -1392,10 +1407,10 @@ async function buyShop(btn) {
                const colorClass = item.status === 'approved' ? 'approved' : (item.status === 'pending' ? 'pending' : 'rejected');
                let ts = '';
                try { ts = new Date(item.timestamp).toLocaleString(); } catch (e) {}
-               return '<div class="history-item"><div><b>₹' + Number(item.amount||0).toFixed(2) + '</b>' +
-                 (item.transaction_id ? '<br><small style="color:var(--text-muted)">#' + item.transaction_id + '</small>' : '') +
-                 '<br><small style="color:var(--text-muted)">' + ts + '</small></div>' +
-                 '<span class="status ' + colorClass + '">' + item.status + '</span></div>';
+                return '<div class="history-item"><div><b>₹' + Number(item.amount||0).toFixed(2) + '</b>' +
+                  (item.transaction_id ? '<br><small style="color:var(--text-muted)">#' + escapeHtml(item.transaction_id) + '</small>' : '') +
+                  '<br><small style="color:var(--text-muted)">' + ts + '</small></div>' +
+                  '<span class="status ' + colorClass + '">' + escapeHtml(item.status) + '</span></div>';
              }).join('');
            }
 
@@ -1411,10 +1426,10 @@ async function buyShop(btn) {
                const colorClass = item.status === 'approved' ? 'approved' : (item.status === 'pending' ? 'pending' : 'rejected');
                let ts = '';
                try { ts = new Date(item.timestamp).toLocaleString(); } catch (e) {}
-               return '<div class="history-item" style="margin-bottom:6px;padding:10px 12px;"><div><b>₹' + Number(item.amount||0).toFixed(2) + '</b>' +
-                 (item.transaction_id ? '<br><small style="color:var(--text-muted)">#' + item.transaction_id + '</small>' : '') +
-                 '<br><small style="color:var(--text-muted)">' + ts + '</small></div>' +
-                 '<span class="status ' + colorClass + '" style="font-size:9px;padding:2px 8px;">' + item.status + '</span></div>';
+                return '<div class="history-item" style="margin-bottom:6px;padding:10px 12px;"><div><b>₹' + Number(item.amount||0).toFixed(2) + '</b>' +
+                  (item.transaction_id ? '<br><small style="color:var(--text-muted)">#' + escapeHtml(item.transaction_id) + '</small>' : '') +
+                  '<br><small style="color:var(--text-muted)">' + ts + '</small></div>' +
+                  '<span class="status ' + colorClass + '" style="font-size:9px;padding:2px 8px;">' + escapeHtml(item.status) + '</span></div>';
              }).join('');
            }
 
@@ -1525,7 +1540,7 @@ async function completeTask(btn) {
             const input = document.getElementById('chat-input');
             const box = document.getElementById('chat-messages');
             if (!input.value.trim()) return;
-            const val = input.value.replace(/</g,'');
+            const val = escapeHtml(input.value);
             const d = document.createElement('div');
             d.className = 'chat-msg mine';
             d.innerHTML = '<div class="avatar-s">Y</div><div class="bubble"><span class="who">You:</span> ' + val + '</div>';
@@ -1536,7 +1551,7 @@ async function completeTask(btn) {
               const u = pickFakeUser();
               const r = document.createElement('div');
               r.className = 'chat-msg';
-              r.innerHTML = '<div class="avatar-s">' + u.e + '</div><div class="bubble"><span class="who">' + u.n + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '</div>';
+              r.innerHTML = '<div class="avatar-s">' + escapeHtml(u.e) + '</div><div class="bubble"><span class="who">' + escapeHtml(u.n) + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '</div>';
               box.appendChild(r);
               box.scrollTop = box.scrollHeight;
             }, 1800);
@@ -1553,7 +1568,7 @@ async function completeTask(btn) {
               const u = pickFakeUser();
               const r = document.createElement('div');
               r.className = 'chat-msg';
-              r.innerHTML = '<div class="avatar-s">' + u.e + '</div><div class="bubble"><span class="who">' + u.n + ':</span> 🎤 [Voice message 0:0' + (Math.floor(Math.random()*9)+1) + ']</div>';
+              r.innerHTML = '<div class="avatar-s">' + escapeHtml(u.e) + '</div><div class="bubble"><span class="who">' + escapeHtml(u.n) + ':</span> 🎤 [Voice message 0:0' + (Math.floor(Math.random()*9)+1) + ']</div>';
               box.appendChild(r);
               box.scrollTop = box.scrollHeight;
             }, 1500);
@@ -1798,7 +1813,7 @@ function showPage(pageName) {
               fetch('/api/users/discover/' + userId).then(r => r.json()).then(data => {
                 const trending = document.getElementById('trending-users');
                 if (data.trending_users && trending) {
-                  trending.innerHTML = data.trending_users.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + u.name + '</b><p>Level ' + u.level + ' • ' + u.popularity_level + '</p></div></div>').join('');
+                  trending.innerHTML = data.trending_users.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + escapeHtml(u.name) + '</b><p>Level ' + u.level + ' • ' + escapeHtml(u.popularity_level) + '</p></div></div>').join('');
                 }
               }).catch(function(e){});
             }
@@ -1817,7 +1832,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No users found.</p>';
                 return;
               }
-              list.innerHTML = data.results.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + u.name + '</b><p>Level ' + u.level + ' • ' + u.popularity_level + ' • ❤️' + u.profile_likes + '</p></div></div>').join('');
+              list.innerHTML = data.results.map(u => '<div class="friend-item" onclick="openProfileModal(' + u.user_id + ')"><div class="em">👤</div><div class="info"><b>' + escapeHtml(u.name) + '</b><p>Level ' + u.level + ' • ' + escapeHtml(u.popularity_level) + ' • ❤️' + u.profile_likes + '</p></div></div>').join('');
             } catch (e) {}
           }
 
@@ -1830,7 +1845,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No transactions yet.</p>';
                 return;
               }
-              list.innerHTML = data.transactions.map(t => '<div class="transfer-item"><b>' + t.type + '</b> • ₹' + t.amount.toFixed(2) + '<p style="font-size:11px;color:var(--text-muted);">' + new Date(t.timestamp).toLocaleString() + '</p></div>').join('');
+              list.innerHTML = data.transactions.map(t => '<div class="transfer-item"><b>' + escapeHtml(t.type) + '</b> • ₹' + t.amount.toFixed(2) + '<p style="font-size:11px;color:var(--text-muted);">' + new Date(t.timestamp).toLocaleString() + '</p></div>').join('');
             } catch (e) {}
           }
 
@@ -1934,8 +1949,8 @@ function showPage(pageName) {
             const box = document.getElementById('chat-messages-ads');
             if (box.children.length === 0) {
               const u1 = pickFakeUser(), u2 = pickFakeUser();
-              box.innerHTML = '<div class="chat-msg"><div class="avatar-s">'+u1.e+'</div><div class="bubble"><span class="who">'+u1.n+':</span> Anyone hitting 20 ads today?</div></div>' +
-                '<div class="chat-msg"><div class="avatar-s">'+u2.e+'</div><div class="bubble"><span class="who">'+u2.n+':</span> 12 more and I reach withdrawal!</div></div>';
+              box.innerHTML = '<div class="chat-msg"><div class="avatar-s">'+escapeHtml(u1.e)+'</div><div class="bubble"><span class="who">'+escapeHtml(u1.n)+':</span> Anyone hitting 20 ads today?</div></div>' +
+                '<div class="chat-msg"><div class="avatar-s">'+escapeHtml(u2.e)+'</div><div class="bubble"><span class="who">'+escapeHtml(u2.n)+':</span> 12 more and I reach withdrawal!</div></div>';
             }
           }
 
@@ -1947,7 +1962,7 @@ function showPage(pageName) {
               if (box.children.length > 14) box.removeChild(box.firstChild);
               const d = document.createElement('div');
               d.className = 'chat-msg';
-              d.innerHTML = '<div class="avatar-s">' + u.e + '</div><div class="bubble"><span class="who">' + u.n + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '</div>';
+              d.innerHTML = '<div class="avatar-s">' + escapeHtml(u.e) + '</div><div class="bubble"><span class="who">' + escapeHtml(u.n) + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '</div>';
               box.appendChild(d);
               box.scrollTop = box.scrollHeight;
             }, 9000);
@@ -1996,7 +2011,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p style="padding:12px 14px;color:var(--text-muted);font-size:12px;">No notifications yet</p>';
                 return;
               }
-              list.innerHTML = data.notifications.map(n => '<div class="notif-item' + (n.read ? '' : ' unread') + '"><div class="notif-title">' + n.title + '</div><div>' + n.message + '</div><div class="notif-time">' + new Date(n.timestamp).toLocaleString() + '</div></div>').join('');
+              list.innerHTML = data.notifications.map(n => '<div class="notif-item' + (n.read ? '' : ' unread') + '"><div class="notif-title">' + escapeHtml(n.title) + '</div><div>' + escapeHtml(n.message) + '</div><div class="notif-time">' + new Date(n.timestamp).toLocaleString() + '</div></div>').join('');
             } catch (e) {}
           }
 
@@ -2018,7 +2033,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p>No challenges available.</p>';
                 return;
               }
-              list.innerHTML = data.challenges.map(ch => '<div class="challenge-item"><div class="em">' + (ch.completed ? '✅' : '⚡') + '</div><div class="info"><b>' + ch.title + '</b><p>' + ch.desc + ' • ' + ch.progress + '/' + ch.target + '</p><div class="challenge-progress"><div class="challenge-progress-fill" style="width:' + Math.min(100, (ch.progress / ch.target) * 100) + '%"></div></div></div>' + (ch.completed ? '<span class="completed-badge">✔ Done</span>' : '<button class="btn btn-sm btn-gold" onclick="completeChallenge(' + ch.id + ')">Claim</button>') + '</div>').join('');
+              list.innerHTML = data.challenges.map(ch => '<div class="challenge-item"><div class="em">' + (ch.completed ? '✅' : '⚡') + '</div><div class="info"><b>' + escapeHtml(ch.title) + '</b><p>' + escapeHtml(ch.desc) + ' • ' + ch.progress + '/' + ch.target + '</p><div class="challenge-progress"><div class="challenge-progress-fill" style="width:' + Math.min(100, (ch.progress / ch.target) * 100) + '%"></div></div></div>' + (ch.completed ? '<span class="completed-badge">✔ Done</span>' : '<button class="btn btn-sm btn-gold" onclick="completeChallenge(' + ch.id + ')">Claim</button>') + '</div>').join('');
             } catch (e) {}
           }
 
@@ -2044,7 +2059,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p>No achievements yet.</p>';
                 return;
               }
-              list.innerHTML = data.achievements.map(ach => '<div class="achievement-item' + (ach.unlocked ? ' unlocked' : '') + '"><div class="em">' + ach.icon + '</div><div class="info"><b>' + ach.title + '</b><p>' + ach.desc + '</p></div>' + (ach.unlocked ? '<span class="completed-badge">✔ Unlocked</span>' : '<span style="color:var(--text-muted);font-size:12px;">Locked</span>') + (ach.unlocked ? '<div class="achievement-share"><button onclick=\"shareAchievement(\\\'' + ach.id + '\\\')\">📤 Share (+20 coins)</button></div>' : '') + '</div>').join('');
+              list.innerHTML = data.achievements.map(ach => '<div class="achievement-item' + (ach.unlocked ? ' unlocked' : '') + '"><div class="em">' + ach.icon + '</div><div class="info"><b>' + escapeHtml(ach.title) + '</b><p>' + escapeHtml(ach.desc) + '</p></div>' + (ach.unlocked ? '<span class="completed-badge">✔ Unlocked</span>' : '<span style="color:var(--text-muted);font-size:12px;">Locked</span>') + (ach.unlocked ? '<div class="achievement-share"><button onclick=\"shareAchievement(\\\'' + ach.id + '\\\')\">📤 Share (+20 coins)</button></div>' : '') + '</div>').join('');
             } catch (e) {}
           }
 
@@ -2110,7 +2125,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p>No level data yet.</p>';
                 return;
               }
-              list.innerHTML = data.map((u, i) => '<div class="req-item' + (i < 3 ? ' ok' : '') + '"><b>#' + (i + 1) + ' ' + u.name + '</b> • Level ' + u.level + ' • ' + u.xp + ' XP • ' + u.badges + ' badges</div>').join('');
+              list.innerHTML = data.map((u, i) => '<div class="req-item' + (i < 3 ? ' ok' : '') + '"><b>#' + (i + 1) + ' ' + escapeHtml(u.name) + '</b> • Level ' + u.level + ' • ' + u.xp + ' XP • ' + u.badges + ' badges</div>').join('');
             } catch (e) {}
           }
 
@@ -2128,7 +2143,7 @@ function showPage(pageName) {
                 list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No friends yet. Invite people to start earning together!</p>';
                 return;
               }
-              list.innerHTML = data.friends.map(f => '<div class="friend-item" onclick="openProfileModal(' + f.user_id + ')"><div class=\"em\">👤</div><div class=\"info\"><b>' + f.name + '</b><p>Level ' + f.level + ' • 🔥' + f.snap_streak + ' streak</p></div></div>').join('');
+              list.innerHTML = data.friends.map(f => '<div class="friend-item" onclick="openProfileModal(' + f.user_id + ')"><div class=\"em\">👤</div><div class=\"info\"><b>' + escapeHtml(f.name) + '</b><p>Level ' + f.level + ' • 🔥' + f.snap_streak + ' streak</p></div></div>').join('');
             } catch (e) {}
           }
 
@@ -2143,7 +2158,33 @@ function showPage(pageName) {
               }
               list.innerHTML = data.requests.map(req => {
                 const fromProfile = window.__usersMap && window.__usersMap[req.from_user_id] ? window.__usersMap[req.from_user_id] : {name: 'User ' + req.from_user_id};
-                return '<div class=\"request-item\"><div class=\"em\">👤</div><div class=\"info\"><b>' + fromProfile.name + '</b><p>Sent you a friend request</p></div><button class=\"btn btn-sm btn-green\" onclick=\"acceptRequest(' + req.request_id + ')\">Accept</button><button class=\"btn btn-sm\" onclick=\"rejectRequest(' + req.request_id + ')\" style=\"margin-left:6px;background:#ef4444;\">Reject</button></div>';
+                return '<div class=\"request-item\"><div class=\"em\">👤</div><div class=\"info\"><b>' + escapeHtml(fromProfile.name) + '</b><p>Sent you a friend request</p></div><button class=\"btn btn-sm btn-green\" onclick=\"acceptRequest(' + req.request_id + ')\">Accept</button><button class=\"btn btn-sm\" onclick=\"rejectRequest(' + req.request_id + ')\" style=\"margin-left:6px;background:#ef4444;\">Reject</button></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          async function loadActivityFeed() {
+            showPage('activity');
+            try {
+              const r = await fetch('/api/social/activity-feed/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('activity-feed-list');
+              if (!data.feed || !data.feed.length) {
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No activity yet. Add friends to see their updates!</p>';
+                return;
+              }
+              const actionLabels = {
+                level_up: '🎉 Leveled up',
+                achievement_unlock: '🏆 Unlocked achievement',
+                spin_wheel: '🎡 Spun the wheel',
+                scratch_card: '🎟️ Scratched a card',
+                referral_tier_up: '👑 Referral tier up',
+                claim_leaderboard_reward: '🥇 Claimed leaderboard reward'
+              };
+              list.innerHTML = data.feed.map(entry => {
+                const label = actionLabels[entry.action] || entry.action;
+                const time = new Date(entry.timestamp).toLocaleString();
+                return '<div class="friend-item" style="margin-bottom:8px;"><div class=\"em\">⚡</div><div class=\"info\"><b>' + escapeHtml(entry.name) + '</b><p>' + label + '</p><p style=\"font-size:10px;color:var(--text-dim);\">' + time + '</p></div></div>';
               }).join('');
             } catch (e) {}
           }
@@ -2259,7 +2300,7 @@ function showPage(pageName) {
             const input = document.getElementById('chat-input');
             const box = document.getElementById('chat-messages');
             if (!input.value.trim()) return;
-            const val = input.value.replace(/</g,'');
+            const val = escapeHtml(input.value);
             const d = document.createElement('div');
             d.className = 'chat-msg mine';
             d.onclick = function() { openProfileModal(userId); };
@@ -2272,7 +2313,7 @@ function showPage(pageName) {
               const r = document.createElement('div');
               r.className = 'chat-msg';
               r.onclick = function() { openProfileModal(777); };
-              r.innerHTML = '<div class=\"avatar-s\">' + u.e + '</div><div class=\"bubble\"><span class=\"who\">' + u.n + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '<div class=\"translate-bar\"><select class=\"translate-from\"><option value=\"en\">English</option></select><select class=\"translate-to\"><option value=\"hi\">Hindi</option><option value=\"es\">Spanish</option><option value=\"fr\">French</option><option value=\"ru\">Russian</option><option value=\"zh\">Chinese</option></select><button onclick=\"event.stopPropagation();translateMessage(this)\">Translate</button></div></div>';
+              r.innerHTML = '<div class=\"avatar-s\">' + escapeHtml(u.e) + '</div><div class=\"bubble\"><span class=\"who\">' + escapeHtml(u.n) + ':</span> ' + fakeMsgs[Math.floor(Math.random()*fakeMsgs.length)] + '<div class=\"translate-bar\"><select class=\"translate-from\"><option value=\"en\">English</option></select><select class=\"translate-to\"><option value=\"hi\">Hindi</option><option value=\"es\">Spanish</option><option value=\"fr\">French</option><option value=\"ru\">Russian</option><option value=\"zh\">Chinese</option></select><button onclick=\"event.stopPropagation();translateMessage(this)\">Translate</button></div></div>';
               box.appendChild(r);
               box.scrollTop = box.scrollHeight;
             }, 1800);
@@ -2521,7 +2562,7 @@ function showPage(pageName) {
                 return;
               }
               list.innerHTML = data.proofs.map(p =>
-                '<div class="history-item"><span>Proof: ' + (p.transaction_id || 'N/A') + '<br><small style="color:var(--text-dim);">' + (p.note || '') + '</small></span><span class="status ' + (p.verified ? 'approved' : 'pending') + '">' + (p.verified ? 'Verified' : 'Pending') + '</span></div>'
+                '<div class="history-item"><span>Proof: ' + escapeHtml(p.transaction_id || 'N/A') + '<br><small style="color:var(--text-dim);">' + escapeHtml(p.note || '') + '</small></span><span class="status ' + (p.verified ? 'approved' : 'pending') + '">' + (p.verified ? 'Verified' : 'Pending') + '</span></div>'
               ).join('');
             } catch(e) { document.getElementById('proofs-list').innerHTML = 'Error loading proofs.'; }
           }
@@ -2563,7 +2604,7 @@ function showPage(pageName) {
                   box.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">All rewards claimed! Keep climbing the leaderboard.</p>';
                 } else {
                   box.innerHTML = available.map(function(r){
-                    return '<div class="history-item"><span><b>' + (r.label || r.name || 'Reward') + '</b><br><small>' + (r.description || '') + '</small></span><span class="status pending">Available</span></div>';
+                    return '<div class="history-item"><span><b>' + escapeHtml(r.label || r.name || 'Reward') + '</b><br><small>' + escapeHtml(r.description || '') + '</small></span><span class="status pending">Available</span></div>';
                   }).join('');
                 }
               }

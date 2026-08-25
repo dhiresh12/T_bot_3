@@ -35,7 +35,8 @@ def test_help_and_admin_command_endpoints():
 
     admin_response = client.post(
         "/api/admin/commands/bonus",
-        json={"value": 0.12, "admin_key": "admin-xio"},
+        json={"value": 0.12},
+        headers={"X-Admin-Key": "admin-xio"},
     )
     assert admin_response.status_code == 200
     assert engine.bonus_value == 0.12

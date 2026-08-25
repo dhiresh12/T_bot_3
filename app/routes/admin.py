@@ -114,14 +114,11 @@ def admin_command(command: str) -> tuple[dict, int]:
 def admin_command_bonus() -> tuple[dict, int]:
     """Admin route to update the daily bonus value."""
     current_engine = current_app.config["engine"]
-    # Security Improvement: Check for a secret header
     admin_key = request.headers.get("X-Admin-Key")
-    payload = request.get_json(silent=True) or {}
-    # Allow the admin key to be supplied either in the header or in the body.
-    body_key = payload.get("admin_key")
-    if (not admin_key or admin_key != current_engine.admin_key) and body_key != current_engine.admin_key:
+    if not admin_key or admin_key != current_engine.admin_key:
         return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
 
+    payload = request.get_json(silent=True) or {}
     value = payload.get("value")
     if value is None:
         return jsonify({"error": "Missing 'value' in request body."}), 400

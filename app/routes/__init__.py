@@ -35,6 +35,7 @@ def register_all_blueprints(app) -> None:
         "app.routes.security",
         "app.routes.achievements_share",
         "app.routes.analytics",
+        "app.routes.retention",
     ]
     for module_name in modules:
         try:

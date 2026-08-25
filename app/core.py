@@ -26,6 +26,15 @@ from app.support import SupportService
 from app.security import SecurityManager
 
 
+def _sanitize_text(value: str, max_length: int = 200) -> str:
+    if not isinstance(value, str):
+        return ""
+    cleaned = value.replace("\x00", "").strip()
+    if len(cleaned) > max_length:
+        cleaned = cleaned[:max_length]
+    return cleaned
+
+
 def _resolve_mini_app_url() -> str:
     """
     Resolves the public Mini App URL used in Telegram web_app buttons.
@@ -802,6 +811,7 @@ class BotEngine:
         self.sessions[user_id] = {
             "token": token,
             "created_at": self._get_utc_now().isoformat(),
+            "expires_at": (self._get_utc_now() + timedelta(hours=24)).isoformat(),
         }
         return token
 
@@ -811,14 +821,21 @@ class BotEngine:
         session = self.sessions.get(user_id)
         if not session:
             return False
-        return session.get("token") == token
+        if session.get("token") != token:
+            return False
+        expires_at = session.get("expires_at")
+        if expires_at and self._get_utc_now().isoformat() > expires_at:
+            del self.sessions[user_id]
+            return False
+        return True
 
     def register_user(self, user_id: int, name: str, inviter_id: Optional[int] = None) -> UserProfile:
         with self._get_user_lock(user_id):
+            safe_name = _sanitize_text(name, max_length=50) or "Guest"
             if user_id not in self.users:
                 self.users[user_id] = UserProfile(
                     user_id=user_id,
-                    name=name,
+                    name=safe_name,
                     registered_at=self._get_utc_now().isoformat(),
                 )
                 if inviter_id and inviter_id in self.users:
@@ -1627,7 +1644,8 @@ class BotEngine:
         }
 
     def send_personal_message(self, from_user_id: int, to_user_id: int, message: str) -> tuple[bool, str]:
-        if not message or not message.strip():
+        safe_message = _sanitize_text(message, max_length=500)
+        if not safe_message or not safe_message.strip():
             return False, "Message cannot be empty.", {}
         with self._get_user_lock(to_user_id):
             from_profile = self.get_profile(from_user_id)
@@ -1635,14 +1653,14 @@ class BotEngine:
             msg_data = {
                 "from_user_id": from_user_id,
                 "to_user_id": to_user_id,
-                "message": message[:500],
+                "message": safe_message,
                 "timestamp": self._get_utc_now().isoformat(),
                 "read": False,
             }
             to_profile.notifications.append({
                 "id": f"msg-{to_user_id}-{len(to_profile.notifications) + 1}",
                 "title": f"Message from {from_profile.name}",
-                "message": message[:200],
+                "message": safe_message[:200],
                 "timestamp": msg_data["timestamp"],
                 "read": False,
                 "reward": {"type": "personal_message", "from_user_id": from_user_id},
@@ -1723,9 +1741,10 @@ class BotEngine:
     # --- New Features: Shop effect handlers for new items ---
 
     def redeem_shop_item(self, user_id: int, item_id: str) -> tuple[bool, str, Dict[str, Any]]:
+        safe_item_id = _sanitize_text(item_id, max_length=64)
         with self._get_user_lock(user_id):
             profile = self.get_profile(user_id)
-            item = next((i for i in self.shop_items if i.get("id") == item_id), None)
+            item = next((i for i in self.shop_items if i.get("id") == safe_item_id), None)
             if not item:
                 return False, "Invalid shop item.", {}
 
@@ -1864,7 +1883,7 @@ class BotEngine:
     def update_bio(self, user_id: int, bio: str) -> tuple[bool, str]:
         with self._get_user_lock(user_id):
             profile = self.get_profile(user_id)
-            profile.bio = bio[:500]
+            profile.bio = _sanitize_text(bio, max_length=500)
             profile.log_activity("update_bio", {"bio_length": len(profile.bio)})
             self._save_user(profile)
             return True, "Bio updated successfully!"
@@ -2310,10 +2329,11 @@ class BotEngine:
         return None
 
     def claim_event_reward(self, user_id: int, event_id: str) -> tuple[bool, str, Dict[str, Any]]:
+        safe_event_id = _sanitize_text(event_id, max_length=64)
         profile = self.get_profile(user_id)
-        if event_id in profile.claimed_event_rewards:
+        if safe_event_id in profile.claimed_event_rewards:
             return False, "Already claimed!", {}
-        event = next((e for e in self.active_events if e.get("id") == event_id), None)
+        event = next((e for e in self.active_events if e.get("id") == safe_event_id), None)
         if not event:
             return False, "Event not found", {}
         reward = event.get("reward", {})
@@ -2438,6 +2458,39 @@ class BotEngine:
             "daily_registrations": [{"date": d, "count": c} for d, c in sorted(daily_regs.items())],
             "generated_at": now.isoformat(),
         }
+
+    def send_daily_streak_reminder(self, user_id: int) -> None:
+        profile = self.get_profile(user_id)
+        now = self._get_utc_now()
+        today = now.strftime("%Y-%m-%d")
+        if profile.last_login_date != today:
+            self.add_notification(user_id, "🔥 Streak Reminder", "Your daily streak is waiting! Claim it now before it resets.", {"type": "streak_reminder"})
+
+    def send_weekly_summary(self, user_id: int) -> None:
+        profile = self.get_profile(user_id)
+        week_ago = (self._get_utc_now() - timedelta(days=7)).isoformat()
+        recent_activities = [a for a in profile.activity_log if a.get("timestamp", "") >= week_ago]
+        total_actions = len(recent_activities)
+        coins_earned = sum(1 for a in recent_activities if a.get("action") in ("ad_verified", "spin_wheel", "scratch_card", "claim_daily_login", "claim_daily_popularity", "social_share", "complete_daily_challenge"))
+        self.add_notification(user_id, "📊 Weekly Summary", f"You completed {total_actions} actions this week and earned rewards from {coins_earned} activities. Keep it up!", {"type": "weekly_summary", "total_actions": total_actions, "coins_earned": coins_earned})
+
+    def get_friend_activity_feed(self, user_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        friends = list(profile.friends)
+        feed = []
+        for fid in friends:
+            fprofile = self.get_profile(fid)
+            for activity in fprofile.activity_log[-10:]:
+                if activity.get("action") in ("level_up", "achievement_unlock", "spin_wheel", "scratch_card", "referral_tier_up", "claim_leaderboard_reward"):
+                    feed.append({
+                        "user_id": fprofile.user_id,
+                        "name": fprofile.name,
+                        "action": activity.get("action"),
+                        "timestamp": activity.get("timestamp"),
+                        "details": activity.get("details", {}),
+                    })
+        feed.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return feed[:limit]
 
     def track_dark_pattern_event(self, user_id: int, event_type: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         profile = self.get_profile(user_id)
