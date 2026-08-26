@@ -18,12 +18,13 @@ class AppConfig:
 
 def load_config() -> AppConfig:
     secret_key = os.getenv("SECRET_KEY")
-    if not secret_key:
+    environment = os.getenv("APP_ENV", "development")
+    if not secret_key and environment == "production":
         raise ValueError("SECRET_KEY must be set in production.")
     return AppConfig(
         app_name=os.getenv("APP_NAME", "Xio PayPlus"),
-        environment=os.getenv("APP_ENV", "development"),
-        secret_key=secret_key,
+        environment=environment,
+        secret_key=secret_key or "dev-secret-insecure",
         ads_provider=os.getenv("ADS_PROVIDER", "admob"),
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", "5000")),

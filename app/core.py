@@ -445,7 +445,9 @@ class BotEngine:
         self.bonus_value = 0.05
         self.admin_key = os.getenv("ADMIN_KEY")
         if not self.admin_key:
-            raise ValueError("ADMIN_KEY must be set in environment variables.")
+            if os.getenv("APP_ENV") == "production":
+                raise ValueError("ADMIN_KEY must be set in environment variables.")
+            self.admin_key = "dev-admin-key"
         self.engagement = EngagementLayer()
         self.support = SupportService()
         self.admin_service = AdminPanelService(self)
