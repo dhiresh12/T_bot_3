@@ -46,6 +46,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
             lang_config_json=json.dumps(current_engine.support.lang_config),
             support_links_json=json.dumps(current_engine.support.get_support_links()),
             bot_username=os.getenv("TELEGRAM_BOT_USERNAME", "xiolis_bot"),
+            ad_block_id=os.getenv("AD_BLOCK_ID", ""),
             provider=ads_manager.get_config()["provider"],
         )
 

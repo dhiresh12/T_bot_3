@@ -128,3 +128,41 @@ def test_beforeinstallprompt_handler_is_closed():
     # The handler must be closed so the rest of the script is not nested inside it.
     assert "deferredPrompt = e;\n          });" in html
 
+
+def test_crate_daily_limit_prevents_unlimited_farming():
+    engine = BotEngine(storage_path="/tmp/bot3-crate-limit.json")
+    engine.crate_cooldown_seconds = 0  # ignore cooldown in this test
+    uid = 912345
+    profile = engine.get_profile(uid)
+    profile.coins = 1000000
+    engine._save_user(profile)
+
+    opened = 0
+    for _ in range(100):
+        success, message, reward = engine.open_crate(uid, "basic_crate")
+        if success:
+            opened += 1
+        else:
+            break
+
+    assert opened == engine.daily_crate_open_limit
+    success, message, reward = engine.open_crate(uid, "basic_crate")
+    assert success is False
+    assert "limit" in message.lower()
+
+
+def test_ad_block_id_injected_into_template():
+    import os
+    os.environ["AD_BLOCK_ID"] = "TEST_BLOCK_123"
+    try:
+        engine = BotEngine(storage_path="/tmp/bot3-adblock.json")
+        app = create_app(engine)
+        client = app.test_client()
+        response = client.get("/")
+        assert response.status_code == 200
+        html = response.get_data(as_text=True)
+        assert "TEST_BLOCK_123" in html
+        assert "adsgram.ai/static/js/sdk-v1.js" in html
+    finally:
+        del os.environ["AD_BLOCK_ID"]
+

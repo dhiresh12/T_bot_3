@@ -305,6 +305,8 @@ class UserProfile:  # Phase 1: Expanded UserProfile
     daily_spin_count: int = 0
     last_spin_at: Optional[str] = None
     last_ad_watched_at: Optional[str] = None
+    daily_crate_open_count: int = 0
+    last_crate_opened_at: Optional[str] = None
     admin: bool = False
     # New fields from plan
     tier: str = "Bronze"
@@ -467,6 +469,8 @@ class BotEngine:
         self.min_withdrawal = 10.0
         self.daily_ads_limit = 20
         self.daily_spin_limit = 1
+        self.daily_crate_open_limit = 10
+        self.crate_cooldown_seconds = 5
         self._user_locks: Dict[int, threading.RLock] = {}
         # Gift-based spin economy (spec: gifts with a "open" reveal + golden glow)
         self.spin_gifts = [
@@ -2813,6 +2817,20 @@ class BotEngine:
                 return False, "Invalid crate.", {}
             if profile.coins < crate.get("price", 0):
                 return False, "Not enough coins.", {}
+            now = self._get_utc_now()
+            reset_time = time(12, 0)
+            last_crate = datetime.fromisoformat(profile.last_crate_opened_at) if profile.last_crate_opened_at else None
+            if last_crate:
+                if last_crate.date() < now.date():
+                    profile.daily_crate_open_count = 0
+                elif now.time() >= reset_time and last_crate.time() < reset_time:
+                    profile.daily_crate_open_count = 0
+            if profile.last_crate_opened_at:
+                elapsed = (now - datetime.fromisoformat(profile.last_crate_opened_at)).total_seconds()
+                if elapsed < self.crate_cooldown_seconds:
+                    return False, f"Slow down! Wait {int(self.crate_cooldown_seconds - elapsed)}s before opening another crate.", {}
+            if profile.daily_crate_open_count >= self.daily_crate_open_limit:
+                return False, f"Daily crate limit reached ({self.daily_crate_open_limit}). Come back after 12 PM or tomorrow.", {}
             profile.coins -= crate.get("price", 0)
             rewards = crate.get("rewards", [])
             weights = [r.get("weight", 1) for r in rewards]
@@ -2825,9 +2843,12 @@ class BotEngine:
                 self._add_xp_internal(profile, xp)
             if item:
                 profile.inventory.append({"type": "crate_reward", "item": item, "crate_id": crate_id})
+            profile.daily_crate_open_count += 1
+            profile.last_crate_opened_at = now.isoformat()
             profile.log_activity("open_crate", {"crate_id": crate_id, "reward": reward})
             self._save_user(profile)
-            return True, f"Opened {crate.get('name')}! Won: {reward.get('label', 'coins')}", {"coins": coins, "xp": xp, "item": item, "label": reward.get("label")}
+            remaining = max(0, self.daily_crate_open_limit - profile.daily_crate_open_count)
+            return True, f"Opened {crate.get('name')}! Won: {reward.get('label', 'coins')} ({remaining} left today)", {"coins": coins, "xp": xp, "item": item, "label": reward.get("label"), "remaining_crates": remaining}
 
     # --- Gamified Onboarding Quest ---
 
