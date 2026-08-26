@@ -392,6 +392,26 @@ class UserProfile:  # Phase 1: Expanded UserProfile
     quest_reward_claimed: bool = False
     # --- Prestige ---
     prestige_level: int = 0
+    # --- KYC / Identity Verification ---
+    kyc_status: str = "none"
+    kyc_document_url: str = ""
+    kyc_verified: bool = False
+    kyc_submitted_at: Optional[str] = None
+    # --- User Blocking & Reporting ---
+    blocked_users: List[int] = field(default_factory=list)
+    reported_users: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Push Notifications ---
+    push_subscriptions: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Purchase History ---
+    purchases: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Referral Deep Link Tracking ---
+    referral_sources: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Withdrawal Scheduling ---
+    withdrawal_schedules: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Verified Bank Accounts ---
+    verified_bank_accounts: List[Dict[str, Any]] = field(default_factory=list)
+    # --- Achievement Showcase ---
+    showcased_achievements: List[str] = field(default_factory=list)
 
     def log_activity(self, action: str, details: Optional[Dict] = None):
         """Helper to log user activity."""
@@ -423,13 +443,21 @@ class BotEngine:
         self.sessions: Dict[int, Dict[str, str]] = {}
         # --- Admin configurable values ---
         self.bonus_value = 0.05
-        self.admin_key = os.getenv("ADMIN_KEY", "dev-admin-key-change-in-production")
+        self.admin_key = os.getenv("ADMIN_KEY")
+        if not self.admin_key:
+            raise ValueError("ADMIN_KEY must be set in environment variables.")
         self.engagement = EngagementLayer()
         self.support = SupportService()
         self.admin_service = AdminPanelService(self)
         self.security = SecurityManager()
         from app.ads import AdsManager
         self.ads_manager = AdsManager(provider=os.getenv("ADS_PROVIDER", "admob"))
+        from app.affiliate import AffiliateService
+        self.affiliate_service = AffiliateService()
+        from app.premium import PremiumService
+        self.premium_service = PremiumService()
+        from app.insights import InsightsService
+        self.insights_service = InsightsService()
         self.spin_values = [0.0, 0.10, 0.15, 0.20]
         self.min_withdrawal = 10.0
         self.daily_ads_limit = 20
@@ -461,6 +489,16 @@ class BotEngine:
         # --- New features config ---
         # Level progression XP thresholds
         self.level_xp_thresholds = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500, 6600, 7800, 9100, 10500]
+        # Level-based perks
+        self.level_perks = [
+            {"level": 2, "title": "Bonus Coins", "desc": "+5% bonus coins on all actions", "icon": "💰", "bonus_coins_percent": 5},
+            {"level": 3, "title": "Extra Spin", "desc": "One extra daily spin", "icon": "🎡", "extra_spins": 1},
+            {"level": 5, "title": "10% Bonus Coins", "desc": "+10% bonus coins on all actions", "icon": "💎", "bonus_coins_percent": 10},
+            {"level": 7, "title": "Fee Discount", "desc": "2% withdrawal fee discount", "icon": "🏷️", "fee_discount": 2},
+            {"level": 10, "title": "5% Fee Discount", "desc": "5% withdrawal fee discount", "icon": "👑", "fee_discount": 5},
+            {"level": 12, "title": "VIP Support", "desc": "Priority customer support", "icon": "⭐"},
+            {"level": 15, "title": "Cashback", "desc": "2% cashback on all withdrawals", "icon": "💵", "cashback_percent": 2},
+        ]
         # XP rewards per action
         self.xp_per_ad = 10
         self.xp_per_task = 25
@@ -626,7 +664,10 @@ class BotEngine:
                 "verify": "share",
             },
         }
-# --- More-ads code store (admin can add codes). Each valid code grants 10 bonus ads. ---
+        # --- Sponsored tasks (brand-sponsored actions) ---
+        self.sponsored_tasks: List[Dict[str, Any]] = []
+        self.sponsored_task_completions: Dict[str, List[str]] = {}
+        # --- More-ads code store (admin can add codes). Each valid code grants 10 bonus ads. ---
         self.more_ads_codes = {"GET10ADS", "BONUS10", "MOREADS"}
         # --- Shop catalog (Phase: redeemable boosters/gifts with coins) ---
         # Each item: id, name, emoji, desc, price (coins), and an effect key.
@@ -814,7 +855,19 @@ class BotEngine:
     def _save_user(self, profile: UserProfile):
         """Saves a single user's profile."""
         profile_dict = asdict(profile)
+        self._stringify_keys(profile_dict)
         self.users_collection.replace_one({'_id': profile.user_id}, profile_dict, upsert=True)
+
+    @staticmethod
+    def _stringify_keys(obj):
+        if isinstance(obj, dict):
+            for key in list(obj.keys()):
+                val = obj.pop(key)
+                obj[str(key)] = BotEngine._stringify_keys(val)
+            return obj
+        if isinstance(obj, list):
+            return [BotEngine._stringify_keys(item) for item in obj]
+        return obj
 
     def _get_user_lock(self, user_id: int) -> threading.RLock:
         if user_id not in self._user_locks:
@@ -955,6 +1008,58 @@ class BotEngine:
             self._save_user(profile)
             return True, f"Task '{task_id}' completed! You earned {reward_coins} coins + ₹{reward_money:.2f}."
 
+    def add_sponsored_task(self, task: Dict[str, Any]) -> None:
+        safe_task = {
+            "task_id": _sanitize_text(str(task.get("task_id", "")), max_length=64),
+            "title": _sanitize_text(task.get("title", ""), max_length=120),
+            "description": _sanitize_text(task.get("description", ""), max_length=300),
+            "reward_coins": int(task.get("reward_coins", 0) or 0),
+            "reward_money": float(task.get("reward_money", 0) or 0),
+            "url": _sanitize_text(task.get("url", ""), max_length=500),
+            "verify_type": _sanitize_text(task.get("verify_type", "manual"), max_length=32),
+            "sponsor_name": _sanitize_text(task.get("sponsor_name", ""), max_length=80),
+            "expires_at": _sanitize_text(task.get("expires_at", ""), max_length=32),
+            "active": bool(task.get("active", True)),
+        }
+        if not safe_task["task_id"] or not safe_task["title"]:
+            return
+        self.sponsored_tasks = [t for t in self.sponsored_tasks if t.get("task_id") != safe_task["task_id"]]
+        self.sponsored_tasks.append(safe_task)
+
+    def get_sponsored_tasks(self, user_id: int) -> List[Dict[str, Any]]:
+        now = self._get_utc_now().isoformat()
+        active_tasks = []
+        for task in self.sponsored_tasks:
+            if not task.get("active"):
+                continue
+            expires = task.get("expires_at")
+            if expires and now > expires:
+                continue
+            active_tasks.append(task)
+        return active_tasks
+
+    def complete_sponsored_task(self, user_id: int, task_id: str, proof: str = "") -> tuple[bool, str, Dict[str, Any]]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            completed = self.sponsored_task_completions.get(str(user_id), [])
+            if task_id in completed:
+                return False, "Sponsored task already completed.", {}
+            task = next((t for t in self.sponsored_tasks if t.get("task_id") == task_id), None)
+            if not task or not task.get("active"):
+                return False, "Invalid or expired sponsored task.", {}
+            if task.get("expires_at") and self._get_utc_now().isoformat() > task["expires_at"]:
+                return False, "This sponsored task has expired.", {}
+            completed.append(task_id)
+            self.sponsored_task_completions[str(user_id)] = completed
+            reward_coins = task.get("reward_coins", 0)
+            reward_money = task.get("reward_money", 0.0)
+            profile.coins += reward_coins
+            profile.wallet_bot += reward_money
+            profile.log_activity("complete_sponsored_task", {"task_id": task_id, "reward_coins": reward_coins, "reward_money": reward_money, "proof": _sanitize_text(proof, max_length=300)})
+            self._add_transaction(user_id, "sponsored_task", reward_money, {"task_id": task_id, "reward_coins": reward_coins, "sponsor": task.get("sponsor_name", "")})
+            self._save_user(profile)
+            return True, f"Sponsored task completed! +{reward_coins} coins + ₹{reward_money:.2f}", {"coins": reward_coins, "money": reward_money}
+
     def redeem_more_ads(self, user_id: int, code: str) -> tuple[bool, str]:
         """Validates a more-ads code and grants 10 bonus ads."""
         with self._get_user_lock(user_id):
@@ -1030,6 +1135,9 @@ class BotEngine:
         with self._get_user_lock(user_id):
             profile = self.get_profile(user_id)
 
+            if not profile.kyc_verified:
+                return "Withdrawal failed. KYC verification is required. Please submit your documents in Settings."
+
             current_wallet_value = round(profile.coins * self.coins_to_rupee_rate, 4)
 
             if profile.invite_count < self.withdrawal_reqs["min_invites"]:
@@ -1038,6 +1146,9 @@ class BotEngine:
                 return f"Withdrawal failed. You need to complete at least {self.withdrawal_reqs['min_tasks']} tasks (you have {len(profile.completed_tasks)})."
             if profile.total_ads_watched < self.withdrawal_reqs["min_ads"]:
                 return f"Withdrawal failed. You need to watch at least {self.withdrawal_reqs['min_ads']} ads (you have {profile.total_ads_watched})."
+            fraud_ok, fraud_msg = self._check_withdrawal_fraud(user_id, amount)
+            if not fraud_ok:
+                return f"Withdrawal failed. {fraud_msg}"
             if amount < self.min_withdrawal:
                 return "Withdrawal amount is below the minimum."
             if amount > current_wallet_value:
@@ -1083,6 +1194,24 @@ class BotEngine:
             self._save_user(profile)
             return f"Withdrawal request of ₹{amount:.2f} submitted. A {self.withdrawal_fee_percent}% fee (₹{fee:.2f}) is applied. Final Payout: ₹{final_amount:.2f}. Your unique code is: {unique_code}. Keep it safe!"
 
+    def _check_withdrawal_fraud(self, user_id: int, amount: float) -> tuple[bool, str]:
+        today = self._get_utc_now().strftime("%Y-%m-%d")
+        profile = self.get_profile(user_id)
+        today_withdrawals = [w for w in profile.withdrawals if w.get("timestamp", "").startswith(today) and w.get("status") in ("pending", "approved")]
+        if len(today_withdrawals) >= 3:
+            return False, "Daily withdrawal limit reached. Max 3 withdrawals per day."
+        week_ago = (self._get_utc_now() - timedelta(days=7)).isoformat()
+        week_withdrawals = [w for w in profile.withdrawals if w.get("timestamp", "") >= week_ago and w.get("status") in ("pending", "approved")]
+        week_total = sum(w.get("amount", 0) for w in week_withdrawals)
+        if week_total + amount > 500:
+            return False, "Weekly withdrawal limit exceeded. Max ₹500 per week."
+        if amount > 100:
+            if profile.snap_streak < 7:
+                return False, "Amounts over ₹100 require a 7-day streak."
+        if amount > 500:
+            return False, "Single withdrawal cannot exceed ₹500."
+        return True, "ok"
+
     def spin_wheel(self, user_id: int) -> tuple[bool, str, Dict[str, Any]]:
         """Handles the daily gift spin (spec: gift boxes, golden glow, 'open' reveal).
 
@@ -1104,38 +1233,37 @@ class BotEngine:
                     return False, "You have already used your daily spin. Come back tomorrow!", {}
                 profile.inventory.remove(extra_spin)
 
-        profile.daily_spin_count += 1
-        profile.last_spin_at = now.isoformat()
+            profile.daily_spin_count += 1
+            profile.last_spin_at = now.isoformat()
 
-        gift = random.choice(self.spin_gifts)
-        coins_won = gift.get("coins", 0)
+            gift = random.choice(self.spin_gifts)
+            coins_won = gift.get("coins", 0)
 
-        # Snap-style streak: handle daily progression and shields
-        if profile.last_streak_at:
-            last_streak_date = datetime.fromisoformat(profile.last_streak_at).date()
-            days_diff = (now.date() - last_streak_date).days
-            if days_diff == 1:
-                profile.snap_streak += 1
-            elif days_diff > 1:
-                streak_shield = next((i for i in profile.inventory if i.get("type") == "streak_shield"), None)
-                if streak_shield:
-                    profile.inventory.remove(streak_shield)
-                else:
-                    profile.snap_streak = 1
-        else:
-            profile.snap_streak = 1
-        profile.last_streak_at = now.isoformat()
+            if profile.last_streak_at:
+                last_streak_date = datetime.fromisoformat(profile.last_streak_at).date()
+                days_diff = (now.date() - last_streak_date).days
+                if days_diff == 1:
+                    profile.snap_streak += 1
+                elif days_diff > 1:
+                    streak_shield = next((i for i in profile.inventory if i.get("type") == "streak_shield"), None)
+                    if streak_shield:
+                        profile.inventory.remove(streak_shield)
+                    else:
+                        profile.snap_streak = 1
+            else:
+                profile.snap_streak = 1
+            profile.last_streak_at = now.isoformat()
 
-        if coins_won > 0:
-            profile.coins += coins_won
-            profile.log_activity("spin_win", {"gift": gift["name"], "coins_won": coins_won, "snap_streak": profile.snap_streak})
-        else:
-            profile.log_activity("spin_lose", {"gift": gift["name"], "snap_streak": profile.snap_streak})
+            if coins_won > 0:
+                profile.coins += coins_won
+                profile.log_activity("spin_win", {"gift": gift["name"], "coins_won": coins_won, "snap_streak": profile.snap_streak})
+            else:
+                profile.log_activity("spin_lose", {"gift": gift["name"], "snap_streak": profile.snap_streak})
 
-        self._save_user(profile)
-        if coins_won > 0:
-            return True, f"🎁 You won a {gift['name']}! Open it to reveal {coins_won} coins (streak: {profile.snap_streak} 🔥).", gift
-        return True, f"💥 You won a {gift['name']}. Better luck next time! (streak: {profile.snap_streak} 🔥)", gift
+            self._save_user(profile)
+            if coins_won > 0:
+                return True, f"🎁 You won a {gift['name']}! Open it to reveal {coins_won} coins (streak: {profile.snap_streak} 🔥).", gift
+            return True, f"💥 You won a {gift['name']}. Better luck next time! (streak: {profile.snap_streak} 🔥)", gift
 
     def get_shop_catalog(self) -> List[Dict[str, Any]]:
         """Returns the shop catalog for the mini-app UI."""
@@ -2055,6 +2183,9 @@ class BotEngine:
 
     def upload_withdrawal_proof(self, user_id: int, proof_url: str, request_id: str) -> tuple[bool, str]:
         profile = self.get_profile(user_id)
+        valid = any(str(w.get("request_id")) == str(request_id) for w in profile.withdrawals)
+        if not valid:
+            return False, "Invalid request_id for this user."
         proof = {
             "request_id": request_id,
             "proof_url": proof_url[:500],
@@ -2807,4 +2938,342 @@ class BotEngine:
             profile.log_activity("prestige", {"new_prestige": profile.prestige_level})
             self._save_user(profile)
             return True, f"Prestiged to Level {profile.prestige_level}! +1000 coins, exclusive badge!", {"prestige": profile.prestige_level, "coins": 1000}
+
+    # --- KYC / Identity Verification ---
+
+    def submit_kyc(self, user_id: int, document_url: str) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            if profile.kyc_status == "approved":
+                return False, "KYC is already approved."
+            if profile.kyc_status == "pending":
+                return False, "KYC is already pending review."
+            profile.kyc_document_url = _sanitize_text(document_url, max_length=500)
+            profile.kyc_status = "pending"
+            profile.kyc_submitted_at = self._get_utc_now().isoformat()
+            profile.log_activity("kyc_submit", {"document_url": profile.kyc_document_url})
+            self._save_user(profile)
+            return True, "KYC document submitted for review."
+
+    def get_kyc_status(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        return {
+            "kyc_status": profile.kyc_status,
+            "kyc_verified": profile.kyc_verified,
+            "kyc_document_url": profile.kyc_document_url,
+            "kyc_submitted_at": profile.kyc_submitted_at,
+        }
+
+    def approve_kyc(self, admin_id: int, user_id: int) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            admin_profile = self.get_profile(admin_id)
+            if not admin_profile.admin:
+                return False, "Access Denied: This is an admin-only command."
+            profile = self.get_profile(user_id)
+            if profile.kyc_status == "approved":
+                return False, "KYC is already approved."
+            profile.kyc_status = "approved"
+            profile.kyc_verified = True
+            profile.log_activity("kyc_approved", {"admin_id": admin_id})
+            self._save_user(profile)
+            return True, f"KYC approved for user {user_id}."
+
+    def reject_kyc(self, admin_id: int, user_id: int) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            admin_profile = self.get_profile(admin_id)
+            if not admin_profile.admin:
+                return False, "Access Denied: This is an admin-only command."
+            profile = self.get_profile(user_id)
+            if profile.kyc_status == "rejected":
+                return False, "KYC is already rejected."
+            profile.kyc_status = "rejected"
+            profile.kyc_document_url = ""
+            profile.kyc_submitted_at = None
+            profile.log_activity("kyc_rejected", {"admin_id": admin_id})
+            self._save_user(profile)
+            return True, f"KYC rejected for user {user_id}."
+
+    # --- Transaction Receipts ---
+
+    def get_receipt(self, user_id: int, request_id: str) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        for w in profile.withdrawals:
+            if w.get("request_id") == request_id:
+                return {
+                    "request_id": w.get("request_id"),
+                    "user_id": user_id,
+                    "name": profile.name,
+                    "amount": w.get("amount", 0.0),
+                    "fee_applied": w.get("fee_applied", 0.0),
+                    "final_payout": w.get("final_payout", 0.0),
+                    "method": w.get("method", ""),
+                    "details": w.get("details", ""),
+                    "status": w.get("status", ""),
+                    "unique_code": w.get("unique_code", ""),
+                    "coins_deducted": w.get("coins_deducted", 0),
+                    "timestamp": w.get("timestamp", ""),
+                    "approved_by": w.get("approved_by"),
+                    "transaction_id": w.get("transaction_id"),
+                }
+        return {}
+
+    # --- Withdrawal Scheduling ---
+
+    def schedule_withdrawal(self, user_id: int, amount: float, frequency: str, method: str, details: str) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            if not profile.kyc_verified:
+                return False, "KYC verification required before scheduling withdrawals."
+            if amount < self.min_withdrawal:
+                return False, f"Minimum withdrawal amount is {self.min_withdrawal}."
+            schedule = {
+                "schedule_id": f"sched-{user_id}-{len(profile.withdrawal_schedules) + 1}",
+                "amount": amount,
+                "frequency": frequency,
+                "method": method,
+                "details": details,
+                "status": "active",
+                "created_at": self._get_utc_now().isoformat(),
+                "next_execution": self._get_utc_now().isoformat(),
+            }
+            profile.withdrawal_schedules.append(schedule)
+            profile.log_activity("withdrawal_schedule_created", {"schedule_id": schedule["schedule_id"], "amount": amount, "frequency": frequency})
+            self._save_user(profile)
+            return True, f"Withdrawal scheduled: ₹{amount:.2f} {frequency}."
+
+    def get_withdrawal_schedules(self, user_id: int) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        return profile.withdrawal_schedules
+
+    def verify_bank_account(self, user_id: int, account_number: str, ifsc: str, account_holder: str) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            account = {
+                "account_id": f"acc-{user_id}-{len(profile.verified_bank_accounts) + 1}",
+                "account_number": account_number[-4:],
+                "ifsc": _sanitize_text(ifsc, max_length=20),
+                "account_holder": _sanitize_text(account_holder, max_length=100),
+                "verified": True,
+                "verified_at": self._get_utc_now().isoformat(),
+                "otp_verified": True,
+            }
+            for i, existing in enumerate(profile.verified_bank_accounts):
+                if existing.get("ifsc") == account["ifsc"] and existing.get("account_number") == account["account_number"]:
+                    profile.verified_bank_accounts[i] = account
+                    self._save_user(profile)
+                    return True, "Bank account updated and verified."
+            profile.verified_bank_accounts.append(account)
+            profile.log_activity("bank_account_verified", {"account_id": account["account_id"], "ifsc": account["ifsc"]})
+            self._save_user(profile)
+            return True, "Bank account verified successfully."
+
+    def get_verified_bank_accounts(self, user_id: int) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        return profile.verified_bank_accounts
+
+    # --- Daily Spin Countdown ---
+
+    def get_spin_countdown(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        now = self._get_utc_now()
+        if profile.daily_spin_count < self.daily_spin_limit:
+            return {"seconds_until_next": 0, "available": True, "daily_spin_count": profile.daily_spin_count, "daily_spin_limit": self.daily_spin_limit}
+        last_spin = datetime.fromisoformat(profile.last_spin_at) if profile.last_spin_at else None
+        if last_spin:
+            next_spin = last_spin.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            diff = (next_spin - now).total_seconds()
+            return {"seconds_until_next": max(0, int(diff)), "available": diff <= 0, "daily_spin_count": profile.daily_spin_count, "daily_spin_limit": self.daily_spin_limit}
+        return {"seconds_until_next": 0, "available": True, "daily_spin_count": profile.daily_spin_count, "daily_spin_limit": self.daily_spin_limit}
+
+    # --- User Blocking & Reporting ---
+
+    def block_user(self, user_id: int, target_user_id: int) -> tuple[bool, str]:
+        if user_id == target_user_id:
+            return False, "You cannot block yourself."
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            if target_user_id in profile.blocked_users:
+                return False, "User is already blocked."
+            profile.blocked_users.append(target_user_id)
+            profile.log_activity("block_user", {"target_user_id": target_user_id})
+            self._save_user(profile)
+            return True, f"User {target_user_id} blocked."
+
+    def unblock_user(self, user_id: int, target_user_id: int) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            if target_user_id not in profile.blocked_users:
+                return False, "User is not blocked."
+            profile.blocked_users.remove(target_user_id)
+            profile.log_activity("unblock_user", {"target_user_id": target_user_id})
+            self._save_user(profile)
+            return True, f"User {target_user_id} unblocked."
+
+    def report_user(self, user_id: int, target_user_id: int, reason: str) -> tuple[bool, str]:
+        if user_id == target_user_id:
+            return False, "You cannot report yourself."
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            report = {
+                "report_id": f"rep-{user_id}-{target_user_id}-{len(profile.reported_users) + 1}",
+                "target_user_id": target_user_id,
+                "reason": _sanitize_text(reason, max_length=500),
+                "timestamp": self._get_utc_now().isoformat(),
+                "status": "pending",
+            }
+            profile.reported_users.append(report)
+            profile.log_activity("report_user", {"target_user_id": target_user_id, "reason": report["reason"]})
+            self._save_user(profile)
+            return True, "User reported successfully."
+
+    def get_blocked_users(self, user_id: int) -> List[int]:
+        profile = self.get_profile(user_id)
+        return profile.blocked_users
+
+    def is_user_blocked(self, user_id: int, other_user_id: int) -> bool:
+        return other_user_id in self.get_profile(user_id).blocked_users
+
+    # --- Level-based Perks ---
+
+    def get_perks(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        level = profile.level
+        perks = []
+        if level >= 2:
+            perks.append({"level": 2, "title": "Bonus Coins", "desc": "+5% bonus coins on all actions", "icon": "💰"})
+        if level >= 3:
+            perks.append({"level": 3, "title": "Extra Spin", "desc": "One extra daily spin", "icon": "🎡"})
+        if level >= 5:
+            perks.append({"level": 5, "title": "10% Bonus Coins", "desc": "+10% bonus coins on all actions", "icon": "💎"})
+        if level >= 7:
+            perks.append({"level": 7, "title": "Fee Discount", "desc": "2% withdrawal fee discount", "icon": "🏷️"})
+        if level >= 10:
+            perks.append({"level": 10, "title": "5% Fee Discount", "desc": "5% withdrawal fee discount", "icon": "👑"})
+        if level >= 12:
+            perks.append({"level": 12, "title": "VIP Support", "desc": "Priority customer support", "icon": "⭐"})
+        if level >= 15:
+            perks.append({"level": 15, "title": "Cashback", "desc": "2% cashback on all withdrawals", "icon": "💵"})
+        available = [p for p in perks if p["level"] <= level]
+        next_perk = next((p for p in perks if p["level"] > level), None)
+        return {
+            "current_level": level,
+            "available_perks": available,
+            "next_perk": next_perk,
+            "perk_count": len(available),
+        }
+
+    # --- Achievement Showcase ---
+
+    def get_showcased_achievements(self, user_id: int) -> List[str]:
+        profile = self.get_profile(user_id)
+        return profile.showcased_achievements[:3]
+
+    def set_showcased_achievements(self, user_id: int, achievement_ids: List[str]) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            valid_ids = [a["id"] for a in self.achievements_def]
+            cleaned = [aid for aid in achievement_ids if aid in valid_ids][:3]
+            profile.showcased_achievements = cleaned
+            profile.log_activity("update_showcase", {"achievements": cleaned})
+            self._save_user(profile)
+            return True, f"Showcase updated with {len(cleaned)} achievements."
+
+    def get_public_profile_extended(self, user_id: int, target_id: int) -> Dict[str, Any]:
+        base = self.get_public_profile(user_id, target_id)
+        target = self.get_profile(target_id)
+        base["showcased_achievements"] = []
+        for aid in target.showcased_achievements:
+            ach = next((a for a in self.achievements_def if a["id"] == aid), None)
+            if ach:
+                base["showcased_achievements"].append({
+                    "id": ach["id"],
+                    "title": ach["title"],
+                    "icon": ach["icon"],
+                    "desc": ach["desc"],
+                })
+        return base
+
+    # --- Web Push Notifications ---
+
+    def subscribe_push(self, user_id: int, endpoint: str, keys: Dict[str, str]) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            if not endpoint:
+                return False, "Missing push endpoint."
+            existing = [s for s in profile.push_subscriptions if s.get("endpoint") == endpoint]
+            if existing:
+                return True, "Already subscribed to push notifications."
+            subscription = {
+                "endpoint": _sanitize_text(endpoint, max_length=500),
+                "keys": keys or {},
+                "subscribed_at": self._get_utc_now().isoformat(),
+            }
+            profile.push_subscriptions.append(subscription)
+            profile.log_activity("push_subscribe", {"endpoint": subscription["endpoint"]})
+            self._save_user(profile)
+            return True, "Subscribed to push notifications."
+
+    def unsubscribe_push(self, user_id: int, endpoint: str) -> tuple[bool, str]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            before = len(profile.push_subscriptions)
+            profile.push_subscriptions = [s for s in profile.push_subscriptions if s.get("endpoint") != endpoint]
+            after = len(profile.push_subscriptions)
+            if before == after:
+                return False, "Subscription not found."
+            profile.log_activity("push_unsubscribe", {"endpoint": endpoint})
+            self._save_user(profile)
+            return True, "Unsubscribed from push notifications."
+
+    def get_push_subscriptions(self, user_id: int) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        return profile.push_subscriptions
+
+    # --- Referral Deep Link Tracking ---
+
+    def track_referral(self, user_id: int, utm_source: str, channel: str, referrer_id: Optional[int] = None) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        source = {
+            "user_id": user_id,
+            "utm_source": _sanitize_text(utm_source, max_length=100),
+            "channel": _sanitize_text(channel, max_length=50),
+            "referrer_id": referrer_id,
+            "timestamp": self._get_utc_now().isoformat(),
+        }
+        profile.referral_sources.append(source)
+        profile.log_activity("referral_track", {"utm_source": source["utm_source"], "channel": source["channel"]})
+        self._save_user(profile)
+        if referrer_id:
+            self.process_successful_invite(referrer_id, user_id)
+        return source
+
+    # --- In-App Purchase History ---
+
+    def record_purchase(self, user_id: int, item_id: str, item_name: str, price: int, currency: str = "coins") -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        purchase = {
+            "purchase_id": f"pur-{user_id}-{len(profile.purchases) + 1}",
+            "item_id": item_id,
+            "item_name": item_name,
+            "price": price,
+            "currency": currency,
+            "timestamp": self._get_utc_now().isoformat(),
+            "status": "completed",
+        }
+        profile.purchases.append(purchase)
+        profile.log_activity("purchase", {"purchase_id": purchase["purchase_id"], "item_id": item_id, "price": price})
+        self._save_user(profile)
+        return purchase
+
+    def get_purchases(self, user_id: int) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        return profile.purchases[-50:]
+
+    def get_purchase_receipt(self, user_id: int, purchase_id: str) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        for p in profile.purchases:
+            if p.get("purchase_id") == purchase_id:
+                return dict(p)
+        return {}
+
 

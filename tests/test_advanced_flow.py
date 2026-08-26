@@ -19,6 +19,8 @@ def test_leaderboard_and_withdraw_endpoints():
     profile = engine.get_profile(901)
     profile.coins = 200000  # Worth ₹20 at the default 10,000 coins = ₹1 rate
     profile.wallet_bot = round(profile.coins * engine.coins_to_rupee_rate, 4)
+    profile.kyc_verified = True
+    profile.kyc_status = "approved"
     engine._save_user(profile)
 
     withdraw_response = client.post("/api/withdraw/901", json={"amount": 10})

@@ -41,6 +41,21 @@ def register_all_blueprints(app) -> None:
         "app.routes.flash_sale",
         "app.routes.crates",
         "app.routes.quests",
+        "app.routes.kyc",
+        "app.routes.receipts",
+        "app.routes.app_version",
+        "app.routes.withdrawal_enhanced",
+        "app.routes.spin_enhanced",
+        "app.routes.blocking",
+        "app.routes.perks",
+        "app.routes.achievements_showcase",
+        "app.routes.push_notifications",
+        "app.routes.referral_tracking",
+        "app.routes.purchases",
+        "app.routes.translations",
+        "app.routes.affiliate",
+        "app.routes.premium",
+        "app.routes.insights",
     ]
     for module_name in modules:
         try:
