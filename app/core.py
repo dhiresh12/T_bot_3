@@ -66,7 +66,7 @@ def _resolve_mini_app_url() -> str:
     external = _clean(os.getenv("RENDER_EXTERNAL_URL") or os.getenv("WEBHOOK_URL"))
     if external:
         return external
-    return "https://t-bot-3.onrender.com"
+    return "https://xio-payplus.onrender.com"
 
 
 class _InMemoryCollection:

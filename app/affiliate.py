@@ -72,7 +72,7 @@ class AffiliateService:
         program = self.programs.get(program_id)
         if not program or not program.active:
             return ""
-        base = os.getenv("AFFILIATE_BASE_URL", "https://t-bot-3.onrender.com")
+        base = os.getenv("AFFILIATE_BASE_URL", "https://xio-payplus.onrender.com")
         return f"{base}/api/affiliate/click/{user_id}/{program_id}"
 
     def record_click(self, user_id: int, program_id: str, ip_hash: str = "", device_hash: str = "") -> Dict[str, Any]:
