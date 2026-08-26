@@ -36,11 +36,6 @@ def challenges(user_id: int) -> tuple[dict, int]:
     challenges = current_engine.get_daily_challenges(user_id)
     return jsonify({"challenges": challenges}), 200
 
-
-@_require_auth_post("complete_challenge")
-
-
-
 @_require_auth_post("complete_challenge")
 @bp.post("/api/challenges/complete/<int:user_id>/<challenge_id>")
 def complete_challenge(user_id: int, challenge_id: str) -> tuple[dict, int]:
@@ -61,10 +56,6 @@ def achievements(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_post("scratch")
-
-
-
-@_require_auth_post("scratch")
 @bp.post("/api/scratch/<int:user_id>")
 def scratch(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -75,10 +66,6 @@ def scratch(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_post("claim_scratch")
-
-
-
-@_require_auth_post("claim_scratch")
 @bp.post("/api/scratch/claim-free/<int:user_id>")
 def claim_scratch(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -86,10 +73,6 @@ def claim_scratch(user_id: int) -> tuple[dict, int]:
     success, message, data = current_engine.claim_scratch_card(user_id)
     profile = current_engine.get_profile(user_id)
     return jsonify({"success": success, "message": message, "scratch_cards_available": profile.scratch_cards_available, "data": data}), 200
-
-
-@_require_auth_post("streak_insurance")
-
 
 
 @_require_auth_post("streak_insurance")
