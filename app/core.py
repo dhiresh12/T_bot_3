@@ -2834,16 +2834,20 @@ class BotEngine:
     def get_quest_status(self, user_id: int) -> Dict[str, Any]:
         profile = self.get_profile(user_id)
         quest_steps = [
-            {"id": "watch_ad", "title": "Watch Your First Ad", "desc": "Watch an ad to earn coins", "check": lambda p: p.total_ads_watched >= 1},
-            {"id": "spin_wheel", "title": "Spin the Wheel", "desc": "Use your daily spin", "check": lambda p: any(a.get("action") == "spin_wheel" for a in p.activity_log)},
-            {"id": "send_message", "title": "Send a Message", "desc": "Send your first chat message", "check": lambda p: any(a.get("action") == "personal_message_received" for a in p.activity_log)},
-            {"id": "invite_friend", "title": "Invite a Friend", "desc": "Share your invite link", "check": lambda p: p.invite_count >= 1},
-            {"id": "claim_bonus", "title": "Claim Daily Bonus", "desc": "Claim your first daily bonus", "check": lambda p: any(a.get("action") == "daily_bonus" for a in p.activity_log)},
+            {"id": "watch_ad", "title": "Watch Your First Ad", "desc": "Watch an ad to earn coins"},
+            {"id": "spin_wheel", "title": "Spin the Wheel", "desc": "Use your daily spin"},
+            {"id": "send_message", "title": "Send a Message", "desc": "Send your first chat message"},
+            {"id": "invite_friend", "title": "Invite a Friend", "desc": "Share your invite link"},
+            {"id": "claim_bonus", "title": "Claim Daily Bonus", "desc": "Claim your first daily bonus"},
         ]
-        completed = []
-        for step in quest_steps:
-            if step["check"](profile):
-                completed.append(step["id"])
+        checks = {
+            "watch_ad": profile.total_ads_watched >= 1,
+            "spin_wheel": any(a.get("action") == "spin_wheel" for a in profile.activity_log),
+            "send_message": any(a.get("action") == "personal_message_received" for a in profile.activity_log),
+            "invite_friend": profile.invite_count >= 1,
+            "claim_bonus": any(a.get("action") == "daily_bonus" for a in profile.activity_log),
+        }
+        completed = [step["id"] for step in quest_steps if checks.get(step["id"])]
         all_completed = len(completed) == len(quest_steps)
         return {
             "steps": quest_steps,
