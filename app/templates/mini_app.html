@@ -990,6 +990,9 @@
               <div class="grid-card" onclick="showPage('perks')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⭐</div><div class="label">Perks</div></div>
               <div class="grid-card" onclick="showPage('purchases')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🛍️</div><div class="label">Purchases</div></div>
               <div class="grid-card" onclick="showPage('blocked')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🚫</div><div class="label">Blocked</div></div>
+              <div class="grid-card" onclick="showPage('premium')" style="cursor:pointer;"><div class="em" style="font-size:28px;">👑</div><div class="label">Premium</div></div>
+              <div class="grid-card" onclick="showPage('affiliate')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🤝</div><div class="label">Affiliate</div></div>
+              <div class="grid-card" onclick="showPage('insights')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📈</div><div class="label">Insights</div></div>
             </div>
           </div>
         <div class="toast-container" id="toast-container"></div>
@@ -1119,6 +1122,35 @@
           <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your in-app purchase history</p>
           <div id="purchases-list"></div>
           <button class="btn btn-sm" onclick="loadPurchases()" style="margin-top:10px;">🔄 Refresh</button>
+        </div>
+
+        <!-- PREMIUM -->
+        <div id="page-premium" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>👑 Premium</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Upgrade for exclusive benefits</p>
+          <div id="premium-tiers"></div>
+          <div id="premium-subscription" style="margin-top:14px;"></div>
+          <p id="premium-status" class="status-msg"></p>
+        </div>
+
+        <!-- AFFILIATE -->
+        <div id="page-affiliate" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>🤝 Affiliate</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Earn commissions by referring users</p>
+          <div id="affiliate-programs"></div>
+          <div id="affiliate-commissions" style="margin-top:14px;"></div>
+          <p id="affiliate-status" class="status-msg"></p>
+        </div>
+
+        <!-- INSIGHTS -->
+        <div id="page-insights" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>📈 Insights</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Manage your data privacy preferences</p>
+          <div id="insights-consent"></div>
+          <p id="insights-status" class="status-msg"></p>
         </div>
 
         <div class="event-banner" id="event-banner" style="display:none;">
@@ -1918,6 +1950,9 @@ function showPage(pageName) {
             if (pageName === 'purchases') loadPurchasesPage();
             if (pageName === 'blocked') loadBlockedPage();
             if (pageName === 'showcase') loadShowcasePage();
+            if (pageName === 'premium') loadPremiumPage();
+            if (pageName === 'affiliate') loadAffiliatePage();
+            if (pageName === 'insights') loadInsightsPage();
             playSound('nav'); haptic('light');
             if (pageName === 'discover') {
               fetch('/api/users/discover/' + userId).then(r => r.json()).then(data => {
@@ -3686,6 +3721,143 @@ function showPage(pageName) {
           // --- Blocked users page load ---
           function loadBlockedPage() {
             loadBlockedUsers();
+          }
+
+          // --- Premium page load ---
+          function loadPremiumPage() {
+            const statusEl = document.getElementById('premium-status');
+            if (statusEl) statusEl.innerText = 'Loading...';
+            fetch('/api/premium/tiers')
+              .then(r => r.json())
+              .then(data => {
+                const el = document.getElementById('premium-tiers');
+                if (!el) return;
+                if (!data.tiers || !data.tiers.length) {
+                  el.innerHTML = '<p style="color:var(--text-dim);font-size:12px;">No premium tiers available.</p>';
+                  return;
+                }
+                el.innerHTML = data.tiers.map(tier => '<div class="grid-card" style="text-align:left;"><div class="info"><b>' + escapeHtml(tier.name || 'Tier') + '</b><p>' + escapeHtml(tier.description || '') + '</p><p style="color:var(--gold);font-weight:700;">' + escapeHtml(tier.price || '') + '</p></div><button class="btn btn-sm btn-gold" onclick="purchasePremium(\'' + escapeHtml(tier.tier_id || tier.id || '') + '\')">Subscribe</button></div>').join('');
+              })
+              .catch(function(e) { if (statusEl) statusEl.innerText = 'Error loading premium tiers.'; });
+            fetch('/api/premium/subscription/' + userId)
+              .then(r => r.json())
+              .then(data => {
+                const el = document.getElementById('premium-subscription');
+                if (!el) return;
+                const sub = data.subscription || {};
+                const benefits = data.benefits || [];
+                if (sub.active) {
+                  el.innerHTML = '<div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:14px;margin-top:10px;"><b style="color:var(--primary);">Active: ' + escapeHtml(sub.tier_id || 'Premium') + '</b><p style="font-size:12px;color:var(--text-dim);margin-top:4px;">Expires: ' + (sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'N/A') + '</p>' + (benefits.length ? '<p style="font-size:12px;margin-top:6px;">Benefits: ' + benefits.map(b => escapeHtml(b)).join(', ') + '</p>' : '') + '</div>';
+                } else {
+                  el.innerHTML = '<p style="font-size:12px;color:var(--text-dim);margin-top:10px;">No active subscription.</p>';
+                }
+              })
+              .catch(function(e) {});
+          }
+
+          function purchasePremium(tierId) {
+            const statusEl = document.getElementById('premium-status');
+            if (statusEl) statusEl.innerText = 'Processing...';
+            fetch('/api/premium/purchase/' + userId, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tier_id: tierId, payment_ref: 'mini-app-' + Date.now() })
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (statusEl) statusEl.innerText = data.message || '';
+              if (data.success) {
+                showToast('Premium subscription activated!', 'success');
+                loadPremiumPage();
+              }
+            })
+            .catch(function(e) { if (statusEl) statusEl.innerText = 'Error purchasing premium.'; });
+          }
+
+          // --- Affiliate page load ---
+          function loadAffiliatePage() {
+            const statusEl = document.getElementById('affiliate-status');
+            if (statusEl) statusEl.innerText = 'Loading...';
+            fetch('/api/affiliate/programs')
+              .then(r => r.json())
+              .then(data => {
+                const el = document.getElementById('affiliate-programs');
+                if (!el) return;
+                if (!data.programs || !data.programs.length) {
+                  el.innerHTML = '<p style="color:var(--text-dim);font-size:12px;">No affiliate programs available.</p>';
+                  return;
+                }
+                el.innerHTML = data.programs.map(prog => '<div class="grid-card" style="text-align:left;"><div class="info"><b>' + escapeHtml(prog.name || 'Program') + '</b><p>' + escapeHtml(prog.description || '') + '</p><p style="color:var(--gold);font-weight:700;">Commission: ' + escapeHtml(prog.commission_rate || prog.commission || '') + '</p></div><button class="btn btn-sm" onclick="generateAffiliateLink(\'' + escapeHtml(prog.program_id || prog.id || '') + '\')">Get Link</button></div>').join('');
+              })
+              .catch(function(e) { if (statusEl) statusEl.innerText = 'Error loading programs.'; });
+            fetch('/api/affiliate/commissions/' + userId)
+              .then(r => r.json())
+              .then(data => {
+                const el = document.getElementById('affiliate-commissions');
+                if (!el) return;
+                const commissions = data.commissions || [];
+                if (!commissions.length) {
+                  el.innerHTML = '<p style="font-size:12px;color:var(--text-dim);margin-top:10px;">No commissions yet.</p>';
+                  return;
+                }
+                el.innerHTML = '<div class="section-title" style="margin-top:10px;">Your Commissions</div>' + commissions.map(c => '<div class="history-item"><div><b>' + escapeHtml(c.program_id || 'Program') + '</b><p>Amount: ₹' + Number(c.amount || 0).toFixed(2) + '</p></div><span class="status approved">Paid</span></div>').join('');
+              })
+              .catch(function(e) {});
+          }
+
+          function generateAffiliateLink(programId) {
+            const statusEl = document.getElementById('affiliate-status');
+            if (statusEl) statusEl.innerText = 'Generating link...';
+            fetch('/api/affiliate/link/' + userId + '/' + programId)
+              .then(r => r.json())
+              .then(data => {
+                if (statusEl) statusEl.innerText = '';
+                if (data.link) {
+                  showToast('Affiliate link copied!', 'success');
+                  if (navigator.clipboard) {
+                    navigator.clipboard.writeText(data.link).catch(function() {});
+                  }
+                } else {
+                  showToast('Could not generate link.', 'error');
+                }
+              })
+              .catch(function(e) { if (statusEl) statusEl.innerText = 'Error generating link.'; });
+          }
+
+          // --- Insights page load ---
+          function loadInsightsPage() {
+            const statusEl = document.getElementById('insights-status');
+            if (statusEl) statusEl.innerText = 'Loading...';
+            fetch('/api/insights/consent/' + userId)
+              .then(r => r.json())
+              .then(data => {
+                const el = document.getElementById('insights-consent');
+                if (!el) return;
+                const analytics = data.analytics ? 'checked' : '';
+                const personalization = data.personalization ? 'checked' : '';
+                const adsPersonalization = data.ads_personalization ? 'checked' : '';
+                el.innerHTML = '<div style="background:var(--bg-glass);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:10px;"><label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" id="insight-analytics" ' + analytics + '> <span>Analytics</span></label><label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" id="insight-personalization" ' + personalization + '> <span>Personalization</span></label><label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="insight-ads" ' + adsPersonalization + '> <span>Ads Personalization</span></label><button class="btn btn-sm" onclick="saveInsightsConsent()" style="margin-top:10px;">Save Preferences</button></div>';
+              })
+              .catch(function(e) { if (statusEl) statusEl.innerText = 'Error loading insights.'; });
+          }
+
+          function saveInsightsConsent() {
+            const statusEl = document.getElementById('insights-status');
+            if (statusEl) statusEl.innerText = 'Saving...';
+            const analytics = document.getElementById('insight-analytics') ? document.getElementById('insight-analytics').checked : false;
+            const personalization = document.getElementById('insight-personalization') ? document.getElementById('insight-personalization').checked : false;
+            const adsPersonalization = document.getElementById('insight-ads') ? document.getElementById('insight-ads').checked : false;
+            fetch('/api/insights/consent/' + userId, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ analytics: analytics, personalization: personalization, ads_personalization: adsPersonalization })
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (statusEl) statusEl.innerText = data.success ? 'Saved!' : 'Error saving.';
+              if (data.success) showToast('Insights preferences saved.', 'success');
+            })
+            .catch(function(e) { if (statusEl) statusEl.innerText = 'Error saving.'; });
           }
 
           // --- Settings load ---
