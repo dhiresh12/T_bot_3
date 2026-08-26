@@ -2130,8 +2130,94 @@ class BotEngine:
                     request["transaction_id"] = self.security.generate_transaction_id(user_id)
                     target_profile.log_activity("withdrawal_approved", {"request_id": request_id, "amount": request["amount"]})
                     self._save_user(target_profile)
-                    return f"Withdrawal {request_id} for user {user_id} has been approved. Transaction ID: {request['transaction_id']}"
+                    approved_msg = f"Withdrawal {request_id} for user {user_id} has been approved. Transaction ID: {request['transaction_id']}"
+                    paid_ok, paid_msg = self.process_withdrawal_payout(user_id, request_id)
+                    if paid_ok:
+                        return approved_msg + f" | Payout sent: {paid_msg}"
+                    return approved_msg + f" | Payout pending: {paid_msg}"
             return f"Pending request with ID {request_id} for user {user_id} not found."
+
+    def process_withdrawal_payout(self, user_id: int, request_id: str) -> tuple[bool, str]:
+        """Issue the real UPI payout for an approved withdrawal via Razorpay.
+
+        Returns (success, message). Safe to call repeatedly; already-paid requests
+        are skipped. If the gateway is not configured the request stays pending.
+        """
+        from app.payouts import PayoutService
+
+        svc = PayoutService()
+        if not svc.enabled:
+            return False, "Payout gateway not configured; withdrawal stays pending for manual payout."
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            request = next(
+                (w for w in profile.withdrawals if w.get("request_id") == request_id), None
+            )
+            if request is None:
+                return False, "Withdrawal request not found."
+            status = request.get("status")
+            if status in ("paid", "processing"):
+                return False, f"Payout already {status}."
+            upi_id = (request.get("details") or "").strip()
+            if not upi_id or "@" not in upi_id:
+                return False, "No valid UPI id on the request."
+            amount_paise = int(round(float(request.get("final_payout", 0)) * 100))
+            if amount_paise <= 0:
+                return False, "Invalid payout amount."
+            ok, result = svc.create_upi_payout(upi_id, profile.name or "User", amount_paise, request_id)
+            if ok:
+                request["status"] = "processing"
+                request["razorpay_payout_id"] = result
+                request["payout_initiated_at"] = self._get_utc_now().isoformat()
+                profile.log_activity("withdrawal_paid", {"request_id": request_id, "payout_id": result})
+                self._save_user(profile)
+                return True, result
+            request["status"] = "failed"
+            request["payout_error"] = result
+            self._save_user(profile)
+            return False, result
+
+    def update_payout_status(self, razorpay_payout_id: str, status: str) -> bool:
+        """Update a withdrawal from a Razorpay webhook event.
+
+        ``status`` is the Razorpay payout status (processed / failed / reversed).
+        """
+        mapped = {
+            "processed": "paid",
+            "settled": "paid",
+            "failed": "failed",
+            "reversed": "failed",
+        }
+        new_status = mapped.get(status)
+        if not new_status:
+            return False
+        for profile in self.users.values():
+            for request in profile.withdrawals:
+                if request.get("razorpay_payout_id") == razorpay_payout_id:
+                    request["status"] = new_status
+                    request["payout_updated_at"] = self._get_utc_now().isoformat()
+                    profile.log_activity("withdrawal_status_update", {"request_id": request.get("request_id"), "status": new_status})
+                    self._save_user(profile)
+                    return True
+        return False
+
+    def get_payout_queue(self) -> list[dict]:
+        """List withdrawals that still need payout action for the admin panel."""
+        queue = []
+        for profile in self.users.values():
+            for w in profile.withdrawals:
+                if w.get("status") in ("pending", "approved", "processing", "failed"):
+                    queue.append({
+                        "user_id": w.get("user_id"),
+                        "request_id": w.get("request_id"),
+                        "amount": w.get("amount"),
+                        "final_payout": w.get("final_payout"),
+                        "method": w.get("method"),
+                        "details": w.get("details"),
+                        "status": w.get("status"),
+                        "razorpay_payout_id": w.get("razorpay_payout_id"),
+                    })
+        return queue
 
     # --- User Search / Discovery ---
 

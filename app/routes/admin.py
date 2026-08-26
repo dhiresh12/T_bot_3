@@ -246,6 +246,30 @@ def admin_approve_withdrawal() -> tuple[dict, int]:
 
 
 
+@bp.get("/api/admin/payout_queue")
+def admin_payout_queue() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+    return jsonify(current_engine.get_payout_queue()), 200
+
+
+@bp.post("/api/admin/process_payout")
+def admin_process_payout() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    admin_key = request.headers.get("X-Admin-Key")
+    if not admin_key or admin_key != current_engine.admin_key:
+        return jsonify({"error": "Access Denied. Invalid or missing admin key."}), 403
+    payload = request.get_json(silent=True) or {}
+    user_id = payload.get("user_id")
+    request_id = payload.get("request_id")
+    if not all([user_id, request_id]):
+        return jsonify({"error": "Missing user_id or request_id."}), 400
+    ok, message = current_engine.process_withdrawal_payout(user_id, request_id)
+    return jsonify({"success": ok, "message": message}), 200
+
+
 @bp.get("/api/admin/backups")
 def admin_backups() -> tuple[dict, int]:
     current_engine = current_app.config["engine"]

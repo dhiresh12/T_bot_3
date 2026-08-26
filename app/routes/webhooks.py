@@ -77,3 +77,44 @@ def telegram_webhook() -> tuple[dict, int]:
     telegram_service = TelegramBotService(engine=engine)
     telegram_service.handle_update(update) # The service sends the reply via API call
     return jsonify({"status": "ok"}), 200
+
+
+
+@bp.post("/api/webhooks/razorpay")
+def razorpay_webhook() -> tuple[dict, int]:
+    """Receives RazorpayX payout events and updates withdrawal status.
+
+    Configure this URL in the Razorpay dashboard with the same
+    RAZORPAY_WEBHOOK_SECRET used to verify the signature.
+    """
+    from app.payouts import PayoutService
+
+    svc = PayoutService()
+    raw = request.get_data()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+    if not svc.verify_webhook_signature(raw, signature):
+        return jsonify({"status": "invalid signature"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    event = payload.get("event", "")
+    entity = (payload.get("payload") or {}).get("payout") or {}
+    payout = entity.get("entity") or {}
+    payout_id = payout.get("id")
+    if not payout_id:
+        return jsonify({"status": "ignored"}), 200
+
+    # Map Razorpay payout status -> our status
+    razorpay_status = payout.get("status")
+    mapped = {
+        "processed": "paid",
+        "settled": "paid",
+        "failed": "failed",
+        "reversed": "failed",
+    }
+    new_status = mapped.get(razorpay_status)
+    if not new_status:
+        return jsonify({"status": "ignored"}), 200
+
+    engine = current_app.config["engine"]
+    engine.update_payout_status(payout_id, new_status)
+    return jsonify({"status": "ok"}), 200

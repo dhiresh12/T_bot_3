@@ -78,21 +78,50 @@
       const data = await res.json();
       document.getElementById('stat-users').textContent = data.active_users ?? '-';
       document.getElementById('stat-balance').textContent = '₹' + (data.total_wallet_balance ?? 0);
-      document.getElementById('stat-pending').textContent = data.pending_withdrawals?.length ?? 0;
-      renderWithdrawals(data.pending_withdrawals || []);
+      document.getElementById('stat-pending').textContent = data.pending_withdrawals ?? 0;
+      loadPayoutQueue();
       loadUsers(key);
+    }
+    async function loadPayoutQueue() {
+      const key = getKey();
+      if (!key) return;
+      const res = await fetch(`${API_BASE}/api/admin/payout_queue`, { headers: { 'X-Admin-Key': key } });
+      if (res.status === 403) return;
+      const list = await res.json();
+      renderWithdrawals(list || []);
+    }
+    function statusBadge(status) {
+      const map = {
+        pending: ['#fbbf24', 'Pending'],
+        approved: ['#60a5fa', 'Approved'],
+        processing: ['#a78bfa', 'Processing'],
+        paid: ['#34d399', 'Paid'],
+        failed: ['#f87171', 'Failed'],
+      };
+      const [color, label] = map[status] || ['#fbbf24', status || 'Pending'];
+      return `<span style="color:${color};font-weight:700;">${label}</span>`;
     }
     function renderWithdrawals(list) {
       const tbody = document.getElementById('withdrawals-table');
-      if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No pending withdrawals</td></tr>'; return; }
-      tbody.innerHTML = list.map(w => `<tr>
-        <td>${w.user_id}</td>
-        <td>${w.request_id}</td>
-        <td>₹${w.amount}</td>
-        <td>${w.method || '-'}</td>
-        <td><span class="badge badge-pending">Pending</span></td>
-        <td><button onclick="approveWithdrawal(${w.user_id},'${w.request_id}')">Approve</button></td>
-      </tr>`).join('');
+      if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No withdrawals to process</td></tr>'; return; }
+      tbody.innerHTML = list.map(w => {
+        let action = '';
+        if (w.status === 'pending') {
+          action = `<button onclick="approveWithdrawal(${w.user_id},'${w.request_id}')">Approve & Pay</button>`;
+        } else if (w.status === 'approved' || w.status === 'processing' || w.status === 'failed') {
+          action = `<button onclick="processPayout(${w.user_id},'${w.request_id}')">Process / Retry</button>`;
+        } else {
+          action = '<span style="color:#34d399;">✓</span>';
+        }
+        return `<tr>
+          <td>${w.user_id}</td>
+          <td>${w.request_id}</td>
+          <td>₹${w.amount}</td>
+          <td>${w.method || '-'}</td>
+          <td>${statusBadge(w.status)}</td>
+          <td>${action}</td>
+        </tr>`;
+      }).join('');
     }
     async function approveWithdrawal(userId, requestId) {
       const code = prompt('Enter verification code from user:');
@@ -105,7 +134,18 @@
       });
       const data = await res.json();
       alert(data.message);
-      loadDashboard();
+      loadPayoutQueue();
+    }
+    async function processPayout(userId, requestId) {
+      const key = getKey();
+      const res = await fetch(`${API_BASE}/api/admin/process_payout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': key },
+        body: JSON.stringify({ user_id: userId, request_id: requestId })
+      });
+      const data = await res.json();
+      alert(data.message);
+      loadPayoutQueue();
     }
     async function loadUsers(key) {
       const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'X-Admin-Key': key } });

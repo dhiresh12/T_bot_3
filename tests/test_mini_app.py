@@ -151,7 +151,47 @@ def test_crate_daily_limit_prevents_unlimited_farming():
     assert "limit" in message.lower()
 
 
-def test_ad_block_id_injected_into_template():
+def test_payout_gateway_disabled_keeps_withdrawal_pending():
+    engine = BotEngine(storage_path="/tmp/bot3-payout.json")
+    uid = 555777
+    profile = engine.get_profile(uid)
+    profile.coins = 1000000
+    profile.kyc_verified = True
+    profile.invite_count = 15
+    profile.completed_tasks = [f"t{i}" for i in range(10)]
+    profile.total_ads_watched = 100
+    engine._save_user(profile)
+
+    msg = engine.request_withdrawal(uid, 10.0, method="upi", details="user@okbank")
+    assert "submitted" in msg.lower()
+
+    ok, pmsg = engine.process_withdrawal_payout(uid, "req-555777-1")
+    assert ok is False
+    req = engine.get_profile(uid).withdrawals[0]
+    assert req["status"] == "pending"
+
+    queue = engine.get_payout_queue()
+    assert any(w["request_id"] == "req-555777-1" for w in queue)
+
+
+def test_update_payout_status_marks_paid():
+    engine = BotEngine(storage_path="/tmp/bot3-payout-status.json")
+    uid = 555888
+    profile = engine.get_profile(uid)
+    profile.coins = 1000000
+    profile.kyc_verified = True
+    profile.invite_count = 15
+    profile.completed_tasks = [f"t{i}" for i in range(10)]
+    profile.total_ads_watched = 100
+    engine._save_user(profile)
+    engine.request_withdrawal(uid, 10.0, method="upi", details="user@okbank")
+    req = engine.get_profile(uid).withdrawals[0]
+    req["razorpay_payout_id"] = "pay_abc123"
+    req["status"] = "processing"
+    engine._save_user(engine.get_profile(uid))
+    assert engine.update_payout_status("pay_abc123", "processed") is True
+    req = engine.get_profile(uid).withdrawals[0]
+    assert req["status"] == "paid"
     import os
     os.environ["AD_BLOCK_ID"] = "TEST_BLOCK_123"
     try:
