@@ -1,5 +1,22 @@
+import re
+import shutil
+import subprocess
+
+import pytest
+
 from app.core import BotEngine
 from app.mini_app import create_app
+
+
+def _extract_main_script(html):
+    blocks = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", html, re.S)
+    return blocks[-1]
+
+
+def _strip_jinja(js):
+    js = re.sub(r"\{\{.*?\}\}", "null", js, flags=re.S)
+    js = re.sub(r"\{%.*?%\}", "", js, flags=re.S)
+    return js
 
 
 def test_bonus_endpoint_updates_wallet():
@@ -67,3 +84,47 @@ def test_events_claim_route_registered():
     assert response.status_code in (200, 404)
     payload = response.get_json()
     assert "success" in payload
+
+
+def test_mini_app_script_parses_without_syntax_errors():
+    import os
+    import tempfile
+
+    engine = BotEngine(storage_path="/tmp/bot3-miniapp-syntax.json")
+    app = create_app(engine)
+    client = app.test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    js = _strip_jinja(_extract_main_script(html))
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available to validate JS syntax")
+
+    fd, path = tempfile.mkstemp(suffix=".js")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(js)
+        proc = subprocess.run(
+            [node, "--check", path],
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+    finally:
+        os.unlink(path)
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_beforeinstallprompt_handler_is_closed():
+    engine = BotEngine(storage_path="/tmp/bot3-miniapp-bis.json")
+    app = create_app(engine)
+    client = app.test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "window.addEventListener('beforeinstallprompt', function(e) {" in html
+    # The handler must be closed so the rest of the script is not nested inside it.
+    assert "deferredPrompt = e;\n          });" in html
+

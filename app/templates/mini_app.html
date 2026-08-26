@@ -1184,6 +1184,18 @@
           const tg = getTelegram();
           if (tg) { try { tg.expand(); } catch (e) {} }
 
+          function logDebug(msg) {
+            try {
+              var box = document.getElementById('debug-log');
+              if (box) {
+                var line = document.createElement('div');
+                line.textContent = msg;
+                box.appendChild(line);
+                while (box.childNodes.length > 50) box.removeChild(box.firstChild);
+              }
+            } catch (e) {}
+          }
+
           function getOrCreateBrowserId() {
             try {
               let id = localStorage.getItem('xio_user_id');
@@ -3050,6 +3062,7 @@ function showPage(pageName) {
           window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
+          });
           // --- Login Calendar ---
           async function loadCalendar() {
             try {
@@ -3120,7 +3133,7 @@ function showPage(pageName) {
               const data = await r.json();
               const el = document.getElementById('flash-sale-content');
               if (data && data.active) {
-                el.innerHTML = '<div class=\"task-item\" style=\"border:1px dashed rgba(251,113,133,0.4);background:rgba(251,113,133,0.05);\"><div class=\"task-info\"><h3>⚡ ' + escapeHtml(data.name) + '</h3><p>' + escapeHtml(data.description || '') + '</p><b style=\"color:var(--danger);\">Ends: ' + new Date(data.end_at).toLocaleString() + '</b></p></div><button class=\"btn btn-sm btn-gold\" onclick=\"showToast(\\'Flash sale coming soon!\\', \\'warning\\')\">Buy Now</button></div>';
+                el.innerHTML = '<div class=\"task-item\" style=\"border:1px dashed rgba(251,113,133,0.4);background:rgba(251,113,133,0.05);\"><div class=\"task-info\"><h3>⚡ ' + escapeHtml(data.name) + '</h3><p>' + escapeHtml(data.description || '') + '</p><b style=\"color:var(--danger);\">Ends: ' + new Date(data.end_at).toLocaleString() + '</b></p></div><button class=\"btn btn-sm btn-gold\" onclick=\"showToast(&quot;Flash sale coming soon!&quot;, &quot;warning&quot;)\">Buy Now</button></div>';
               } else {
                 el.innerHTML = '<p style=\"color:var(--text-muted);font-size:13px;\">No active flash sale right now. Check back later!</p>';
               }
@@ -3251,12 +3264,13 @@ function showPage(pageName) {
               if (data.success) fetchData();
             } catch (e) { showToast('Error prestiging', 'error'); }
           }
-              if (deferredPrompt) {
-                const banner = document.getElementById('pwa-install-banner');
-                if (banner) banner.style.display = 'block';
-              }
-            }, 30000);
-          });
+          // Show the PWA install banner after 30s if an install prompt is available
+          setTimeout(function() {
+            if (deferredPrompt) {
+              const banner = document.getElementById('pwa-install-banner');
+              if (banner) banner.style.display = 'block';
+            }
+          }, 30000);
           document.getElementById('pwa-install-btn').addEventListener('click', async function() {
             if (!deferredPrompt) return;
             deferredPrompt.prompt();
@@ -3651,7 +3665,7 @@ function showPage(pageName) {
               if (data.update_required) {
                 const banner = document.createElement('div');
                 banner.className = 'version-banner';
-                banner.innerHTML = '🔄 Update available! Current: ' + data.current_version + ' <button onclick=\"window.open(''https://t.me/' + botUsername + ''',''_blank'')\">Update</button>';
+                banner.innerHTML = '🔄 Update available! Current: ' + data.current_version + ' <button onclick="window.open(\'https://t.me/\' + botUsername + \', \'_blank\')">Update</button>';
                 document.querySelector('.container').prepend(banner);
               }
             } catch (e) {}
