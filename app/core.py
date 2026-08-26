@@ -52,13 +52,13 @@ def _resolve_mini_app_url() -> str:
     def _clean(candidate: str) -> str | None:
         if not candidate:
             return None
-        candidate = candidate.rstrip("/")
+        candidate = candidate.strip().rstrip("/")
         lowered = candidate.lower()
         if any(p in lowered for p in placeholders):
             return None
-        if lowered.startswith("http://") or lowered.startswith("https://"):
-            return candidate
-        return None
+        if not lowered.startswith("http://") and not lowered.startswith("https://"):
+            candidate = "https://" + candidate
+        return candidate
 
     explicit = _clean(os.getenv("MINI_APP_URL"))
     if explicit:
@@ -428,9 +428,12 @@ class BotEngine:
         mongo_uri = os.getenv("MONGO_URI")
         if mongo_uri and MongoClient is not None:
             self.client = MongoClient(mongo_uri)
-            self.db = self.client.get_default_database()
+            try:
+                self.db = self.client.get_default_database()
+            except Exception:
+                self.db = None
             if self.db is None:
-                self.db = self.client["bot_data"]
+                self.db = self.client.get_database("earningapp")
         elif mongomock is not None:
             self.client = mongomock.MongoClient("mongodb://localhost")
             self.db = self.client["bot_data"]
