@@ -263,7 +263,7 @@ The repo has a working starter with all core features implemented and tested (72
 
 ### Backend
 - `app/core.py` — BotEngine (main logic, all features)
-- `app/routes/` — Flask API blueprints package (13 isolated modules)
+- `app/routes/` — Flask API blueprints package (22 isolated modules)
   - `_helpers.py` — shared rate-limit, auth decorators, safe-int
   - `auth.py` — login, Telegram HMAC auth
   - `webhooks.py` — Telegram webhook status + handler
@@ -277,7 +277,18 @@ The repo has a working starter with all core features implemented and tested (72
   - `notifications.py` — list + mark-read
   - `leaderboard.py` — global, level, rewards
   - `admin.py` — all admin endpoints + admin dashboard UI
-  - `misc.py` — health, bonus, dashboard, engagement, support, help, XP, search, discover
+  - `misc.py` — health, bonus, dashboard, engagement, support, help, XP, search, discover, lucky-hour, goals, calendar, prestige
+  - `streaks.py` — streak info + claim
+  - `events.py` — active events + claim
+  - `security.py` — PIN set/verify/status
+  - `achievements_share.py` — achievement share rewards
+  - `analytics.py` — dark pattern analytics
+  - `retention.py` — streak reminders, weekly summaries, activity feed
+  - `withdrawal_proofs.py` — public proof gallery
+  - `referral_tournament.py` — referral tournament leaderboard
+  - `flash_sale.py` — flash sale endpoints
+  - `crates.py` — mystery crate catalog + open
+  - `quests.py` — onboarding quest status + claim
 - `app/routes.py` — backward-compatible shim (`from app.routes import bp`)
 - `app/mini_app.py` — thin Flask app factory (reads HTML from `app/templates/mini_app.html`)
 - `app/telegram_bot.py` — Telegram service layer
@@ -287,6 +298,7 @@ The repo has a working starter with all core features implemented and tested (72
 - `app/support.py` — Multilingual support
 - `app/security.py` — Security utilities
 - `app/config.py` — App configuration
+- `app/push.py` — Web push notification service
 
 ### Frontend
 - `app/templates/mini_app.html` — main mini-app HTML/JS (extracted from Python)
@@ -295,6 +307,7 @@ The repo has a working starter with all core features implemented and tested (72
 - Vanilla JS with fetch API
 - Telegram WebApp SDK integration
 - localStorage for theme/language persistence
+- Pages: Home, Ads, Friends, Discover, More, Streak, Crates + sub-pages (Calendar, Proofs, Tournament, Flash Sale, Quests, Activity Feed)
 
 ### Design Principles
 - **Error isolation**: each route module is imported independently; one broken module does not crash the app
@@ -307,8 +320,9 @@ The repo has a working starter with all core features implemented and tested (72
 - Per-user atomic operations via locks
 
 ## Testing
-- 72 tests, all passing
+- 97 tests, all passing
 - Test files: test_ads_integration.py, test_advanced_flow.py, test_core.py, test_engagement.py, test_extended_features.py, test_mini_app.py, test_new_features.py, test_social_features.py, test_popularity_social.py, test_sections.py, test_support.py, test_telegram_bot.py
+- Coverage: core engine, ads, advanced flows, extended features, mini app, new features (level, achievements, challenges, scratch, streak, referrals, spin, notifications, social sharing, leaderboard rewards, retention, proof gallery, flash sales, crates, quests, calendar, prestige), social features (friends, bio, profiles, translation, chat), popularity/social (popularity, likes, visits, coin transfer, privacy, themes, messaging)
 
 ## Deployment
 - Render-ready (webhook auto-registration)
@@ -346,3 +360,121 @@ The repo has a working starter with all core features implemented and tested (72
 
 ---
 **Note:** This is a living document. All features are built with future-proofing in mind. Dark patterns are intentionally preserved for engagement.
+
+## Phase 21 — Retention & Engagement Features (Latest)
+
+### Withdrawal Proof Gallery
+- Public gallery of verified withdrawal proofs with user names, notes, timestamps.
+- Social proof builds trust and increases withdrawal motivation.
+- API: `/api/withdrawals/proofs/gallery`
+- Frontend: Proof Gallery page with verified/pending badges.
+
+### Daily Login Calendar
+- Escalating monthly rewards: Day 1-3: 50 coins, Day 4-7: 150 coins + spin, Day 8-14: 350 coins + scratch card, Day 15-21: 500 coins + 2 spins, Day 22-30: 1000 coins + 3 spins, Day 31: 3000 coins + badge.
+- Visual calendar grid with claimed/unclaimed days.
+- Backend: `get_login_calendar()`, `claim_calendar_day()` in `BotEngine`.
+- API: `/api/calendar/<user_id>`, `/api/calendar/claim/<user_id>`.
+
+### Web Push Notifications
+- Service worker + VAPID key support for browser push notifications.
+- Notifications for: streak reminders, friend activity, new events, withdrawal status, flash sales.
+- Frontend: `requestPushPermission()` function, PWA install banner.
+- Backend: `PushNotificationService` in `app/push.py`.
+
+### Referral Tournament
+- Weekly referral contest with live leaderboard.
+- Top 3 referrers win bonus coins + exclusive badge + highlighted ranking.
+- Backend: `get_tournament_leaderboard()` in `BotEngine`.
+- API: `/api/tournament/leaderboard`
+- Frontend: Tournament page with top 3 highlighted.
+
+### Flash Sales
+- Limited-time shop offers with 50-70% discount.
+- Creates urgency and impulse purchases.
+- Backend: `get_active_flash_sale()` in `BotEngine`.
+- API: `/api/flash-sale/active`
+- Frontend: Flash Sale page with countdown timer.
+
+### Mystery Crates / Loot Boxes
+- Variable reward system with weighted random prizes.
+- Basic Crate (200 coins) and Premium Crate (500 coins).
+- Prizes range from 50 coins to 10,000 coins + XP.
+- Backend: `get_crate_catalog()`, `open_crate()` in `BotEngine`.
+- API: `/api/crates/catalog`, `/api/crates/open/<user_id>`
+- Frontend: Crates page with open buttons.
+
+### Gamified Onboarding Quest
+- 5-step quest: watch ad, spin wheel, send message, invite friend, claim bonus.
+- Completing all steps unlocks "Founder" badge + 500 coins + 100 XP.
+- Backend: `get_quest_status()`, `claim_quest_reward()` in `BotEngine`.
+- API: `/api/quests/status/<user_id>`, `/api/quests/claim/<user_id>`
+- Frontend: Quests page with progress tracking.
+
+### Achievement Prestige System
+- After reaching max XP, users can prestige to unlock exclusive diamond badges.
+- Prestige resets level to 1 but grants +1000 coins and prestige badge.
+- Backend: `get_prestige_info()`, `prestige_user()` in `BotEngine`.
+- API: `/api/prestige/<user_id>`
+- Frontend: Prestige button on profile when eligible.
+
+### Lucky Hour
+-特定时间段 (8-10 PM UTC) ads and spins give 2x rewards.
+- Live indicator on home page showing active status and next lucky hour.
+- Backend: `is_lucky_hour()`, `get_lucky_hour_status()` in `BotEngine`.
+- API: `/api/lucky-hour/status`
+- Frontend: Lucky hour indicator on home page.
+
+### Personalized Goal Nudges
+- Micro-goals displayed on home page: "Just 15 XP away from Level 5!", "1 more invite to Silver tier!".
+- Increases completion rates by showing progress.
+- Backend: `get_goal_nudges()` in `BotEngine`.
+- API: `/api/goals/nudges/<user_id>`
+- Frontend: Goal nudges section on home page.
+
+### Additional Security Hardening
+- Required `SECRET_KEY` environment variable (no dev fallback).
+- 24-hour session expiry with automatic cleanup.
+- Admin routes accept `X-Admin-Key` header only (removed body key leak).
+- Global `escapeHtml()` in frontend for all user-generated content.
+- Backend `_sanitize_text()` applied to all user inputs (name, bio, messages, shop items, events).
+
+## Architecture
+
+### Backend
+- `app/core.py` — BotEngine (main logic, all features)
+- `app/routes/` — Flask API blueprints package (22 isolated modules)
+  - `_helpers.py` — shared rate-limit, auth decorators, safe-int
+  - `auth.py` — login, Telegram HMAC auth
+  - `webhooks.py` — Telegram webhook status + handler
+  - `ads.py` — ad config, watch, verify, redeem-more
+  - `tasks.py` — tasks, challenges, achievements, scratch, streak, referral tier
+  - `social.py` — friends, profile, chat, messages, translate, likes, visits, privacy, theme
+  - `popularity.py` — claim/buy/send popularity
+  - `withdrawals.py` — withdraw, proofs, transaction history
+  - `spin.py` — normal/super/mega spin
+  - `shop.py` — catalog, redeem, coin exchange
+  - `notifications.py` — list + mark-read
+  - `leaderboard.py` — global, level, rewards
+  - `admin.py` — all admin endpoints + admin dashboard UI
+  - `misc.py` — health, bonus, dashboard, engagement, support, help, XP, search, discover, lucky-hour, goals, calendar, prestige
+  - `streaks.py` — streak info + claim
+  - `events.py` — active events + claim
+  - `security.py` — PIN set/verify/status
+  - `achievements_share.py` — achievement share rewards
+  - `analytics.py` — dark pattern analytics
+  - `retention.py` — streak reminders, weekly summaries, activity feed
+  - `withdrawal_proofs.py` — public proof gallery
+  - `referral_tournament.py` — referral tournament leaderboard
+  - `flash_sale.py` — flash sale endpoints
+  - `crates.py` — mystery crate catalog + open
+  - `quests.py` — onboarding quest status + claim
+- `app/routes.py` — backward-compatible shim (`from app.routes import bp`)
+- `app/mini_app.py` — thin Flask app factory (reads HTML from `app/templates/mini_app.html`)
+- `app/telegram_bot.py` — Telegram service layer
+- `app/ads.py` — Ads manager
+- `app/admin.py` — Admin panel service
+- `app/engagement.py` — Engagement/trust layer
+- `app/support.py` — Multilingual support
+- `app/security.py` — Security utilities
+- `app/config.py` — App configuration
+- `app/push.py` — Web push notification service

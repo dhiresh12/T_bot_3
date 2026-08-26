@@ -498,6 +498,8 @@
               <div class="box"><b id="online-count">2,341</b> Online now</div>
               <div class="box"><b id="payout-count">₹1,28,400</b> Paid today</div>
             </div>
+            <div id="lucky-hour-indicator" style="text-align:center;padding:8px;font-weight:700;font-size:13px;margin-top:8px;"></div>
+            <div id="goal-nudges" style="margin-top:10px;"></div>
 
             <div class="grid">
               <div class="grid-card"><div id="invites-count" class="value">0</div><div class="label" data-translate-key="invites">Invites</div></div>
@@ -1019,6 +1021,58 @@
           </div>
         </div>
 
+        <!-- LOGIN CALENDAR -->
+        <div id="page-calendar" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>📅 Login Calendar</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Claim daily rewards. Escalating bonuses every day!</p>
+          <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:12px;"></div>
+          <button id="claim-calendar-btn" class="btn btn-sm btn-gold" onclick="claimCalendarDay()" style="margin-top:12px;">🎁 Claim Today</button>
+          <p id="calendar-status" class="status-msg" style="margin-top:10px;"></p>
+        </div>
+
+        <!-- PROOF GALLERY -->
+        <div id="page-proofs" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>💸 Withdrawal Proofs</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Real withdrawals from our community</p>
+          <div id="proofs-gallery"></div>
+        </div>
+
+        <!-- TOURNAMENT -->
+        <div id="page-tournament" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>🏆 Referral Tournament</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Top referrers win big prizes this week!</p>
+          <div id="tournament-leaderboard"></div>
+        </div>
+
+        <!-- FLASH SALE -->
+        <div id="page-flash-sale" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>⚡ Flash Sale</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Limited time offers!</p>
+          <div id="flash-sale-content"></div>
+        </div>
+
+        <!-- CRATES -->
+        <div id="page-crates" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>🎁 Mystery Crates</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Open crates for random rewards!</p>
+          <div id="crates-list"></div>
+        </div>
+
+        <!-- QUESTS -->
+        <div id="page-quests" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>⚔️ Onboarding Quest</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Complete all steps for exclusive Founder badge + 500 coins!</p>
+          <div id="quests-list"></div>
+          <button id="claim-quest-btn" class="btn btn-sm btn-gold" onclick="claimQuestReward()" style="margin-top:12px;">🎁 Claim Quest Reward</button>
+          <p id="quest-status" class="status-msg" style="margin-top:10px;"></p>
+        </div>
+
         <div class="event-banner" id="event-banner" style="display:none;">
           <div class="em" id="event-banner-em">🎉</div>
           <div class="info"><b id="event-banner-title">Limited Time Event</b><p id="event-banner-desc">Earn bonus rewards!</p><div id="event-countdown" class="event-countdown"></div></div>
@@ -1031,6 +1085,7 @@
           <button class="nav-item" data-page="discover" onclick="showPage('discover')"><span class="em">🔍</span><span>Discover</span></button>
           <button class="nav-item" data-page="more" onclick="showPage('more')"><span class="em">📋</span><span>More</span></button>
           <button class="nav-item" data-page="streak" onclick="showPage('streak')"><span class="em">🔥</span><span>Streak</span></button>
+          <button class="nav-item" data-page="crates" onclick="showPage('crates')"><span class="em">🎁</span><span>Crates</span></button>
         </div>
 
         <script>
@@ -1819,6 +1874,12 @@ function showPage(pageName) {
             }
             if (pageName === 'streak') { loadStreakRewards(); trackDarkPattern('streak_page_view'); }
             if (pageName === 'notifications') loadNotificationsPage();
+            if (pageName === 'calendar') loadCalendar();
+            if (pageName === 'proofs') loadProofGallery();
+            if (pageName === 'tournament') loadTournament();
+            if (pageName === 'flash-sale') loadFlashSale();
+            if (pageName === 'crates') loadCrates();
+            if (pageName === 'quests') loadQuests();
           }
 
           async function searchUsers() {
@@ -2900,7 +2961,207 @@ function showPage(pageName) {
           window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
-            setTimeout(function() {
+          // --- Login Calendar ---
+          async function loadCalendar() {
+            try {
+              const r = await fetch('/api/calendar/' + userId);
+              const data = await r.json();
+              const grid = document.getElementById('calendar-grid');
+              const claimed = data.claimed_days || [];
+              const rewards = data.available_rewards || {};
+              let html = '';
+              for (let day = 1; day <= 31; day++) {
+                const claimedDay = claimed.indexOf(day) !== -1;
+                const reward = rewards[day] || {label: '???'};
+                html += '<div class=\"streak-reward-item' + (claimedDay ? ' claimed' : '') + '\"><div class=\"day\">' + day + '</div><div>' + escapeHtml(reward.label) + '</div></div>';
+              }
+              grid.innerHTML = html;
+            } catch (e) {}
+          }
+          async function claimCalendarDay() {
+            const statusEl = document.getElementById('calendar-status');
+            statusEl.innerText = 'Claiming...';
+            try {
+              const r = await fetch('/api/calendar/claim/' + userId, { method: 'POST' });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              if (data.success) {
+                showToast('📅 Calendar day claimed! +' + (data.data && data.data.coins ? data.data.coins : 0) + ' coins', 'success');
+                loadCalendar();
+              }
+            } catch (e) { statusEl.innerText = 'Error claiming calendar day.'; }
+          }
+
+          // --- Proof Gallery ---
+          async function loadProofGallery() {
+            try {
+              const r = await fetch('/api/withdrawals/proofs/gallery?limit=50');
+              const data = await r.json();
+              const list = document.getElementById('proofs-gallery');
+              if (!data.proofs || !data.proofs.length) {
+                list.innerHTML = '<p style=\"color:var(--text-muted);font-size:13px;\">No proofs yet. Be the first to withdraw!</p>';
+                return;
+              }
+              list.innerHTML = data.proofs.map(p =>
+                '<div class=\"history-item\"><span><b>' + escapeHtml(p.name) + '</b><br><small>' + escapeHtml(p.note || 'Withdrawal proof') + '</small><br><small style=\"color:var(--text-dim);\">' + new Date(p.timestamp).toLocaleString() + '</small></span>' + (p.verified ? '<span class=\"status approved\">Verified</span>' : '<span class=\"status pending\">Pending</span>') + '</div>'
+              ).join('');
+            } catch (e) {}
+          }
+
+          // --- Tournament ---
+          async function loadTournament() {
+            try {
+              const r = await fetch('/api/tournament/leaderboard');
+              const data = await r.json();
+              const list = document.getElementById('tournament-leaderboard');
+              if (!data.leaderboard || !data.leaderboard.length) {
+                list.innerHTML = '<p style=\"color:var(--text-muted);font-size:13px;\">No participants yet. Start inviting!</p>';
+                return;
+              }
+              list.innerHTML = data.leaderboard.map(u =>
+                '<div class=\"req-item' + (u.rank <= 3 ? ' ok' : '') + '\"><b>#' + u.rank + ' ' + escapeHtml(u.name) + '</b> • ' + u.invites + ' invites</div>'
+              ).join('');
+            } catch (e) {}
+          }
+
+          // --- Flash Sale ---
+          async function loadFlashSale() {
+            try {
+              const r = await fetch('/api/flash-sale/active');
+              const data = await r.json();
+              const el = document.getElementById('flash-sale-content');
+              if (data && data.active) {
+                el.innerHTML = '<div class=\"task-item\" style=\"border:1px dashed rgba(251,113,133,0.4);background:rgba(251,113,133,0.05);\"><div class=\"task-info\"><h3>⚡ ' + escapeHtml(data.name) + '</h3><p>' + escapeHtml(data.description || '') + '</p><b style=\"color:var(--danger);\">Ends: ' + new Date(data.end_at).toLocaleString() + '</b></p></div><button class=\"btn btn-sm btn-gold\" onclick=\"showToast(\\'Flash sale coming soon!\\', \\'warning\\')\">Buy Now</button></div>';
+              } else {
+                el.innerHTML = '<p style=\"color:var(--text-muted);font-size:13px;\">No active flash sale right now. Check back later!</p>';
+              }
+            } catch (e) {}
+          }
+
+          // --- Crates ---
+          async function loadCrates() {
+            try {
+              const r = await fetch('/api/crates/catalog');
+              const data = await r.json();
+              const list = document.getElementById('crates-list');
+              if (!data || !data.length) {
+                list.innerHTML = '<p style=\"color:var(--text-muted);font-size:13px;\">No crates available.</p>';
+                return;
+              }
+              list.innerHTML = data.map(function(it){
+                return '<div class=\"shop-item\"><div class=\"em\">' + (it.emoji || '🎁') + '</div><div class=\"info\"><b>' + escapeHtml(it.name) + '</b><p>Price: ' + it.price + ' coins</p></div><button type=\"button\" class=\"btn btn-sm btn-gold\" data-crate=\"' + escapeHtml(it.id) + '\" onclick=\"openCrate(this)\">Open</button></div>';
+              }).join('');
+            } catch (e) {}
+          }
+          async function openCrate(btn) {
+            const crateId = btn.getAttribute('data-crate');
+            const statusEl = document.getElementById('crate-status') || btn;
+            try {
+              const r = await fetch('/api/crates/open/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ crate_id: crateId })
+              });
+              const data = await r.json();
+              showToast(data.message || '', data.success ? 'success' : 'warning');
+              if (data.success) loadCrates();
+            } catch (e) { showToast('Error opening crate', 'error'); }
+          }
+
+          // --- Quests ---
+          async function loadQuests() {
+            try {
+              const r = await fetch('/api/quests/status/' + userId);
+              const data = await r.json();
+              const list = document.getElementById('quests-list');
+              const claimBtn = document.getElementById('claim-quest-btn');
+              if (!data.steps || !data.steps.length) {
+                list.innerHTML = '<p>No quests available.</p>';
+                return;
+              }
+              list.innerHTML = data.steps.map(function(step){
+                const done = data.completed.indexOf(step.id) !== -1;
+                return '<div class=\"challenge-item\"><div class=\"em\">' + (done ? '✅' : '⚡') + '</div><div class=\"info\"><b>' + escapeHtml(step.title) + '</b><p>' + escapeHtml(step.desc) + '</p></div>' + (done ? '<span class=\"completed-badge\">✔ Done</span>' : '<span style=\"color:var(--text-muted);font-size:12px;\">Pending</span>') + '</div>';
+              }).join('');
+              if (claimBtn) claimBtn.style.display = data.all_completed && !data.reward_claimed ? 'inline-block' : 'none';
+            } catch (e) {}
+          }
+          async function claimQuestReward() {
+            const statusEl = document.getElementById('quest-status');
+            statusEl.innerText = 'Claiming...';
+            try {
+              const r = await fetch('/api/quests/claim/' + userId, { method: 'POST' });
+              const data = await r.json();
+              statusEl.innerText = data.message || '';
+              if (data.success) {
+                showToast('⚔️ Quest complete! ' + (data.reward && data.reward.coins ? '+' + data.reward.coins + ' coins' : ''), 'success');
+                loadQuests();
+              }
+            } catch (e) { statusEl.innerText = 'Error claiming quest reward.'; }
+          }
+
+          // --- Lucky Hour ---
+          async function loadLuckyHour() {
+            try {
+              const r = await fetch('/api/lucky-hour/status');
+              const data = await r.json();
+              const el = document.getElementById('lucky-hour-indicator');
+              if (el) {
+                if (data.active) {
+                  el.innerHTML = '🌟 Lucky Hour Active! ' + data.multiplier + 'x rewards';
+                  el.style.color = 'var(--gold)';
+                } else {
+                  el.innerHTML = 'Next lucky hour: ' + (data.next_start || '20') + ':00';
+                  el.style.color = 'var(--text-dim)';
+                }
+              }
+            } catch (e) {}
+          }
+
+          // --- Goal Nudges ---
+          async function loadGoalNudges() {
+            try {
+              const r = await fetch('/api/goals/nudges/' + userId);
+              const data = await r.json();
+              const el = document.getElementById('goal-nudges');
+              if (!el) return;
+              if (!data.nudges || !data.nudges.length) {
+                el.innerHTML = '';
+                return;
+              }
+              el.innerHTML = data.nudges.map(n =>
+                '<div class=\"task-item\" style=\"padding:10px 12px;margin-bottom:8px;\"><div class=\"task-info\"><p style=\"font-size:12px;margin:0;\">' + escapeHtml(n.message) + '</p></div></div>'
+              ).join('');
+            } catch (e) {}
+          }
+
+          // --- Push Notifications ---
+          async function requestPushPermission() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+              showToast('Push notifications not supported in this browser.', 'warning');
+              return;
+            }
+            try {
+              const permission = await Notification.requestPermission();
+              if (permission === 'granted') {
+                showToast('Notifications enabled! You\'ll get streak reminders and updates.', 'success');
+              } else {
+                showToast('Notifications blocked. Enable in browser settings.', 'warning');
+              }
+            } catch (e) {
+              showToast('Error requesting notifications.', 'error');
+            }
+          }
+
+          // --- Prestige ---
+          async function prestigeUser() {
+            try {
+              const r = await fetch('/api/prestige/' + userId, { method: 'POST' });
+              const data = await r.json();
+              showToast(data.message || '', data.success ? 'success' : 'warning');
+              if (data.success) fetchData();
+            } catch (e) { showToast('Error prestiging', 'error'); }
+          }
               if (deferredPrompt) {
                 const banner = document.getElementById('pwa-install-banner');
                 if (banner) banner.style.display = 'block';
@@ -2983,10 +3244,12 @@ function showPage(pageName) {
             applyABVariants();
             loadEventBanner();
             setInterval(function(){
-              injectFeed('live-feed');
-              injectFeed('live-feed-ads');
-              injectFeed('live-feed-invite');
-              injectFeed('live-feed-withdraw');
+            injectFeed('live-feed');
+            injectFeed('live-feed-ads');
+            injectFeed('live-feed-invite');
+            injectFeed('live-feed-withdraw');
+            loadLuckyHour();
+            loadGoalNudges();
             }, 4000);
             loadChallenges();
             loadAchievements();

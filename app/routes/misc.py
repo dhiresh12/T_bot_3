@@ -263,3 +263,42 @@ def track_event() -> tuple[dict, int]:
     current_engine.register_user(user_id, "Guest")
     current_engine.track_dark_pattern_event(user_id, event_type, payload.get("metadata"))
     return jsonify({"success": True}), 200
+
+
+@bp.get("/api/lucky-hour/status")
+def lucky_hour_status() -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    return jsonify(current_engine.get_lucky_hour_status()), 200
+
+
+@bp.get("/api/goals/nudges/<int:user_id>")
+def goal_nudges(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    nudges = current_engine.get_goal_nudges(user_id)
+    return jsonify({"nudges": nudges}), 200
+
+
+@bp.post("/api/calendar/<int:user_id>")
+def calendar_status(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    return jsonify(current_engine.get_login_calendar(user_id)), 200
+
+
+@bp.post("/api/calendar/claim/<int:user_id>")
+def claim_calendar_day(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    payload = request.get_json(silent=True) or {}
+    day = int(payload.get("day", 0))
+    success, message, data = current_engine.claim_calendar_day(user_id, day)
+    return jsonify({"success": success, "message": message, "data": data}), 200
+
+
+@bp.post("/api/prestige/<int:user_id>")
+def prestige(user_id: int) -> tuple[dict, int]:
+    current_engine = current_app.config["engine"]
+    current_engine.register_user(user_id, "Guest")
+    success, message, data = current_engine.prestige_user(user_id)
+    return jsonify({"success": success, "message": message, "data": data}), 200
+

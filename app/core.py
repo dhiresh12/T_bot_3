@@ -386,6 +386,12 @@ class UserProfile:  # Phase 1: Expanded UserProfile
     # --- Offline / PWA queue ---
     offline_actions: List[Dict[str, Any]] = field(default_factory=list)
     pwa_installed: bool = False
+    # --- Daily login calendar ---
+    login_calendar_claimed_days: List[str] = field(default_factory=list)
+    # --- Quest state ---
+    quest_reward_claimed: bool = False
+    # --- Prestige ---
+    prestige_level: int = 0
 
     def log_activity(self, action: str, details: Optional[Dict] = None):
         """Helper to log user activity."""
@@ -553,6 +559,15 @@ class BotEngine:
         self.webhook_dead_letter_queue: List[Dict[str, Any]] = []
         # --- Dark pattern analytics ---
         self.dark_pattern_events: List[Dict[str, Any]] = []
+
+        # --- New engagement features ---
+        self.flash_sales: List[Dict[str, Any]] = []
+        self.crate_catalog: List[Dict[str, Any]] = [
+            {"id": "basic_crate", "name": "Basic Crate", "emoji": "📦", "price": 200, "rewards": [{"coins": 50, "weight": 40, "label": "50 Coins"}, {"coins": 200, "weight": 30, "label": "200 Coins"}, {"coins": 500, "weight": 20, "label": "500 Coins"}, {"coins": 1000, "weight": 8, "label": "1000 Coins"}, {"coins": 5000, "weight": 2, "label": "JACKPOT"}]},
+            {"id": "premium_crate", "name": "Premium Crate", "emoji": "🎁", "price": 500, "rewards": [{"coins": 200, "weight": 30, "label": "200 Coins"}, {"coins": 500, "weight": 25, "label": "500 Coins"}, {"coins": 1000, "weight": 20, "label": "1000 Coins"}, {"coins": 3000, "weight": 15, "label": "3000 Coins"}, {"coins": 10000, "weight": 5, "label": "MEGA JACKPOT"}, {"xp": 100, "weight": 5, "label": "100 XP"}]},
+        ]
+        self.lucky_hours = [(20, 22)]
+        self.lucky_hour_multiplier = 2
 
         # --- Popularity system ---
         self.popularity_levels = [
@@ -2520,3 +2535,276 @@ class BotEngine:
             "users_tracked": len(user_events),
             "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }
+
+    # --- Withdrawal Proof Gallery ---
+
+    def add_withdrawal_proof(self, user_id: int, note: str = "", image_url: str = "") -> Dict[str, Any]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            proof = {
+                "user_id": user_id,
+                "name": _sanitize_text(profile.name, max_length=50),
+                "note": _sanitize_text(note, max_length=200),
+                "image_url": _sanitize_text(image_url, max_length=500),
+                "timestamp": self._get_utc_now().isoformat(),
+                "verified": False,
+                "likes": 0,
+            }
+            profile.withdrawal_proofs.append(proof)
+            self._save_user(profile)
+            return proof
+
+    def get_proof_gallery(self, limit: int = 50) -> List[Dict[str, Any]]:
+        gallery = []
+        for profile in self.users.values():
+            for proof in profile.withdrawal_proofs:
+                gallery.append(proof)
+        gallery.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return gallery[:limit]
+
+    def verify_proof(self, user_id: int, proof_timestamp: str) -> bool:
+        for profile in self.users.values():
+            for proof in profile.withdrawal_proofs:
+                if proof.get("user_id") == user_id and proof.get("timestamp") == proof_timestamp:
+                    proof["verified"] = True
+                    return True
+        return False
+
+    # --- Daily Login Calendar ---
+
+    def get_login_calendar(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        now = self._get_utc_now()
+        current_month = now.strftime("%Y-%m")
+        days_in_month = 31
+        claimed_days = []
+        if profile.login_calendar_claimed_days:
+            for day in profile.login_calendar_claimed_days:
+                if day.startswith(current_month):
+                    claimed_days.append(int(day.split("-")[-1]))
+        rewards = {}
+        for day in range(1, days_in_month + 1):
+            if day in claimed_days:
+                continue
+            if day <= 3:
+                reward = {"coins": 50, "xp": 5, "label": "50 coins"}
+            elif day <= 7:
+                reward = {"coins": 150, "xp": 10, "label": "150 coins + 1 spin"}
+            elif day <= 14:
+                reward = {"coins": 350, "xp": 20, "label": "350 coins + scratch card"}
+            elif day <= 21:
+                reward = {"coins": 500, "xp": 30, "label": "500 coins + 2 spins"}
+            elif day <= 30:
+                reward = {"coins": 1000, "xp": 50, "label": "1000 coins + 3 spins"}
+            else:
+                reward = {"coins": 3000, "xp": 100, "label": "3000 coins + badge"}
+            rewards[day] = reward
+        return {
+            "claimed_days": claimed_days,
+            "available_rewards": rewards,
+            "current_month": current_month,
+        }
+
+    def claim_calendar_day(self, user_id: int, day: int) -> tuple[bool, str, Dict[str, Any]]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            now = self._get_utc_now()
+            today_str = now.strftime("%Y-%m-%d")
+            calendar_day = f"{now.strftime('%Y-%m')}-{day}"
+            if calendar_day in profile.login_calendar_claimed_days:
+                return False, "Already claimed this day.", {}
+            if day > 31 or day < 1:
+                return False, "Invalid day.", {}
+            profile.login_calendar_claimed_days.append(calendar_day)
+            if day <= 3:
+                coins, xp = 50, 5
+            elif day <= 7:
+                coins, xp = 150, 10
+            elif day <= 14:
+                coins, xp = 350, 20
+            elif day <= 21:
+                coins, xp = 500, 30
+            elif day <= 30:
+                coins, xp = 1000, 50
+            else:
+                coins, xp = 3000, 100
+            profile.coins += coins
+            if xp:
+                self._add_xp_internal(profile, xp)
+            profile.log_activity("claim_calendar_day", {"day": day, "coins": coins, "xp": xp})
+            self._save_user(profile)
+            return True, f"Day {day} claimed! +{coins} coins, +{xp} XP", {"coins": coins, "xp": xp, "day": day}
+
+    # --- Referral Tournament ---
+
+    def get_tournament_leaderboard(self, limit: int = 20) -> Dict[str, Any]:
+        ranked = sorted(self.users.values(), key=lambda p: p.invite_count, reverse=True)[:limit]
+        return {
+            "leaderboard": [
+                {
+                    "user_id": p.user_id,
+                    "name": p.name,
+                    "invites": p.invite_count,
+                    "rank": i + 1,
+                }
+                for i, p in enumerate(ranked)
+            ],
+            "top_reward_coins": 5000,
+            "top_reward_xp": 500,
+        }
+
+    # --- Flash Sale ---
+
+    def get_active_flash_sale(self) -> Dict[str, Any]:
+        now = self._get_utc_now()
+        for sale in self.flash_sales:
+            start = sale.get("start_at")
+            end = sale.get("end_at")
+            if start and end and start <= now.isoformat() <= end:
+                return sale
+        return {"active": False}
+
+    # --- Mystery Crates ---
+
+    def get_crate_catalog(self) -> List[Dict[str, Any]]:
+        return self.crate_catalog
+
+    def open_crate(self, user_id: int, crate_id: str) -> tuple[bool, str, Dict[str, Any]]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            crate = next((c for c in self.crate_catalog if c.get("id") == crate_id), None)
+            if not crate:
+                return False, "Invalid crate.", {}
+            if profile.coins < crate.get("price", 0):
+                return False, "Not enough coins.", {}
+            profile.coins -= crate.get("price", 0)
+            rewards = crate.get("rewards", [])
+            weights = [r.get("weight", 1) for r in rewards]
+            reward = random.choices(rewards, weights=weights, k=1)[0]
+            coins = reward.get("coins", 0)
+            xp = reward.get("xp", 0)
+            item = reward.get("item")
+            profile.coins += coins
+            if xp:
+                self._add_xp_internal(profile, xp)
+            if item:
+                profile.inventory.append({"type": "crate_reward", "item": item, "crate_id": crate_id})
+            profile.log_activity("open_crate", {"crate_id": crate_id, "reward": reward})
+            self._save_user(profile)
+            return True, f"Opened {crate.get('name')}! Won: {reward.get('label', 'coins')}", {"coins": coins, "xp": xp, "item": item, "label": reward.get("label")}
+
+    # --- Gamified Onboarding Quest ---
+
+    def get_quest_status(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        quest_steps = [
+            {"id": "watch_ad", "title": "Watch Your First Ad", "desc": "Watch an ad to earn coins", "check": lambda p: p.total_ads_watched >= 1},
+            {"id": "spin_wheel", "title": "Spin the Wheel", "desc": "Use your daily spin", "check": lambda p: any(a.get("action") == "spin_wheel" for a in p.activity_log)},
+            {"id": "send_message", "title": "Send a Message", "desc": "Send your first chat message", "check": lambda p: any(a.get("action") == "personal_message_received" for a in p.activity_log)},
+            {"id": "invite_friend", "title": "Invite a Friend", "desc": "Share your invite link", "check": lambda p: p.invite_count >= 1},
+            {"id": "claim_bonus", "title": "Claim Daily Bonus", "desc": "Claim your first daily bonus", "check": lambda p: any(a.get("action") == "daily_bonus" for a in p.activity_log)},
+        ]
+        completed = []
+        for step in quest_steps:
+            if step["check"](profile):
+                completed.append(step["id"])
+        all_completed = len(completed) == len(quest_steps)
+        return {
+            "steps": quest_steps,
+            "completed": completed,
+            "all_completed": all_completed,
+            "reward_claimed": profile.quest_reward_claimed if hasattr(profile, "quest_reward_claimed") else False,
+        }
+
+    def claim_quest_reward(self, user_id: int) -> tuple[bool, str, Dict[str, Any]]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            if not hasattr(profile, "quest_reward_claimed"):
+                profile.quest_reward_claimed = False
+            if profile.quest_reward_claimed:
+                return False, "Quest reward already claimed.", {}
+            quest = self.get_quest_status(user_id)
+            if not quest.get("all_completed"):
+                return False, "Complete all quest steps first.", {}
+            profile.coins += 500
+            profile.xp += 100
+            profile.badges.append("founder")
+            profile.quest_reward_claimed = True
+            profile.log_activity("quest_complete", {"reward_coins": 500, "reward_xp": 100})
+            self._save_user(profile)
+            return True, "Quest complete! +500 coins, +100 XP, Founder badge unlocked!", {"coins": 500, "xp": 100, "badge": "founder"}
+
+    # --- Lucky Hour ---
+
+    def is_lucky_hour(self) -> tuple[bool, int]:
+        now = self._get_utc_now()
+        hour = now.hour
+        lucky_hours = self.lucky_hours
+        for start, end in lucky_hours:
+            if start <= hour < end:
+                return True, self.lucky_hour_multiplier
+        return False, 1
+
+    def get_lucky_hour_status(self) -> Dict[str, Any]:
+        active, multiplier = self.is_lucky_hour()
+        now = self._get_utc_now()
+        next_start = None
+        for start, end in self.lucky_hours:
+            if now.hour < start:
+                next_start = start
+                break
+        if next_start is None:
+            next_start = self.lucky_hours[0][0] if self.lucky_hours else 20
+        return {
+            "active": active,
+            "multiplier": multiplier,
+            "next_start": next_start,
+            "current_hour": now.hour,
+        }
+
+    # --- Goal Nudges ---
+
+    def get_goal_nudges(self, user_id: int) -> List[Dict[str, Any]]:
+        profile = self.get_profile(user_id)
+        nudges = []
+        next_level = profile.level + 1
+        if next_level < len(self.level_xp_thresholds):
+            xp_needed = self.level_xp_thresholds[next_level] - profile.xp
+            if xp_needed <= 100:
+                nudges.append({"type": "level_up", "message": f"Just {xp_needed} XP away from Level {next_level}!", "action": "watch_ad"})
+        if profile.snap_streak >= 6 and profile.snap_streak < 30:
+            nudges.append({"type": "streak", "message": f"Claim your {profile.snap_streak}-day streak reward!", "action": "claim_streak"})
+        if profile.coins < 1000 and profile.invite_count < 5:
+            nudges.append({"type": "referral", "message": "Invite 1 friend to unlock Silver tier!", "action": "invite"})
+        if profile.daily_ads_watch_count < 5:
+            nudges.append({"type": "ads", "message": "Watch 5 ads for a bonus challenge!", "action": "watch_ads"})
+        return nudges[:3]
+
+    # --- Achievement Prestige ---
+
+    def get_prestige_info(self, user_id: int) -> Dict[str, Any]:
+        profile = self.get_profile(user_id)
+        max_level = self.level_xp_thresholds[-1]
+        if profile.xp < max_level:
+            return {"can_prestige": False, "reason": f"Reach {max_level} XP to prestige"}
+        return {
+            "can_prestige": True,
+            "current_prestige": getattr(profile, "prestige_level", 0),
+            "next_prestige": getattr(profile, "prestige_level", 0) + 1,
+        }
+
+    def prestige_user(self, user_id: int) -> tuple[bool, str, Dict[str, Any]]:
+        with self._get_user_lock(user_id):
+            profile = self.get_profile(user_id)
+            info = self.get_prestige_info(user_id)
+            if not info.get("can_prestige"):
+                return False, info.get("reason", "Cannot prestige"), {}
+            profile.prestige_level = getattr(profile, "prestige_level", 0) + 1
+            profile.level = 1
+            profile.xp = 0
+            profile.badges.append(f"prestige_{profile.prestige_level}")
+            profile.coins += 1000
+            profile.log_activity("prestige", {"new_prestige": profile.prestige_level})
+            self._save_user(profile)
+            return True, f"Prestiged to Level {profile.prestige_level}! +1000 coins, exclusive badge!", {"prestige": profile.prestige_level, "coins": 1000}
+
