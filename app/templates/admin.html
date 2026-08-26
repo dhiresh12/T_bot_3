@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Dashboard - Xio PayPlus</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f1f5f9; margin: 0; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 20px; }
+    .card b { font-size: 28px; display: block; margin-bottom: 4px; }
+    .card span { font-size: 13px; color: #94a3b8; }
+    table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 16px; overflow: hidden; }
+    th, td { padding: 12px 16px; text-align: left; font-size: 13px; border-bottom: 1px solid #334155; }
+    th { background: #111827; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    tr:hover td { background: rgba(99,102,241,0.08); }
+    .badge { padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .badge-pending { color: #fbbf24; background: rgba(251,191,36,0.12); }
+    .badge-approved { color: #34d399; background: rgba(52,211,153,0.12); }
+    .badge-rejected { color: #fb7185; background: rgba(251,113,133,0.12); }
+    input, select, button { padding: 10px 14px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: #f1f5f9; font-size: 13px; }
+    button { background: linear-gradient(135deg, #6366f1, #7c3aed); border: none; cursor: pointer; font-weight: 600; }
+    button:hover { opacity: 0.9; }
+    .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .section { margin-bottom: 32px; }
+    .section h2 { font-size: 18px; margin-bottom: 12px; }
+    .empty { color: #64748b; font-size: 13px; padding: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🛡️ Admin Dashboard</h1>
+    <div class="grid" id="stats">
+      <div class="card"><b id="stat-users">-</b><span>Active Users</span></div>
+      <div class="card"><b id="stat-balance">-</b><span>Total Wallet Balance</span></div>
+      <div class="card"><b id="stat-pending">-</b><span>Pending Withdrawals</span></div>
+    </div>
+
+    <div class="section">
+      <h2>Pending Withdrawals</h2>
+      <div class="toolbar">
+        <input type="text" id="admin-key" placeholder="Admin Key" />
+        <button onclick="loadDashboard()">Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>User ID</th><th>Request ID</th><th>Amount</th><th>Method</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="withdrawals-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Users</h2>
+      <div class="toolbar">
+        <input type="text" id="search-user" placeholder="Search user ID..." oninput="searchUser()" />
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>User ID</th><th>Name</th><th>Coins</th><th>Wallet</th><th>Invites</th><th>Tier</th><th>Level</th></tr></thead>
+          <tbody id="users-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    function getKey() { return document.getElementById('admin-key').value; }
+    async function loadDashboard() {
+      const key = getKey();
+      if (!key) { alert('Enter admin key'); return; }
+      const res = await fetch(`${API_BASE}/api/admin/dashboard`, { headers: { 'X-Admin-Key': key } });
+      if (res.status === 403) { alert('Invalid admin key'); return; }
+      const data = await res.json();
+      document.getElementById('stat-users').textContent = data.active_users ?? '-';
+      document.getElementById('stat-balance').textContent = '₹' + (data.total_wallet_balance ?? 0);
+      document.getElementById('stat-pending').textContent = data.pending_withdrawals?.length ?? 0;
+      renderWithdrawals(data.pending_withdrawals || []);
+      loadUsers(key);
+    }
+    function renderWithdrawals(list) {
+      const tbody = document.getElementById('withdrawals-table');
+      if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No pending withdrawals</td></tr>'; return; }
+      tbody.innerHTML = list.map(w => `<tr>
+        <td>${w.user_id}</td>
+        <td>${w.request_id}</td>
+        <td>₹${w.amount}</td>
+        <td>${w.method || '-'}</td>
+        <td><span class="badge badge-pending">Pending</span></td>
+        <td><button onclick="approveWithdrawal(${w.user_id},'${w.request_id}')">Approve</button></td>
+      </tr>`).join('');
+    }
+    async function approveWithdrawal(userId, requestId) {
+      const code = prompt('Enter verification code from user:');
+      if (!code) return;
+      const key = getKey();
+      const res = await fetch(`${API_BASE}/api/admin/approve_withdrawal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': key },
+        body: JSON.stringify({ user_id: userId, request_id: requestId, verification_code: code })
+      });
+      const data = await res.json();
+      alert(data.message);
+      loadDashboard();
+    }
+    async function loadUsers(key) {
+      const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'X-Admin-Key': key } });
+      if (res.status === 403) return;
+      const data = await res.json();
+      const tbody = document.getElementById('users-table');
+      if (!data.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No users</td></tr>'; return; }
+      tbody.innerHTML = data.map(u => `<tr>
+        <td>${u.user_id}</td>
+        <td>${escapeHtml(u.name)}</td>
+        <td>${u.coins}</td>
+        <td>₹${u.wallet_bot}</td>
+        <td>${u.invite_count}</td>
+        <td>${u.popularity_level || '-'}</td>
+        <td>${u.level ?? 1}</td>
+      </tr>`).join('');
+    }
+    function searchUser() {
+      const q = document.getElementById('search-user').value.trim();
+      if (!q) { loadUsers(getKey()); return; }
+      const rows = document.querySelectorAll('#users-table tr');
+      rows.forEach(row => {
+        const text = row.innerText;
+        row.style.display = text.includes(q) ? '' : 'none';
+      });
+    }
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    window.addEventListener('DOMContentLoaded', loadDashboard);
+  </script>
+</body>
+</html>

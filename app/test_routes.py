@@ -122,6 +122,7 @@ def test_admin_approve_withdrawal(client, engine):
     profile.completed_tasks = ["task1", "task2", "task3", "task4", "task5"]
     profile.total_ads_watched = 100
     profile.coins = 200000  # Equivalent to 20.00 Rupees
+    profile.kyc_verified = True
     engine.save()
 
     # 2. User requests withdrawal

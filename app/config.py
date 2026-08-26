@@ -12,6 +12,8 @@ class AppConfig:
     ads_provider: str = "admob"
     host: str = "0.0.0.0"
     port: int = 5000
+    app_version: str = "1.0.0"
+    min_supported_version: str = "0.9.0"
 
 
 def load_config() -> AppConfig:

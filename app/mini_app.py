@@ -41,6 +41,7 @@ def create_app(engine: BotEngine | None = None) -> Flask:
         return render_template(
             "mini_app.html",
             app_name=config.app_name,
+            app_version=config.app_version,
             translations_json=json.dumps(current_engine.support.translations),
             lang_config_json=json.dumps(current_engine.support.lang_config),
             support_links_json=json.dumps(current_engine.support.get_support_links()),

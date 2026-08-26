@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt - {{ receipt.request_id }}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #f3f4f6;
+      color: #1f2937;
+      margin: 0;
+      padding: 24px;
+    }
+    .receipt {
+      max-width: 480px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 { margin: 0; font-size: 20px; }
+    .header p { margin: 6px 0 0; opacity: 0.85; font-size: 13px; }
+    .body { padding: 24px; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+    }
+    .row:last-child { border-bottom: none; }
+    .label { color: #6b7280; }
+    .value { font-weight: 600; }
+    .amount { font-size: 28px; font-weight: 800; color: #4f46e5; }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status.pending { background: #fef3c7; color: #92400e; }
+    .status.approved { background: #d1fae5; color: #065f46; }
+    .status.rejected { background: #fee2e2; color: #991b1b; }
+    .footer {
+      text-align: center;
+      padding: 16px;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+    .print-btn {
+      display: block;
+      width: 100%;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    .print-btn:hover { background: #4338ca; }
+    @media print {
+      body { background: white; padding: 0; }
+      .receipt { box-shadow: none; }
+      .print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt">
+    <div class="header">
+      <h1>Transaction Receipt</h1>
+      <p>{{ receipt.request_id }}</p>
+    </div>
+    <div class="body">
+      <div class="row">
+        <span class="label">User</span>
+        <span class="value">{{ receipt.name }} (ID: {{ receipt.user_id }})</span>
+      </div>
+      <div class="row">
+        <span class="label">Date</span>
+        <span class="value">{{ receipt.timestamp }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Status</span>
+        <span class="status {{ receipt.status }}">{{ receipt.status }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Method</span>
+        <span class="value">{{ receipt.method|upper }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Details</span>
+        <span class="value">{{ receipt.details }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Amount</span>
+        <span class="value">&#8377;{{ "%.2f"|format(receipt.amount) }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Fee ({{ "%.2f"|format(receipt.fee_applied) }})</span>
+        <span class="value" style="color:#ef4444;">-&#8377;{{ "%.2f"|format(receipt.fee_applied) }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Coins Deducted</span>
+        <span class="value">{{ receipt.coins_deducted }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Final Payout</span>
+        <span class="amount">&#8377;{{ "%.2f"|format(receipt.final_payout) }}</span>
+      </div>
+      {% if receipt.unique_code %}
+      <div class="row">
+        <span class="label">Unique Code</span>
+        <span class="value" style="font-family: monospace; font-size: 16px;">{{ receipt.unique_code }}</span>
+      </div>
+      {% endif %}
+      {% if receipt.transaction_id %}
+      <div class="row">
+        <span class="label">Transaction ID</span>
+        <span class="value">{{ receipt.transaction_id }}</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="footer">
+      <button class="print-btn" onclick="window.print()">Print Receipt</button>
+      <p style="margin-top: 12px;">Generated on {{ receipt.timestamp }}</p>
+    </div>
+  </div>
+</body>
+</html>

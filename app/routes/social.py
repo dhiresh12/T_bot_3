@@ -31,10 +31,6 @@ def profile(user_id: int) -> tuple[dict, int]:
     ), 200
 
 
-@_require_auth_post("watch_ads")
-
-
-
 @_require_auth_post("social_share")
 @bp.post("/api/social/share/<int:user_id>")
 def social_share(user_id: int) -> tuple[dict, int]:
@@ -66,10 +62,6 @@ def send_friend_request(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_post("accept_friend_request")
-
-
-
-@_require_auth_post("accept_friend_request")
 @bp.post("/api/friends/accept/<int:user_id>")
 def accept_friend_request(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -80,10 +72,6 @@ def accept_friend_request(user_id: int) -> tuple[dict, int]:
     current_engine.register_user(user_id, "Guest")
     success, message = current_engine.accept_friend_request(user_id, request_id)
     return jsonify({"success": success, "message": message}), 200
-
-
-@_require_auth_post("reject_friend_request")
-
 
 
 @_require_auth_post("reject_friend_request")
@@ -100,10 +88,6 @@ def reject_friend_request(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_get("friend_requests", sensitive=True)
-
-
-
-@_require_auth_get("friend_requests", sensitive=True)
 @bp.get("/api/friends/requests/<int:user_id>")
 def friend_requests(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -113,20 +97,12 @@ def friend_requests(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_get("friends_list", sensitive=True)
-
-
-
-@_require_auth_get("friends_list", sensitive=True)
 @bp.get("/api/friends/list/<int:user_id>")
 def friends_list(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
     current_engine.register_user(user_id, "Guest")
     friends = current_engine.get_friends(user_id)
     return jsonify({"friends": friends}), 200
-
-
-@_require_auth_post("update_bio")
-
 
 
 @_require_auth_post("update_bio")
@@ -178,10 +154,6 @@ def chat_history(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_post("send_chat_message")
-
-
-
-@_require_auth_post("send_chat_message")
 @bp.post("/api/chat/send/<int:user_id>")
 def send_chat_message(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -203,10 +175,6 @@ def send_chat_message(user_id: int) -> tuple[dict, int]:
 
 # --- Popularity & Social Features API ---
 
-@_require_auth_post("claim_daily_popularity")
-
-
-
 @_require_auth_post("like_profile")
 @bp.post("/api/profile/like/<int:user_id>")
 def like_profile(user_id: int) -> tuple[dict, int]:
@@ -219,10 +187,6 @@ def like_profile(user_id: int) -> tuple[dict, int]:
     current_engine.register_user(target_id, "Guest")
     success, message, data = current_engine.like_profile(user_id, target_id)
     return jsonify({"success": success, "message": message, "data": data}), 200
-
-
-@_require_auth_post("visit_profile")
-
 
 
 @_require_auth_post("visit_profile")
@@ -239,10 +203,6 @@ def visit_profile(user_id: int) -> tuple[dict, int]:
     return jsonify(data), 200
 
 
-@_require_auth_post("send_coins")
-
-
-
 @_require_auth_post("update_privacy")
 @bp.post("/api/profile/privacy/<int:user_id>")
 def update_privacy(user_id: int) -> tuple[dict, int]:
@@ -252,10 +212,6 @@ def update_privacy(user_id: int) -> tuple[dict, int]:
     current_engine.register_user(user_id, "Guest")
     success, message = current_engine.update_privacy_settings(user_id, settings)
     return jsonify({"success": success, "message": message}), 200
-
-
-@_require_auth_post("update_theme")
-
 
 
 @_require_auth_post("update_theme")
@@ -273,10 +229,6 @@ def update_theme(user_id: int) -> tuple[dict, int]:
 
 
 @_require_auth_post("send_personal_message")
-
-
-
-@_require_auth_post("send_personal_message")
 @bp.post("/api/messages/send/<int:user_id>")
 def send_personal_message(user_id: int) -> tuple[dict, int]:
     current_engine = current_app.config["engine"]
@@ -289,10 +241,6 @@ def send_personal_message(user_id: int) -> tuple[dict, int]:
     current_engine.register_user(to_user_id, "Guest")
     success, msg = current_engine.send_personal_message(user_id, to_user_id, message)
     return jsonify({"success": success, "message": msg}), 200
-
-
-@_require_auth_get("get_personal_messages", sensitive=True)
-
 
 
 @_require_auth_get("get_personal_messages", sensitive=True)

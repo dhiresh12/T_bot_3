@@ -340,8 +340,47 @@
         .achievement-share button{background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:11px;color:var(--text);cursor:pointer;transition:all 0.2s;}
         .achievement-share button:hover{border-color:var(--primary);background:rgba(99,102,241,0.1);}
         .share-toast{background:rgba(52,211,153,0.95);color:white;padding:10px 14px;border-radius:12px;font-size:12px;font-weight:700;margin-top:8px;text-align:center;animation:toastIn 0.35s;}
-        .event-countdown{font-size:11px;color:var(--gold);font-weight:700;margin-top:4px;}
-        </style>
+         .event-countdown{font-size:11px;color:var(--gold);font-weight:700;margin-top:4px;}
+         .kyc-box{background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:12px;}
+         .kyc-box .status{font-weight:700;font-size:13px;margin-top:6px;}
+         .kyc-box .status.pending{color:var(--gold);}
+         .kyc-box .status.approved{color:var(--success);}
+         .kyc-box .status.rejected{color:var(--danger);}
+         .perk-item{background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+         .perk-item .em{font-size:28px;}
+         .perk-item .info{flex:1;}
+         .perk-item .info b{font-size:14px;display:block;}
+         .perk-item .info p{margin:2px 0 0;font-size:12px;color:var(--text-dim);}
+         .perk-item.locked{opacity:0.5;}
+         .showcase-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+         .showcase-item{background:var(--bg-glass);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;}
+         .showcase-item:hover{border-color:rgba(99,102,241,0.3);}
+         .showcase-item.selected{border-color:var(--primary);background:rgba(99,102,241,0.15);box-shadow:0 0 12px var(--primary-glow);}
+         .showcase-item .em{font-size:28px;display:block;}
+         .showcase-item .nm{font-size:11px;color:var(--text-dim);margin-top:4px;}
+         .purchase-item{background:var(--bg-glass);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+         .purchase-item .info{flex:1;}
+         .purchase-item .info b{font-size:14px;display:block;}
+         .purchase-item .info p{margin:2px 0 0;font-size:12px;color:var(--text-dim);}
+         .purchase-item .price{color:var(--gold);font-weight:700;font-size:14px;}
+         .block-btn{background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:6px 12px;font-size:11px;cursor:pointer;transition:all 0.2s;}
+         .block-btn:hover{background:rgba(239,68,68,0.3);}
+         .report-btn{background:rgba(251,191,36,0.15);color:#fde68a;border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:6px 12px;font-size:11px;cursor:pointer;transition:all 0.2s;}
+         .report-btn:hover{background:rgba(251,191,36,0.3);}
+         .version-banner{background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(236,72,153,0.15));border:1px solid rgba(99,102,241,0.4);border-radius:14px;padding:12px;margin-top:12px;text-align:center;font-size:13px;color:var(--text);}
+         .version-banner button{background:var(--primary);color:white;border:none;border-radius:10px;padding:6px 14px;font-size:12px;cursor:pointer;margin-left:8px;}
+         .schedule-item{background:var(--bg-glass);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;}
+         .schedule-item .info{flex:1;}
+         .schedule-item .info b{font-size:14px;display:block;}
+         .schedule-item .info p{margin:2px 0 0;font-size:12px;color:var(--text-dim);}
+         .account-item{background:var(--bg-glass);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+         .account-item .em{font-size:24px;}
+         .account-item .info{flex:1;}
+         .account-item .info b{font-size:14px;display:block;}
+         .account-item .info p{margin:2px 0 0;font-size:12px;color:var(--text-dim);}
+         .push-btn{background:linear-gradient(135deg,var(--primary),#7c3aed);color:white;border:none;border-radius:12px;padding:10px 16px;font-size:13px;cursor:pointer;margin-top:8px;width:100%;}
+         .push-btn:hover{opacity:0.9;}
+         </style>
       </head>
       <body>
         <div id="onboarding" class="onboarding-overlay">
@@ -405,80 +444,7 @@
                     <div class="xp-bar"><div id="xp-fill" class="xp-fill" style="width:0%"></div></div>
           </div>
         </div>
-        <div id="debug-panel" style="display:none; position:fixed; top:10px; left:10px; right:10px; bottom:auto; max-height:60vh; background:rgba(0,0,0,0.95); color:#0f0; font-family:monospace; font-size:11px; padding:12px; border-radius:12px; z-index:9999; overflow:auto; border:1px solid #333;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <b>🐛 Debug Console</b>
-            <button onclick="document.getElementById('debug-panel').style.display='none'" style="background:#333; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer;">Close</button>
-          </div>
-          <div id="debug-errors" style="margin-bottom:8px;"></div>
-          <button onclick="location.reload()" style="background:#22c55e; color:#000; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:700; margin-right:6px;">🔄 Refresh App</button>
-          <button onclick="clearDebugLog()" style="background:#333; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">Clear</button>
-          <button onclick="testShowPage()" style="background:#3b82f6; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">Test showPage</button>
-          <div id="debug-log" style="margin-top:8px; max-height:30vh; overflow:auto;"></div>
-        </div>
-        <button id="debug-toggle" onclick="toggleDebug()" style="display:none; position:fixed; bottom:80px; right:10px; background:rgba(0,0,0,0.8); color:#0f0; border:1px solid #333; padding:8px 12px; border-radius:50%; font-size:16px; cursor:pointer; z-index:9998;">🐛</button>
         <script>
-          window.__debugErrors = [];
-          window.__debugLogs = [];
-          function logDebug(msg) {
-            const time = new Date().toLocaleTimeString();
-            window.__debugLogs.push('[' + time + '] ' + msg);
-            const el = document.getElementById('debug-log');
-            if (el) { el.innerHTML = window.__debugLogs.slice(-50).map(l => '<div>' + escapeHtml(l) + '</div>').join(''); }
-          }
-          function addDebugError(err) {
-            window.__debugErrors.push(err);
-            const el = document.getElementById('debug-errors');
-            if (el) { el.innerHTML = window.__debugErrors.slice(-20).map(e => '<div style="color:#ef4444;">❌ ' + escapeHtml(e) + '</div>').join(''); }
-          }
-          function clearDebugLog() {
-            window.__debugLogs = [];
-            window.__debugErrors = [];
-            const logEl = document.getElementById('debug-log');
-            const errEl = document.getElementById('debug-errors');
-            if (logEl) logEl.innerHTML = '';
-            if (errEl) errEl.innerHTML = '';
-          }
-          function toggleDebug() {
-            const panel = document.getElementById('debug-panel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-            if (panel.style.display === 'block') logDebug('Debug panel opened');
-          }
-          function testShowPage() {
-            logDebug('Testing showPage("home")...');
-            try {
-              if (typeof showPage === 'function') {
-                showPage('home');
-                logDebug('✅ showPage("home") executed successfully');
-              } else {
-                logDebug('❌ showPage is not a function: ' + typeof showPage);
-              }
-            } catch(e) {
-              logDebug('❌ Error calling showPage: ' + e.message);
-              addDebugError(e.message);
-            }
-          }
-          window.onerror = function(msg, url, line) {
-            addDebugError(msg + ' (line ' + line + ')');
-            logDebug('ERROR: ' + msg + ' at line ' + line);
-            return false;
-          };
-          window.addEventListener('unhandledrejection', function(event) {
-            addDebugError('Unhandled: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
-            logDebug('UNHANDLED REJECTION: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
-          });
-          logDebug('Debug logger initialized');
-          logDebug('showPage type: ' + typeof showPage);
-          logDebug('User ID: ' + userId);
-          setTimeout(function() {
-            const pages = document.querySelectorAll('.page');
-            logDebug('Found ' + pages.length + ' page elements');
-            const activePage = document.querySelector('.page.active');
-            logDebug('Active page: ' + (activePage ? activePage.id : 'none'));
-            const navItems = document.querySelectorAll('.nav-item');
-            logDebug('Found ' + navItems.length + ' nav items');
-          }, 1000);
-        </script>
                 <div class="streak-pill" id="streak-pill">🔥 0</div>
               </div>
             </div>
@@ -516,6 +482,10 @@
               <div class="grid-card" onclick="showPage('challenges')" style="cursor:pointer;"><div class="value">⚡</div><div class="label">Challenges</div></div>
               <div class="grid-card" onclick="showPage('scratch')" style="cursor:pointer;"><div class="value">🎟️</div><div class="label">Scratch</div></div>
               <div class="grid-card" onclick="showPage('transactions')" style="cursor:pointer;"><div class="value">📊</div><div class="label">History</div></div>
+            </div>
+            <div class="grid">
+              <div class="grid-card" onclick="showPage('perks')" style="cursor:pointer;"><div class="value">⭐</div><div class="label">Perks</div></div>
+              <div class="grid-card" onclick="showPage('purchases')" style="cursor:pointer;"><div class="value">🛍️</div><div class="label">Purchases</div></div>
             </div>
 
             <!-- Recent History Preview -->
@@ -643,7 +613,11 @@
             <h2 data-translate-key="withdraw_title">💰 Withdraw Funds</h2>
             <div id="withdraw-countdown" style="display:none;background:linear-gradient(135deg,#ef4444,#f97316);padding:10px 14px;border-radius:12px;text-align:center;margin-top:8px;font-weight:700;font-size:13px;color:white;box-shadow:0 0 16px rgba(239,68,68,0.3);">
               ⏰ Withdrawal cooldown: <span id="withdraw-cd">05:00</span>
-            </div>            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Get your hard-earned money!</p>
+            </div>
+            <div id="spin-countdown-box" style="display:none;background:linear-gradient(135deg,#6366f1,#7c3aed);padding:10px 14px;border-radius:12px;text-align:center;margin-top:8px;font-weight:700;font-size:13px;color:white;box-shadow:0 0 16px rgba(99,102,241,0.3);">
+              ⏳ Next free spin in: <span id="spin-countdown">00:00</span>
+            </div>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Get your hard-earned money!</p>
             <div class="section-title">Choose Method</div>
             <div class="method-row">
               <div class="method active" data-method="upi" onclick="selectMethod('upi')"><div class="em">🏦</div><div class="nm">UPI</div></div>
@@ -657,7 +631,8 @@
               <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px;">To prevent fraud, we need to verify your account. Please complete one more step.</p>
               <button class="btn btn-sm btn-gold" onclick="completeRoachStep()" id="roach-btn">✅ Verify Account</button>
               <p id="roach-status" style="font-size:11px;color:var(--text-dim);margin-top:6px;"></p>
-            </div>            <div class="section-title" data-translate-key="withdraw_form_title">Request Payout</div>
+            </div>
+            <div class="section-title" data-translate-key="withdraw_form_title">Request Payout</div>
             <div class="withdraw-form">
               <div class="method-form active" id="upi-form"><input id="withdraw-upi" type="text" placeholder="your-upi-id@okhdfcbank"></div>
               <div class="method-form" id="bank-form"><input id="withdraw-bank" type="text" placeholder="Account Number"><input id="withdraw-ifsc" type="text" placeholder="IFSC Code"></div>
@@ -669,7 +644,8 @@
             </div>
             <div id="total-receive-box" style="display:none;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px;font-weight:700;">
               You receive: ₹<span id="total-receive-val">0</span>
-            </div>              <button id="withdraw-btn" class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
+            </div>
+              <button id="withdraw-btn" class="btn btn-green" onclick="requestWithdrawal()">💸 Request Withdrawal</button>
               <p id="withdraw-status" class="status-msg"></p>
             </div>
             <div class="section-title" style="margin-top:18px;">&#128203; Withdrawal Proof</div>
@@ -683,6 +659,26 @@
               </div>
               <p id="proof-status" class="status-msg" style="font-size:12px;"></p>
               <div id="proofs-list" style="margin-top:10px;"></div>
+            </div>
+            <div class="section-title" style="margin-top:18px;">📅 Scheduled Withdrawals</div>
+            <div id="schedules-list"></div>
+            <div class="transfer-item" style="margin-top:10px;">
+              <input id="sched-amount" type="number" placeholder="Amount (min ₹10)" style="margin-bottom:8px;">
+              <select id="sched-frequency" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;color:white;margin-bottom:8px;font-size:13px;">
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              <button class="btn btn-sm btn-gold" onclick="scheduleWithdrawal()" style="width:100%;">📅 Schedule Withdrawal</button>
+              <p id="schedule-status" class="status-msg" style="font-size:12px;"></p>
+            </div>
+            <div class="section-title" style="margin-top:18px;">🏦 Verified Accounts</div>
+            <div id="verified-accounts-list"></div>
+            <div class="transfer-item" style="margin-top:10px;">
+              <input id="verify-account" type="text" placeholder="Account Number" style="margin-bottom:8px;">
+              <input id="verify-ifsc" type="text" placeholder="IFSC Code" style="margin-bottom:8px;">
+              <input id="verify-holder" type="text" placeholder="Account Holder Name" style="margin-bottom:8px;">
+              <button class="btn btn-sm" onclick="verifyBankAccount()" style="width:100%;">✅ Verify Bank Account</button>
+              <p id="verify-status" class="status-msg" style="font-size:12px;"></p>
             </div>
             <div class="section-title" data-translate-key="history_title">History</div>
             <div id="history-list"><div class="history-item"><span data-translate-key="no_history">No withdrawal history yet.</span></div></div>
@@ -802,6 +798,8 @@
             <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your friends list</p>
             <div id="friends-list"></div>
             <p id="friends-status" class="status-msg"></p>
+            <div class="section-title" style="margin-top:16px;">🚫 Blocked Users</div>
+            <button class="btn btn-sm" onclick="showPage('blocked')" style="width:100%;">Manage Blocked Users</button>
           </div>
 
           <!-- FRIEND REQUESTS -->
@@ -932,6 +930,17 @@
               <div class="theme-option" data-theme="light" onclick="selectTheme('light')"><div class="em">☀️</div><div class="nm">Light</div></div>
               <div class="theme-option" data-theme="blue" onclick="selectTheme('blue')"><div class="em">💙</div><div class="nm">Blue</div></div>
             </div>
+            <div class="section-title" style="margin-top:16px;">🆔 KYC Verification</div>
+            <div class="kyc-box" id="kyc-box">
+              <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">Verify your identity to unlock withdrawals.</p>
+              <div id="kyc-status-display" style="font-size:13px;font-weight:700;">Checking...</div>
+              <input id="kyc-doc-url" type="text" placeholder="Document URL (e.g. https://...)" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;color:white;font-size:13px;margin-top:8px;">
+              <button class="btn btn-sm btn-gold" onclick="submitKYC()" style="margin-top:8px;width:100%;">📤 Submit KYC</button>
+              <p id="kyc-status" class="status-msg" style="font-size:12px;"></p>
+            </div>
+            <div class="section-title" style="margin-top:16px;">🔔 Push Notifications</div>
+            <button class="push-btn" onclick="subscribePush()">🔔 Enable Push Notifications</button>
+            <p id="push-status" style="font-size:12px;color:var(--text-dim);margin-top:6px;"></p>
             <p id="settings-status" class="status-msg"></p>
           </div>
 
@@ -978,6 +987,9 @@
               <div class="grid-card" onclick="showPage('invite')" style="cursor:pointer;"><div class="em" style="font-size:28px;">👥</div><div class="label">Invite</div></div>
               <div class="grid-card" onclick="showPage('social')" style="cursor:pointer;"><div class="em" style="font-size:28px;">📤</div><div class="label">Social</div></div>
               <div class="grid-card" onclick="showPage('streak')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🔥</div><div class="label">Streak</div></div>
+              <div class="grid-card" onclick="showPage('perks')" style="cursor:pointer;"><div class="em" style="font-size:28px;">⭐</div><div class="label">Perks</div></div>
+              <div class="grid-card" onclick="showPage('purchases')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🛍️</div><div class="label">Purchases</div></div>
+              <div class="grid-card" onclick="showPage('blocked')" style="cursor:pointer;"><div class="em" style="font-size:28px;">🚫</div><div class="label">Blocked</div></div>
             </div>
           </div>
         <div class="toast-container" id="toast-container"></div>
@@ -1073,6 +1085,42 @@
           <p id="quest-status" class="status-msg" style="margin-top:10px;"></p>
         </div>
 
+        <!-- BLOCKED USERS -->
+        <div id="page-blocked" class="page">
+          <button class="back-btn" onclick="showPage('friends')">← Back</button>
+          <h2>🚫 Blocked Users</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Manage your blocked users</p>
+          <div id="blocked-list"></div>
+        </div>
+
+        <!-- PERKS -->
+        <div id="page-perks" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>⭐ Level Perks</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Unlock perks as you level up!</p>
+          <div id="perks-list"></div>
+          <p id="perks-status" class="status-msg"></p>
+        </div>
+
+        <!-- ACHIEVEMENT SHOWCASE -->
+        <div id="page-showcase" class="page">
+          <button class="back-btn" onclick="showPage('achievements')">← Back</button>
+          <h2>🌟 Achievement Showcase</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Select up to 3 achievements to showcase on your profile</p>
+          <div class="showcase-grid" id="showcase-grid"></div>
+          <button class="btn btn-green" onclick="saveShowcase()" style="margin-top:14px;">💾 Save Showcase</button>
+          <p id="showcase-status" class="status-msg"></p>
+        </div>
+
+        <!-- PURCHASES -->
+        <div id="page-purchases" class="page">
+          <button class="back-btn" onclick="showPage('home')">← Back</button>
+          <h2>🛍️ Purchase History</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin-top:-6px;">Your in-app purchase history</p>
+          <div id="purchases-list"></div>
+          <button class="btn btn-sm" onclick="loadPurchases()" style="margin-top:10px;">🔄 Refresh</button>
+        </div>
+
         <div class="event-banner" id="event-banner" style="display:none;">
           <div class="em" id="event-banner-em">🎉</div>
           <div class="info"><b id="event-banner-title">Limited Time Event</b><p id="event-banner-desc">Earn bonus rewards!</p><div id="event-countdown" class="event-countdown"></div></div>
@@ -1086,6 +1134,7 @@
           <button class="nav-item" data-page="more" onclick="showPage('more')"><span class="em">📋</span><span>More</span></button>
           <button class="nav-item" data-page="streak" onclick="showPage('streak')"><span class="em">🔥</span><span>Streak</span></button>
           <button class="nav-item" data-page="crates" onclick="showPage('crates')"><span class="em">🎁</span><span>Crates</span></button>
+          <button class="nav-item" data-page="settings" onclick="showPage('settings')"><span class="em">⚙️</span><span>Settings</span></button>
         </div>
 
         <script>
@@ -1312,6 +1361,8 @@ function t(key) {
                 reqGrid(data, reqs, doneTasks);
                 renderHistory(data);
                 renderHomeHistory(data);
+                loadSettings();
+                loadSpinCountdown();
               }
 
             async function completeRoachStep() {
@@ -1860,9 +1911,13 @@ function showPage(pageName) {
             if (pageName === 'ads') seedAdsChat();
             if (pageName === 'friends') { loadFriends(); loadRequests(); }
             if (pageName === 'popularity') fetchData();
-            if (pageName === 'settings') { loadPrivacySettings(); loadPinStatus(); }
+            if (pageName === 'settings') { loadPrivacySettings(); loadPinStatus(); loadSettings(); }
             if (pageName === 'transactions') loadTransactions();
             if (pageName === 'more') {}
+            if (pageName === 'perks') loadPerksPage();
+            if (pageName === 'purchases') loadPurchasesPage();
+            if (pageName === 'blocked') loadBlockedPage();
+            if (pageName === 'showcase') loadShowcasePage();
             playSound('nav'); haptic('light');
             if (pageName === 'discover') {
               fetch('/api/users/discover/' + userId).then(r => r.json()).then(data => {
@@ -3260,7 +3315,6 @@ function showPage(pageName) {
             loadBio();
             setInterval(loadChallenges, 30000);
             setInterval(loadNotifications, 15000);
-            // Close notification dropdown when clicking outside
             document.addEventListener('click', function(e) {
               const dropdown = document.getElementById('notif-dropdown');
               const btn = document.getElementById('notif-btn');
@@ -3268,13 +3322,378 @@ function showPage(pageName) {
                 dropdown.classList.remove('show');
               }
             });
-loadFriends();
+            loadFriends();
             loadRequests();
             setInterval(loadFriends, 30000);
             setInterval(loadRequests, 30000);
              setInterval(fetchData, 8000);
+            loadSettings();
            });
-          // --- Onboarding Tutorial ---
+          // --- KYC ---
+          async function loadKYCStatus() {
+            try {
+              const r = await fetch('/api/kyc/status/' + userId);
+              const data = await r.json();
+              const display = document.getElementById('kyc-status-display');
+              if (!display) return;
+              if (data.kyc_status === 'approved') {
+                display.innerHTML = '<span style="color:var(--success);">✅ KYC Verified</span>';
+              } else if (data.kyc_status === 'pending') {
+                display.innerHTML = '<span style="color:var(--gold);">⏳ KYC Pending Review</span>';
+              } else if (data.kyc_status === 'rejected') {
+                display.innerHTML = '<span style="color:var(--danger);">❌ KYC Rejected</span>';
+              } else {
+                display.innerHTML = '<span style="color:var(--text-dim);">Not submitted</span>';
+              }
+            } catch (e) {}
+          }
+
+          async function submitKYC() {
+            const url = document.getElementById('kyc-doc-url').value.trim();
+            const statusEl = document.getElementById('kyc-status');
+            if (!url) { statusEl.innerText = 'Please enter a document URL.'; return; }
+            statusEl.innerText = 'Submitting...';
+            try {
+              const r = await fetch('/api/kyc/submit/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ document_url: url })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || 'Submitted!';
+              loadKYCStatus();
+              fetchData();
+            } catch (e) { statusEl.innerText = 'Error submitting KYC.'; }
+          }
+
+          // --- Spin Countdown ---
+          async function loadSpinCountdown() {
+            try {
+              const r = await fetch('/api/spin/countdown/' + userId);
+              const data = await r.json();
+              const box = document.getElementById('spin-countdown-box');
+              const span = document.getElementById('spin-countdown');
+              if (!box || !span) return;
+              if (data.available) {
+                box.style.display = 'none';
+              } else {
+                box.style.display = 'block';
+                updateCountdown(data.seconds_until_next);
+              }
+            } catch (e) {}
+          }
+
+          function updateCountdown(seconds) {
+            const span = document.getElementById('spin-countdown');
+            if (!span) return;
+            if (seconds <= 0) { span.innerText = '00:00'; loadSpinCountdown(); return; }
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            span.innerText = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+            setTimeout(function(){ updateCountdown(seconds - 1); }, 1000);
+          }
+
+          // --- Withdrawal Schedules ---
+          async function loadSchedules() {
+            try {
+              const r = await fetch('/api/withdraw/schedules/' + userId);
+              const data = await r.json();
+              const el = document.getElementById('schedules-list');
+              if (!el) return;
+              const schedules = data.schedules || [];
+              if (!schedules.length) { el.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">No scheduled withdrawals.</p>'; return; }
+              el.innerHTML = schedules.map(function(s){
+                return '<div class="schedule-item"><div class="info"><b>₹' + Number(s.amount||0).toFixed(2) + ' ' + (s.frequency||'') + '</b><p>' + s.method + ' • ' + s.status + '</p></div></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          async function scheduleWithdrawal() {
+            const amount = parseFloat(document.getElementById('sched-amount').value);
+            const frequency = document.getElementById('sched-frequency').value;
+            const statusEl = document.getElementById('schedule-status');
+            if (isNaN(amount) || amount < 10) { statusEl.innerText = 'Minimum amount is ₹10.'; return; }
+            statusEl.innerText = 'Scheduling...';
+            try {
+              const r = await fetch('/api/withdraw/schedule/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ amount: amount, frequency: frequency, method: 'upi', details: '' })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || 'Scheduled!';
+              if (data.success) { document.getElementById('sched-amount').value = ''; loadSchedules(); fetchData(); }
+            } catch (e) { statusEl.innerText = 'Error scheduling withdrawal.'; }
+          }
+
+          async function loadVerifiedAccounts() {
+            try {
+              const r = await fetch('/api/withdraw/verified-accounts/' + userId);
+              const data = await r.json();
+              const el = document.getElementById('verified-accounts-list');
+              if (!el) return;
+              const accounts = data.accounts || [];
+              if (!accounts.length) { el.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">No verified accounts.</p>'; return; }
+              el.innerHTML = accounts.map(function(a){
+                return '<div class="account-item"><div class="em">🏦</div><div class="info"><b>****' + escapeHtml(a.account_number||'') + '</b><p>IFSC: ' + escapeHtml(a.ifsc||'') + ' • ' + escapeHtml(a.account_holder||'') + '</p></div></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          async function verifyBankAccount() {
+            const account = document.getElementById('verify-account').value.trim();
+            const ifsc = document.getElementById('verify-ifsc').value.trim();
+            const holder = document.getElementById('verify-holder').value.trim();
+            const statusEl = document.getElementById('verify-status');
+            if (!account || !ifsc || !holder) { statusEl.innerText = 'Please fill all fields.'; return; }
+            statusEl.innerText = 'Verifying...';
+            try {
+              const r = await fetch('/api/withdraw/verify-account/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ account_number: account, ifsc: ifsc, account_holder: holder })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || 'Verified!';
+              if (data.success) { document.getElementById('verify-account').value = ''; document.getElementById('verify-ifsc').value = ''; document.getElementById('verify-holder').value = ''; loadVerifiedAccounts(); }
+            } catch (e) { statusEl.innerText = 'Error verifying account.'; }
+          }
+
+          // --- Blocking ---
+          async function loadBlockedUsers() {
+            try {
+              const r = await fetch('/api/users/blocked/' + userId);
+              const data = await r.json();
+              const el = document.getElementById('blocked-list');
+              if (!el) return;
+              const blocked = data.blocked_users || [];
+              if (!blocked.length) { el.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">No blocked users.</p>'; return; }
+              el.innerHTML = blocked.map(function(uid){
+                return '<div class="friend-item"><div class="em">👤</div><div class="info"><b>User ' + uid + '</b><p>Blocked</p></div><button class="block-btn" onclick="unblockUser(' + uid + ')">Unblock</button></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          async function blockUser(uid) {
+            try {
+              const r = await fetch('/api/users/block/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ target_user_id: uid })
+              });
+              const data = await r.json();
+              showToast(data.message || 'User blocked.', data.success ? 'success' : 'error');
+              loadFriends();
+              loadBlockedUsers();
+            } catch (e) { showToast('Error blocking user.', 'error'); }
+          }
+
+          async function unblockUser(uid) {
+            try {
+              const r = await fetch('/api/users/unblock/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ target_user_id: uid })
+              });
+              const data = await r.json();
+              showToast(data.message || 'User unblocked.', data.success ? 'success' : 'error');
+              loadBlockedUsers();
+            } catch (e) { showToast('Error unblocking user.', 'error'); }
+          }
+
+          async function reportUser(uid) {
+            const reason = prompt('Reason for reporting:');
+            if (!reason) return;
+            try {
+              const r = await fetch('/api/users/report/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ target_user_id: uid, reason: reason })
+              });
+              const data = await r.json();
+              showToast(data.message || 'User reported.', data.success ? 'success' : 'error');
+            } catch (e) { showToast('Error reporting user.', 'error'); }
+          }
+
+          // --- Perks ---
+          async function loadPerks() {
+            try {
+              const r = await fetch('/api/perks/' + userId);
+              const data = await r.json();
+              const el = document.getElementById('perks-list');
+              if (!el) return;
+              const perks = data.available_perks || [];
+              const next = data.next_perk;
+              let html = '<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">Current Level: ' + data.current_level + ' • ' + perks.length + ' perks unlocked</div>';
+              perks.forEach(function(p){
+                html += '<div class="perk-item"><div class="em">' + (p.icon||'⭐') + '</div><div class="info"><b>' + escapeHtml(p.title) + '</b><p>' + escapeHtml(p.desc) + '</p></div></div>';
+              });
+              if (next) {
+                html += '<div class="perk-item locked"><div class="em">🔒</div><div class="info"><b>' + escapeHtml(next.title) + '</b><p>Unlocks at Level ' + next.level + '</p></div></div>';
+              }
+              el.innerHTML = html;
+            } catch (e) {}
+          }
+
+          // --- Achievement Showcase ---
+          let selectedShowcase = [];
+          async function loadShowcase() {
+            try {
+              const r = await fetch('/api/achievements/showcase/' + userId);
+              const data = await r.json();
+              const el = document.getElementById('showcase-grid');
+              if (!el) return;
+              selectedShowcase = data.showcased || [];
+              const all = data.all_achievements || [];
+              el.innerHTML = all.map(function(a){
+                const sel = selectedShowcase.indexOf(a.id) !== -1;
+                return '<div class="showcase-item' + (sel ? ' selected' : '') + '" data-id="' + a.id + '" onclick="toggleShowcase(this, \'' + a.id + '\')"><span class="em">' + (a.icon||'🏆') + '</span><span class="nm">' + escapeHtml(a.title) + '</span></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          function toggleShowcase(el, id) {
+            const idx = selectedShowcase.indexOf(id);
+            if (idx !== -1) { selectedShowcase.splice(idx, 1); el.classList.remove('selected'); }
+            else { if (selectedShowcase.length >= 3) { showToast('Max 3 achievements', 'warning'); return; } selectedShowcase.push(id); el.classList.add('selected'); }
+          }
+
+          async function saveShowcase() {
+            const statusEl = document.getElementById('showcase-status');
+            statusEl.innerText = 'Saving...';
+            try {
+              const r = await fetch('/api/achievements/showcase/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ achievement_ids: selectedShowcase })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || 'Saved!';
+            } catch (e) { statusEl.innerText = 'Error saving showcase.'; }
+          }
+
+          // --- Purchases ---
+          async function loadPurchases() {
+            try {
+              const r = await fetch('/api/purchases/' + userId);
+              const data = await r.json();
+              const el = document.getElementById('purchases-list');
+              if (!el) return;
+              const purchases = data.purchases || [];
+              if (!purchases.length) { el.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">No purchases yet.</p>'; return; }
+              el.innerHTML = purchases.map(function(p){
+                return '<div class="purchase-item"><div class="info"><b>' + escapeHtml(p.item_name||p.item_id) + '</b><p>' + new Date(p.timestamp).toLocaleString() + '</p></div><div class="price">' + p.price + ' ' + (p.currency||'coins') + '</div></div>';
+              }).join('');
+            } catch (e) {}
+          }
+
+          // --- Push Notifications ---
+          async function subscribePush() {
+            const statusEl = document.getElementById('push-status');
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) { statusEl.innerText = 'Push not supported in this browser.'; return; }
+            try {
+              const reg = await navigator.serviceWorker.ready;
+              const subscription = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: 'BEl63iuxYqE8RzGpQMEJ5xOuZ3p5xOuZ3p5xOuZ3p5xOuZ3p5xOuZ3p5xOuZ3'
+              });
+              const endpoint = subscription.endpoint;
+              const keys = subscription.toJSON().keys || {};
+              const r = await fetch('/api/push/subscribe/' + userId, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ endpoint: endpoint, keys: keys })
+              });
+              const data = await r.json();
+              statusEl.innerText = data.message || 'Subscribed!';
+            } catch (e) { statusEl.innerText = 'Error subscribing to push.'; }
+          }
+
+          // --- Version Check ---
+          async function checkAppVersion() {
+            try {
+              const r = await fetch('/api/app/check-update?version=0.9.0');
+              const data = await r.json();
+              if (data.update_required) {
+                const banner = document.createElement('div');
+                banner.className = 'version-banner';
+                banner.innerHTML = '🔄 Update available! Current: ' + data.current_version + ' <button onclick=\"window.open(''https://t.me/' + botUsername + ''',''_blank'')\">Update</button>';
+                document.querySelector('.container').prepend(banner);
+              }
+            } catch (e) {}
+          }
+
+          // --- Receipt Links in History ---
+          function renderHistory(data) {
+            const el = document.getElementById('history-list');
+            const hist = data.withdrawal_history || [];
+            if (!hist.length) {
+              el.innerHTML = '<div class="history-item"><span>' + t('no_history') + '</span></div>';
+              return;
+            }
+            el.innerHTML = hist.slice().reverse().map(function(item){
+              const colorClass = item.status === 'approved' ? 'approved' : (item.status === 'pending' ? 'pending' : 'rejected');
+              let ts = '';
+              try { ts = new Date(item.timestamp).toLocaleString(); } catch (e) {}
+              const receiptLink = '<br><a href="/receipt/' + data.user_id + '/' + item.request_id + '" target="_blank" style="color:var(--cyan);font-size:11px;">📄 View Receipt</a>';
+              return '<div class="history-item"><div><b>₹' + Number(item.amount||0).toFixed(2) + '</b>' +
+                (item.transaction_id ? '<br><small style="color:var(--text-muted)">#' + escapeHtml(item.transaction_id) + '</small>' : '') +
+                receiptLink +
+                '<br><small style="color:var(--text-muted)">' + ts + '</small></div>' +
+                '<span class="status ' + colorClass + '">' + escapeHtml(item.status) + '</span></div>';
+            }).join('');
+          }
+
+          // --- Enhanced friend item with block/report ---
+          function renderFriends(friends) {
+            const el = document.getElementById('friends-list');
+            if (!el) return;
+            if (!friends.length) { el.innerHTML = '<p style="font-size:12px;color:var(--text-dim);">No friends yet.</p>'; return; }
+            el.innerHTML = friends.map(function(f){
+              return '<div class="friend-item" onclick="openProfileModal(' + f.user_id + ')"><div class="em">👤</div><div class="info"><b>' + escapeHtml(f.name) + '</b><p>Level ' + f.level + ' • Streak ' + f.snap_streak + '</p></div><button class="block-btn" onclick="event.stopPropagation();blockUser(' + f.user_id + ')">🚫 Block</button><button class="report-btn" onclick="event.stopPropagation();reportUser(' + f.user_id + ')">⚠️ Report</button></div>';
+            }).join('');
+          }
+
+          // --- Update loadFriends to use enhanced render ---
+          async function loadFriends() {
+            try {
+              const r = await fetch('/api/friends/list/' + userId);
+              const data = await r.json();
+              renderFriends(data.friends || []);
+            } catch (e) {}
+          }
+
+          // --- App version check on load ---
+          setTimeout(checkAppVersion, 2000);
+          setTimeout(loadSpinCountdown, 3000);
+          setInterval(loadSpinCountdown, 60000);
+
+          // --- Achievement showcase load ---
+          function loadShowcasePage() {
+            loadShowcase();
+          }
+
+          // --- Perks page load ---
+          function loadPerksPage() {
+            loadPerks();
+          }
+
+          // --- Purchases page load ---
+          function loadPurchasesPage() {
+            loadPurchases();
+          }
+
+          // --- Blocked users page load ---
+          function loadBlockedPage() {
+            loadBlockedUsers();
+          }
+
+          // --- Settings load ---
+          function loadSettings() {
+            loadKYCStatus();
+            loadSchedules();
+            loadVerifiedAccounts();
+          }
           let onboardStep = 1;
           const onboardTotal = 4;
           function showOnboardStep(n) {
