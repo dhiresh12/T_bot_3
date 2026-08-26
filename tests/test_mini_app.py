@@ -202,7 +202,7 @@ def test_update_payout_status_marks_paid():
         assert response.status_code == 200
         html = response.get_data(as_text=True)
         assert "TEST_BLOCK_123" in html
-        assert "adsgram.ai/static/js/sdk-v1.js" in html
+        assert "sad.adsgram.ai/js/sad.min.js" in html
     finally:
         del os.environ["AD_BLOCK_ID"]
 
